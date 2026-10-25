@@ -16,7 +16,7 @@
 // `presentations` are never read. Every other path, including /receive and /issue, is 404.
 import type { IncomingMessage, ServerResponse } from "node:http"
 import { randomBytes, createHash, timingSafeEqual } from "node:crypto"
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs"
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { Keypair } from "@stellar/stellar-sdk"
 import { getClient, write, TESTNET } from "../../packages/sdk/src/contract.ts"
@@ -32,7 +32,7 @@ const FR = 218882428718392752222464057452572750885483644004160343436982041865758
 const PLATFORMS = /(^|\.)(airbnb|booking)\.com$/i
 
 type Status = "pending" | "presented" | "passed" | "failed"
-interface Session { sid: string; commitment: string; nonce: string; exp: number; status: Status; reason?: string; txHash?: string }
+interface Session { sid: string; commitment: string; nonce: string; exp: number; status: Status; reason?: string; txHash?: string; viaOperator?: boolean }
 
 export interface RepDeps {
   /** Adds a commitment to the verified-traveler group; returns the tx hash. */
@@ -51,7 +51,7 @@ export interface RepDeps {
 const sha = (x: string) => createHash("sha256").update(x).digest()
 const COOKIE = "bb_demo"
 /** Per-IP limits per minute. The phone polls /pending every 2 s (30/min). */
-const LIMITS: Record<string, number> = { "/session": 6, "/pending": 45, "/present": 10, "/result": 60, "/demo": 10, "/status": 60 }
+const LIMITS: Record<string, number> = { "/session": 6, "/pending": 45, "/present": 10, "/result": 60, "/demo-reset": 6, "/demo": 10, "/status": 60 }
 
 export function createRep(deps: RepDeps) {
   const sessions = new Map<string, Session>()
@@ -61,7 +61,22 @@ export function createRep(deps: RepDeps) {
   // the cost of a sybil but does not bound it per account; that needs a stable id from REP (header hash or
   // account tag). The demo-operator gate on /session is what bounds it today.
   const spentFile = deps.stateDir ? join(deps.stateDir, "rep-spent-proofs.txt") : null
-  const spentProofs = new Set<string>(spentFile && existsSync(spentFile) ? readFileSync(spentFile, "utf8").split("\n").filter(Boolean) : [])
+  // spent presentation -> whether its join came through a demo-operator session. Every session has been
+  // operator-only since the rep-gate, which predates this spent set, so a legacy line (no flag) is an operator join.
+  const spentProofs = new Map<string, { viaOperator: boolean }>()
+  if (spentFile && existsSync(spentFile)) {
+    for (const line of readFileSync(spentFile, "utf8").split("\n").filter(Boolean)) {
+      const [k, op] = line.split(" ")
+      spentProofs.set(k, { viaOperator: op === undefined || op === "op" })
+    }
+  }
+  const persistAll = () => {
+    if (!spentFile) return
+    try {
+      mkdirSync(deps.stateDir!, { recursive: true })
+      writeFileSync(spentFile, [...spentProofs].map(([k, v]) => `${k} ${v.viaOperator ? "op" : "user"}\n`).join(""))
+    } catch {}
+  }
   const proofKey = (ah: string) => createHash("sha256").update(`bookerbob/rep/proof/${ah}`).digest("hex")
   const now = () => (deps.now ? deps.now() : Date.now())
   const json = (res: ServerResponse, code: number, body: unknown) => {
@@ -128,11 +143,12 @@ export function createRep(deps: RepDeps) {
     if (typeof ah !== "string" || ah.length < 16) return fail(s, "no attestation hash")
     const pk = proofKey(ah)
     if (spentProofs.has(pk)) return fail(s, "this presentation already joined")
-    spentProofs.add(pk)
+    // sessions open only for the demo operator today, so this join is an operator join
+    spentProofs.set(pk, { viaOperator: s.viaOperator !== false })
     if (spentFile) {
       try {
         mkdirSync(deps.stateDir!, { recursive: true })
-        appendFileSync(spentFile, pk + "\n")
+        appendFileSync(spentFile, `${pk} ${s.viaOperator !== false ? "op" : "user"}\n`)
       } catch {}
     }
     try {
@@ -179,9 +195,19 @@ export function createRep(deps: RepDeps) {
         // One open request at a time: the phone answers the newest.
         for (const s of sessions.values()) if (s.status === "pending") (s.status = "failed"), (s.reason = "superseded")
         const sid = randomBytes(12).toString("hex")
-        const s: Session = { sid, commitment: c.toString(), nonce: `pos:${c}:${randomBytes(16).toString("hex")}`, exp: now() + SESSION_MS, status: "pending" }
+        const s: Session = { sid, commitment: c.toString(), nonce: `pos:${c}:${randomBytes(16).toString("hex")}`, exp: now() + SESSION_MS, status: "pending", viaOperator: true }
         sessions.set(sid, s)
         return json(res, 200, { sid, expiresAt: s.exp })
+      }
+      if (req.method === "POST" && sub === "/demo-reset") {
+        // Live demos only: the operator forgets its OWN spent presentations so the same REP proof can join
+        // again from a fresh start. Joins from non-operator flows are never touched. The old leaf stays in the
+        // group on Stellar (a dead identity); production keeps one presentation, one membership.
+        if (!isDemo(req)) return json(res, 403, { error: "demo operator only" })
+        let cleared = 0
+        for (const [k, v] of spentProofs) if (v.viaOperator) (spentProofs.delete(k), cleared++)
+        persistAll()
+        return json(res, 200, { ok: true, cleared })
       }
       if (req.method === "GET" && sub === "/pending") {
         expire()
