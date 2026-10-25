@@ -433,7 +433,7 @@ const pub = (p: PlaceState) => {
 }
 
 // prepared proofs for the next pay(): built during prover.prove('pay', ...)
-let pending: { place: number; groups: string[]; payer: Keypair; claims: any[] } | null = null
+let pending: { place: number; groups: string[]; payer: Keypair; claims: any[]; dropped?: string[] } | null = null
 
 async function freshPayer(kp: Keypair, amountRaw: bigint) {
   const c = await apiConfig()
@@ -515,7 +515,10 @@ export const chain = {
     const listPrice = Number(p.m.price) / 1e7
     const single = cart.items.length === 1 && Math.abs(cart.items[0].price - listPrice) < 1e-9
     const pol = (await chain.getPolicy(place)) as any
-    const bd = breakdown(subtotal, pol.policy, pol.max_bps, groups)
+    // only the claims actually proven count; a dropped one ("isn't available in this session") recomputes the price
+    const provenGroups = pending && pending.place === place ? pending.groups : []
+    const droppedGroups = pending && pending.place === place ? (pending.dropped ?? []) : []
+    const bd = breakdown(subtotal, pol.policy, pol.max_bps, groups.filter((g) => provenGroups.includes(g)))
     try {
       const kp = pending && pending.place === place ? pending.payer : Keypair.random()
       let quote: any = null
@@ -570,7 +573,7 @@ export const chain = {
       if (passTx) rememberTx({ kind: "merchant", id: p.mid }, stay.commitment, passTx)
       loading = null
       const paid = Number(BigInt(sent.value)) / 1e7
-      return { txHash: sent.txHash, passTx, subtotal, discounts: bd.rows.filter((r: any) => r.applied), total: round2(paid), saved: round2(subtotal - paid) }
+      return { txHash: sent.txHash, passTx, subtotal, discounts: bd.rows.filter((r: any) => r.applied), total: round2(paid), saved: round2(subtotal - paid), dropped: droppedGroups.map((g) => ({ group: g, why: "this proof isn't available in this session" })) }
     } catch (e: any) {
       return err(parseContractError(e) ?? "BadParams", String(e?.message ?? e))
     }
@@ -825,7 +828,18 @@ export const prover = {
   resetCache() {},
   // Real stages: the proving files download once; for pay, one membership proof per group is made here, bound to a
   // fresh one-time payer address; review proofs are made in postReview (they bind the rating and text).
+  // never rejects: a failure ends the stages and pay() then reports a clean error (no unhandled rejection)
   async *prove(kind: string, place: number, args: { groups?: string[] } = {}) {
+    try {
+      yield* prover.proveInner(kind, place, args)
+    } catch (e) {
+      console.warn("prove stage failed", String((e as any)?.message ?? e))
+      pending = null
+      yield "verifying"
+      yield "done"
+    }
+  },
+  async *proveInner(kind: string, place: number, args: { groups?: string[] } = {}): AsyncGenerator<string> {
     await ready()
     const groups = args.groups || []
     const n = kind === "review" ? 1 : groups.length
@@ -840,15 +854,26 @@ export const prover = {
       const elig = state!.elig[place] ?? []
       const payer = Keypair.random()
       const claims: any[] = []
+      const dropped: string[] = []
       for (const g of groups) {
         yield "proving"
         const e = elig.find((x: any) => x.group === g)
         if (!e?._holder) continue
         const leaves = e._ref.kind === "merchant" ? (state!.places.find((x) => x.mid === e._ref.id)?.leaves ?? []) : (state!.groupLeaves.get(e._ref.id) ?? [])
-        const mp = await proveMembership(sdk.stays.identity(e._holder), leaves, d.discountMessage(payer.publicKey()), d.ctxScope(p.mid, e._ref, SEASON_N), await loadArtifacts(ARTIFACTS))
-        claims.push({ key: g, arg: { group: { tag: e._ref.kind === "merchant" ? "Merchant" : "Group", values: [e._ref.id] }, proof: proofArg(mp.proof), root: mp.root, nullifier: mp.nullifier } })
+        // the identity must be a leaf of THIS tree right now; a claim that cannot be proven is dropped, never thrown
+        const ident = sdk.stays.identity(e._holder)
+        if (!leaves.includes(ident.commitment)) {
+          dropped.push(g)
+          continue
+        }
+        try {
+          const mp = await proveMembership(ident, leaves, d.discountMessage(payer.publicKey()), d.ctxScope(p.mid, e._ref, SEASON_N), await loadArtifacts(ARTIFACTS))
+          claims.push({ key: g, arg: { group: { tag: e._ref.kind === "merchant" ? "Merchant" : "Group", values: [e._ref.id] }, proof: proofArg(mp.proof), root: mp.root, nullifier: mp.nullifier } })
+        } catch {
+          dropped.push(g)
+        }
       }
-      pending = { place, groups, payer, claims }
+      pending = { place, groups: claims.map((c) => c.key), payer, claims, dropped }
     }
     yield "verifying"
     yield "done"
