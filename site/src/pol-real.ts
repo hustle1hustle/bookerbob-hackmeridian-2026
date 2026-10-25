@@ -13,6 +13,7 @@ import * as d from "../../packages/sdk/src/derive.ts"
 import { loadArtifacts, proveMembership, artifactsCached } from "../../packages/sdk/src/prove.ts"
 import { buildDisclosure } from "../../packages/sdk/src/disclosure.ts"
 import type { Stay } from "../../packages/sdk/src/types.ts"
+import { Group } from "@semaphore-protocol/group"
 
 const API = (globalThis as any).POL_API ?? ""
 const BRIDGE = (globalThis as any).POL_UCP_BRIDGE ?? "https://bookerbob-ucp-bridge.fly.dev"
@@ -731,6 +732,12 @@ export const chain = {
       if (passTx) rememberTx({ kind: "merchant", id: p.mid }, stay.commitment, passTx)
       loading = null
       const paid = Number(BigInt(sent.value)) / 1e7
+      // the contract verified every claim inside this tx (a failed check reverts it): mark them, remember the spend
+      for (const h of hoods) if (h.status === "proved") {
+        h.status = "verified"
+        h.tx = sent.txHash
+        rememberSpent(h.nullifier, sent.txHash)
+      }
       return { txHash: sent.txHash, passTx, subtotal, discounts: bd.rows.filter((r: any) => r.applied), total: round2(paid), saved: round2(subtotal - paid), dropped: droppedGroups.map((g) => ({ group: g, why: "this proof isn't available in this session" })) }
     } catch (e: any) {
       return err(parseContractError(e) ?? "BadParams", String(e?.message ?? e))
@@ -741,9 +748,34 @@ export const chain = {
     if (!(rating >= 1 && rating <= 5)) return err("BadRating")
     const stay = stayOf(membershipId)
     if (!stay || stay.merchant !== toMerchant(place)) return err("InvalidProof")
+    const pr = state!.places.find((x) => x.mid === stay.merchant)
+    const leaves0 = [...(pr?.leaves ?? [])], root0 = pr?.m.root ?? null
+    const ident = sdk.stays.identity(stay)
+    const scope = d.reviewScope(stay.merchant)
+    hoods = []
+    // the message binds the review text and its disclosure commit; known only once the review is stored, so 0 until then
+    const h = beginProof({ label: "one stay, one review", scopeText: `review · ${pr?.m.name ?? ""} · once per stay`, treeName: `${pr?.m.name ?? ""} customers`, leaves: leaves0, commitment: ident.commitment, message: 0n, scope, onChainRoot: root0, payment: false, combined: true })
+    h.messageHash = ""
     const r: any = await sdk.chain.postReview(stay, rating as any, text || "")
-    if (r.error) return err(r.error, r.message)
+    if (r.error) {
+      hoods = []
+      return err(r.error, r.message)
+    }
     loading = null
+    try {
+      finishProof(h, root0 ?? new Group(leaves0).root, poseidon2([d.semaphoreHash(scope), ident.secretScalar]))
+      // the stored review (content hash, disclosure commit) gives the message; read it from the chain-backed API
+      let rv: any = null
+      for (let i = 0; i < 6 && !rv; i++) {
+        const xs: any[] = await fetch(`${API}/api/reviews/${stay.merchant}`).then((x) => x.json()).catch(() => [])
+        rv = (Array.isArray(xs) ? xs : []).find((x: any) => Number(x.id) === Number(r.reviewId)) ?? null
+        if (!rv) await sleep(1500)
+      }
+      if (rv) h.messageHash = hex(d.semaphoreHash(d.reviewMessage(rating, "0x" + rv.contentHash, "0x" + rv.disclosureCommit)))
+      h.status = "verified"
+      h.tx = r.txHash
+      rememberSpent(h.nullifier, r.txHash)
+    } catch {}
     return { txHash: r.txHash, reviewId: `r-${r.reviewId}` }
   },
   async openDispute(reviewId: string) {
@@ -915,6 +947,7 @@ async function* ucpRun(reuse: boolean, noClaim = false): AsyncGenerator<any> {
   const cart: any = { items: [], discounts: [], total: 0, currency: "USDC", paid: false, tx: null }
   const snap = () => ({ type: "cart", cart: JSON.parse(JSON.stringify(cart)) })
   const step = (i: number, status: string, extra: any = {}) => ({ type: "step", i, status, detail: extra.detail ?? (status === "done" ? UCP_STEPS[i].detail : ""), ...extra })
+  hoods = []
   yield step(0, "running")
   const items = await fetch(`${BRIDGE}/search?q=${chosenVariant ? "rep" : "tee"}`).then((r) => r.json()).catch(() => [])
   const item = (chosenVariant && items.find((x: any) => x.variantId === chosenVariant)) || items[0]
@@ -981,7 +1014,10 @@ async function* ucpRun(reuse: boolean, noClaim = false): AsyncGenerator<any> {
     const t0 = performance.now()
     let mp
     try {
-      mp = await proveMembership(ident, leaves, d.discountMessage(payer), d.discountScope(UCP_MERCHANT, st.action.scope.season), artifacts)
+      const msg = d.discountMessage(payer), scope = d.discountScope(UCP_MERCHANT, st.action.scope.season)
+      const h = beginProof({ label: "returning customer", scopeText: `discount · ${placeName(UCP_MERCHANT)} · season ${st.action.scope.season}`, treeName: `${placeName(UCP_MERCHANT)} customers`, leaves, commitment: ident.commitment, message: msg, scope, onChainRoot: state?.places.find((x) => x.mid === UCP_MERCHANT)?.m.root ?? null, payment: true })
+      mp = await proveMembership(ident, leaves, msg, scope, artifacts)
+      finishProof(h, mp.root, mp.nullifier)
     } catch (e) {
       const why = "the proof could not be made on this device"
       yield step(4, "failed", { error: "ProveFailed", headline: `${why}. you can still pay full price.`, reason: why, detail: why })
@@ -995,6 +1031,17 @@ async function* ucpRun(reuse: boolean, noClaim = false): AsyncGenerator<any> {
       const used = /Nullifier|#6/.test(error)
       const why = used ? "this discount was already used this season" : /UnknownRoot|#5/.test(error) ? "the store's customer list changed while proving. try again" : /NonCanonical|#7/.test(error) ? "the proof was malformed" : "the proof didn't check out"
       const headline = reuse ? "same proof again: refused. it only works once." : `discount refused: ${why}. you can still pay full price.`
+      const h = hoods[hoods.length - 1]
+      if (h) {
+        h.status = "refused"
+        if (used) {
+          h.spentTx = spentTxOf(h.nullifier)
+          try {
+            const read = await getClient({ ...TESTNET, contractId: (await apiConfig()).contractId })
+            h.spentOnChain = await (read as any).is_spent({ scope_hash: BigInt(h.scopeHash), nullifier: BigInt(h.nullifier) }).then((x: any) => !!x.result)
+          } catch {}
+        }
+      }
       yield step(5, "failed", { error, headline, reason: why, tx: pr.txHash ?? null, detail: used ? "refused by Stellar: this proof was already used, so it cannot count twice." : `refused by Stellar: ${why}.` })
       yield { type: "headline", text: headline, reason: why, error }
       cart.discounts[0].removed = true
@@ -1031,6 +1078,11 @@ async function* ucpRun(reuse: boolean, noClaim = false): AsyncGenerator<any> {
   yield step(7, "done", { tx: sent.txHash, detail: `${cart.total.toFixed(2)} usdc on stellar.` })
   // with a claim, the proof is verified and spent inside the payment itself: same transaction
   if (cart.discounts.length && cart.discounts[0].proven) {
+    for (const h of hoods) if (h.status === "proved") {
+      h.status = "verified"
+      h.tx = sent.txHash
+      rememberSpent(h.nullifier, sent.txHash)
+    }
     yield step(5, "done", { tx: sent.txHash, detail: "stellar checked the proof in the same transaction as the payment. it works once, so it cannot be reused." })
     yield step(6, "done", { tx: sent.txHash, detail: `−${cart.discounts[0].amount.toFixed(2)} usdc, confirmed in the same transaction as the payment.` })
   }
@@ -1110,6 +1162,7 @@ export const prover = {
     await ready()
     const groups = args.groups || []
     const n = kind === "review" ? 1 : groups.length
+    hoods = []
     if (n && !artifactsCached()) {
       yield "download"
       await loadArtifacts(ARTIFACTS)
@@ -1134,7 +1187,12 @@ export const prover = {
           continue
         }
         try {
-          const mp = await proveMembership(ident, leaves, d.discountMessage(payer.publicKey()), d.ctxScope(p.mid, e._ref, SEASON_N, p.chain), await loadArtifacts(ARTIFACTS))
+          const msg = d.discountMessage(payer.publicKey()), scope = d.ctxScope(p.mid, e._ref, SEASON_N, p.chain)
+          const h = beginProof({ label: e.label, scopeText: `discount · ${p.m.name} · season ${SEASON_N}`, treeName: treeNameOf(e._ref, p.mid), leaves, commitment: ident.commitment, message: msg, scope, onChainRoot: e._ref.kind === "merchant" ? (state!.places.find((x) => x.mid === e._ref.id)?.m.root ?? null) : null, payment: true })
+          const arts = await loadArtifacts(ARTIFACTS)
+          h.t0 = performance.now()
+          const mp = await proveMembership(ident, leaves, msg, scope, arts)
+          finishProof(h, mp.root, mp.nullifier)
           claims.push({ key: g, arg: { group: { tag: e._ref.kind === "merchant" ? "Merchant" : "Group", values: [e._ref.id] }, proof: proofArg(mp.proof), root: mp.root, nullifier: mp.nullifier } })
         } catch {
           dropped.push(g)
@@ -1145,6 +1203,99 @@ export const prover = {
     yield "verifying"
     yield "done"
   },
+}
+
+// ---- under the hood: the real Semaphore v4 values behind each proof (prover output, on-chain roots, the tx) ----
+export interface HoodProof {
+  label: string
+  /** the scope in plain words, e.g. "discount · Casa Azulejo Nove · season 1" */
+  scopeText: string
+  treeName: string
+  size: number
+  leafIndex: number
+  /** the LeanIMT path length actually used (ceil(log2(size))); the circuit's max depth is 10 */
+  pathLen: number
+  maxDepth: number
+  root: string
+  /** the root this proof used equals the tree's root on chain */
+  rootOnChain: boolean
+  nullifier: string
+  messageHash: string
+  scopeHash: string
+  /** the tx that verified it (status verified), or the earlier tx that spent this nullifier (status refused) */
+  tx: string | null
+  payment: boolean
+  /** witness: building the witness and proving (tree known); proved: public signals out; verified / refused: the tx said so */
+  status: "witness" | "proved" | "verified" | "refused"
+  spentTx: string | null
+  spentOnChain: boolean | null
+  /** when proving started (performance.now) and how long it took, measured */
+  t0: number
+  provedMs: number | null
+  /** review: proving and posting happen in one SDK call, so the time covers both */
+  combined: boolean
+}
+let hoods: HoodProof[] = []
+const SPENT_KEY = (nf: string) => `bookerbob.spent.${nf}`
+const rememberSpent = (nf: string, tx: string) => {
+  try {
+    LS?.setItem(SPENT_KEY(nf), tx)
+  } catch {}
+}
+const spentTxOf = (nf: string) => {
+  try {
+    return LS?.getItem(SPENT_KEY(nf)) ?? null
+  } catch {
+    return null
+  }
+}
+const pathLenOf = (n: number) => Math.max(1, Math.ceil(Math.log2(Math.max(2, n))))
+function beginProof(o: { label: string; scopeText: string; treeName: string; leaves: bigint[]; commitment: bigint; message: bigint; scope: bigint; onChainRoot: bigint | null; payment: boolean; combined?: boolean }): HoodProof {
+  const h: HoodProof = {
+    label: o.label,
+    scopeText: o.scopeText,
+    treeName: o.treeName,
+    size: o.leaves.length,
+    leafIndex: o.leaves.findIndex((l) => l === o.commitment),
+    pathLen: pathLenOf(o.leaves.length),
+    maxDepth: 10,
+    root: "",
+    rootOnChain: false,
+    nullifier: "",
+    messageHash: hex(d.semaphoreHash(o.message)),
+    scopeHash: hex(d.semaphoreHash(o.scope)),
+    tx: null,
+    payment: o.payment,
+    status: "witness",
+    spentTx: null,
+    spentOnChain: null,
+    t0: performance.now(),
+    provedMs: null,
+    combined: !!o.combined,
+  }
+  ;(h as any)._onChainRoot = o.onChainRoot
+  ;(h as any)._leaves = o.leaves
+  hoods.push(h)
+  return h
+}
+function finishProof(h: HoodProof, root: bigint, nullifier: bigint) {
+  const oc = (h as any)._onChainRoot as bigint | null
+  h.root = hex(root)
+  h.rootOnChain = oc !== null && oc !== undefined ? oc === root : new Group((h as any)._leaves).root === root
+  h.nullifier = hex(nullifier)
+  h.provedMs = Math.round(performance.now() - h.t0)
+  h.status = "proved"
+}
+const placeName = (mid: number) => state?.places.find((x) => x.mid === mid)?.m.name ?? `place ${mid}`
+const treeNameOf = (ref: d.GroupRef, mid: number) =>
+  ref.kind === "merchant" ? `${placeName(ref.id)} customers` : (groupsMeta.find((g) => g.id === ref.id)?.name ?? `group ${ref.id}`)
+export const hood = {
+  /** the proofs of the latest flow (booking, review, or a bob run), newest last */
+  list: () => hoods.map(({ _onChainRoot, _leaves, ...h }: any) => ({ ...h })),
+  clear() {
+    hoods = []
+  },
+  explainer: "a Semaphore v4 zero-knowledge proof: you know a secret whose commitment is a leaf in this tree. the nullifier makes it single-use and can't be linked to you.",
 }
 
 // Passkey first, Freighter as fallback; a demo key in this browser when neither is available.

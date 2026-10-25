@@ -614,6 +614,70 @@ html,body{margin:0;padding:0;background:#EDEBE5}
             </sc-if>
           </div>
         </sc-for>
+<!-- bb:zk-inline: the ZK steps live in the flow, every transition on a real prover / tx event -->
+<sc-if value="{{ ah.has }}" hint-placeholder-val="{{ false }}">
+  <div aria-live="polite" style="margin-top:16px">
+    <sc-for list="{{ ah.items }}" as="h" hint-placeholder-count="1">
+      <div style="border:1px solid var(--ink);background:var(--bg);padding:16px 16px 14px;margin-bottom:12px">
+        <div style="font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)">{{ h.label }}</div>
+        <!-- 1. the tree -->
+        <div style="margin-top:10px;display:grid;grid-template-columns:26px minmax(0,1fr);gap:10px;align-items:start">
+          <span style="font-family:var(--mono);font-size:14px;color:{{ h.s1c }}">{{ h.s1m }}</span>
+          <div style="min-width:0">
+            <div style="font-size:19px;letter-spacing:-.02em;line-height:1.25">your leaf in this place's Poseidon tree</div>
+            <div aria-label="{{ h.treeAria }}" style="margin-top:10px;display:flex;flex-direction:column;align-items:center;gap:4px">
+              <sc-for list="{{ h.rows }}" as="r" hint-placeholder-count="4">
+                <div style="width:{{ r.w }};display:grid;grid-template-columns:repeat({{ r.n }},minmax(0,1fr));gap:2px">
+                  <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="8"><span style="height:9px;background:{{ c.bg }};border:1px solid {{ c.bd }}"></span></sc-for>
+                </div>
+              </sc-for>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 16px;margin-top:8px;font-family:var(--mono);font-size:13px;color:var(--ink-2)"><span>{{ h.treeLine }}</span><span>{{ h.pathLine }}</span></div>
+          </div>
+        </div>
+        <!-- 2. proving -->
+        <sc-if value="{{ h.show2 }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--rule-soft);display:grid;grid-template-columns:26px minmax(0,1fr);gap:10px;align-items:start;animation:{{ h.anim }}">
+            <span style="font-family:var(--mono);font-size:14px;color:{{ h.s2c }}">{{ h.s2m }}</span>
+            <div style="min-width:0">
+              <div style="font-size:19px;letter-spacing:-.02em;line-height:1.25">{{ h.s2label }}</div>
+              <sc-if value="{{ h.hasSignals }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-top:8px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:4px 18px">
+                  <sc-for list="{{ h.signals }}" as="g" hint-placeholder-count="4"><div style="font-family:var(--mono);font-size:14px;line-height:1.5"><span style="color:var(--ink-3)">{{ g.name }}</span> {{ g.short }}</div></sc-for>
+                </div>
+              </sc-if>
+            </div>
+          </div>
+        </sc-if>
+        <!-- 3. verifying on stellar -->
+        <sc-if value="{{ h.show3 }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--rule-soft);display:grid;grid-template-columns:26px minmax(0,1fr);gap:10px;align-items:start;animation:{{ h.anim }}">
+            <span style="font-family:var(--mono);font-size:14px;color:{{ h.s3c }}">{{ h.s3m }}</span>
+            <div style="min-width:0">
+              <div style="font-size:19px;letter-spacing:-.02em;line-height:1.25">verifying on stellar</div>
+              <sc-for list="{{ h.checks }}" as="k" hint-placeholder-count="3">
+                <div style="display:grid;grid-template-columns:20px minmax(0,1fr) auto;gap:8px;align-items:baseline;padding:5px 0;font-size:16px">
+                  <span style="font-family:var(--mono);color:{{ k.color }}">{{ k.mark }}</span><span>{{ k.label }}</span>
+                  <sc-if value="{{ k.hasTx }}" hint-placeholder-val="{{ false }}"><a href="{{ k.txUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:13px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">tx {{ k.txShort }} ↗</a></sc-if>
+                </div>
+              </sc-for>
+              <p style="margin:6px 0 0;font-size:13px;line-height:1.45;color:var(--ink-3)">{{ h.foot }}</p>
+            </div>
+          </div>
+        </sc-if>
+        <!-- details: the scope in words, the full hashes -->
+        <button onClick="{{ h.toggle }}" aria-expanded="{{ h.open }}" style="appearance:none;margin-top:12px;border:0;border-bottom:1px solid var(--ink-3);background:none;color:var(--ink-2);font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;padding:0 0 2px;cursor:pointer">{{ h.toggleLabel }}</button>
+        <sc-if value="{{ h.open }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:10px;font-family:var(--mono);font-size:13px;line-height:1.6;word-break:break-all">
+            <div><span style="color:var(--ink-3)">scope</span> {{ h.scopeText }}</div>
+            <sc-for list="{{ h.full }}" as="g" hint-placeholder-count="4"><div><span style="color:var(--ink-3)">{{ g.name }}</span> {{ g.v }} <button onClick="{{ g.copy }}" style="appearance:none;border:1px solid var(--rule);background:transparent;color:var(--ink);font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;height:22px;padding:0 6px;cursor:pointer">{{ g.copyLabel }}</button></div></sc-for>
+            <p style="margin:8px 0 0;font-family:var(--sans);font-size:14px;line-height:1.45;color:var(--ink-2);word-break:normal">{{ ah.explainer }}</p>
+          </div>
+        </sc-if>
+      </div>
+    </sc-for>
+  </div>
+</sc-if>
       </div>
 
       <aside aria-label="live cart" style="flex:1 1 340px;max-width:100%;position:sticky;top:88px;border:1px solid var(--rule);background:var(--surface)">
@@ -965,6 +1029,70 @@ html,body{margin:0;padding:0;background:#EDEBE5}
               </div>
             </sc-for>
           </div>
+<!-- bb:zk-inline: the ZK steps live in the flow, every transition on a real prover / tx event -->
+<sc-if value="{{ fh.has }}" hint-placeholder-val="{{ false }}">
+  <div aria-live="polite" style="margin-top:16px">
+    <sc-for list="{{ fh.items }}" as="h" hint-placeholder-count="1">
+      <div style="border:1px solid var(--ink);background:var(--bg);padding:16px 16px 14px;margin-bottom:12px">
+        <div style="font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)">{{ h.label }}</div>
+        <!-- 1. the tree -->
+        <div style="margin-top:10px;display:grid;grid-template-columns:26px minmax(0,1fr);gap:10px;align-items:start">
+          <span style="font-family:var(--mono);font-size:14px;color:{{ h.s1c }}">{{ h.s1m }}</span>
+          <div style="min-width:0">
+            <div style="font-size:19px;letter-spacing:-.02em;line-height:1.25">your leaf in this place's Poseidon tree</div>
+            <div aria-label="{{ h.treeAria }}" style="margin-top:10px;display:flex;flex-direction:column;align-items:center;gap:4px">
+              <sc-for list="{{ h.rows }}" as="r" hint-placeholder-count="4">
+                <div style="width:{{ r.w }};display:grid;grid-template-columns:repeat({{ r.n }},minmax(0,1fr));gap:2px">
+                  <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="8"><span style="height:9px;background:{{ c.bg }};border:1px solid {{ c.bd }}"></span></sc-for>
+                </div>
+              </sc-for>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 16px;margin-top:8px;font-family:var(--mono);font-size:13px;color:var(--ink-2)"><span>{{ h.treeLine }}</span><span>{{ h.pathLine }}</span></div>
+          </div>
+        </div>
+        <!-- 2. proving -->
+        <sc-if value="{{ h.show2 }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--rule-soft);display:grid;grid-template-columns:26px minmax(0,1fr);gap:10px;align-items:start;animation:{{ h.anim }}">
+            <span style="font-family:var(--mono);font-size:14px;color:{{ h.s2c }}">{{ h.s2m }}</span>
+            <div style="min-width:0">
+              <div style="font-size:19px;letter-spacing:-.02em;line-height:1.25">{{ h.s2label }}</div>
+              <sc-if value="{{ h.hasSignals }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-top:8px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:4px 18px">
+                  <sc-for list="{{ h.signals }}" as="g" hint-placeholder-count="4"><div style="font-family:var(--mono);font-size:14px;line-height:1.5"><span style="color:var(--ink-3)">{{ g.name }}</span> {{ g.short }}</div></sc-for>
+                </div>
+              </sc-if>
+            </div>
+          </div>
+        </sc-if>
+        <!-- 3. verifying on stellar -->
+        <sc-if value="{{ h.show3 }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--rule-soft);display:grid;grid-template-columns:26px minmax(0,1fr);gap:10px;align-items:start;animation:{{ h.anim }}">
+            <span style="font-family:var(--mono);font-size:14px;color:{{ h.s3c }}">{{ h.s3m }}</span>
+            <div style="min-width:0">
+              <div style="font-size:19px;letter-spacing:-.02em;line-height:1.25">verifying on stellar</div>
+              <sc-for list="{{ h.checks }}" as="k" hint-placeholder-count="3">
+                <div style="display:grid;grid-template-columns:20px minmax(0,1fr) auto;gap:8px;align-items:baseline;padding:5px 0;font-size:16px">
+                  <span style="font-family:var(--mono);color:{{ k.color }}">{{ k.mark }}</span><span>{{ k.label }}</span>
+                  <sc-if value="{{ k.hasTx }}" hint-placeholder-val="{{ false }}"><a href="{{ k.txUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:13px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">tx {{ k.txShort }} ↗</a></sc-if>
+                </div>
+              </sc-for>
+              <p style="margin:6px 0 0;font-size:13px;line-height:1.45;color:var(--ink-3)">{{ h.foot }}</p>
+            </div>
+          </div>
+        </sc-if>
+        <!-- details: the scope in words, the full hashes -->
+        <button onClick="{{ h.toggle }}" aria-expanded="{{ h.open }}" style="appearance:none;margin-top:12px;border:0;border-bottom:1px solid var(--ink-3);background:none;color:var(--ink-2);font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;padding:0 0 2px;cursor:pointer">{{ h.toggleLabel }}</button>
+        <sc-if value="{{ h.open }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:10px;font-family:var(--mono);font-size:13px;line-height:1.6;word-break:break-all">
+            <div><span style="color:var(--ink-3)">scope</span> {{ h.scopeText }}</div>
+            <sc-for list="{{ h.full }}" as="g" hint-placeholder-count="4"><div><span style="color:var(--ink-3)">{{ g.name }}</span> {{ g.v }} <button onClick="{{ g.copy }}" style="appearance:none;border:1px solid var(--rule);background:transparent;color:var(--ink);font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;height:22px;padding:0 6px;cursor:pointer">{{ g.copyLabel }}</button></div></sc-for>
+            <p style="margin:8px 0 0;font-family:var(--sans);font-size:14px;line-height:1.45;color:var(--ink-2);word-break:normal">{{ fh.explainer }}</p>
+          </div>
+        </sc-if>
+      </div>
+    </sc-for>
+  </div>
+</sc-if>
         </div>
         <div style="flex:1 1 360px;min-width:0;border:1px solid var(--rule);background:var(--surface);display:flex;justify-content:center;overflow:hidden;padding:clamp(24px,3vw,44px) 8px">
           <pre ref="{{ proofRef }}" aria-hidden="true" style="margin:0;font-family:var(--mono);font-size:clamp(6.5px,.9vw,12.5px);line-height:1.12;color:{{ fieldColor }};white-space:pre;min-height:calc(24 * 1.12 * clamp(6.5px,.9vw,12.5px));transition:color .5s"></pre>
@@ -1576,6 +1704,7 @@ class Component extends DCLogic {
         barBg: ag.phase === 'done' ? 'var(--ink)' : 'var(--surface)', barFg: ag.phase === 'done' ? 'var(--bg)' : failed ? 'var(--warn)' : 'var(--ink)',
         dot: failed ? 'var(--warn)' : ag.phase === 'done' ? 'var(--deal)' : running ? 'var(--accent)' : 'var(--ink-3)', dotAnim: running ? 'bb-blink 1s steps(1) infinite' : 'none',
       },
+      ah: this.hoodView('ag', ag.phase !== 'idle'),
       agSteps, agBusy: running, agBtnOpacity: running ? 0.35 : 1, agRunLabel: running ? 'shopping' : ag.phase === 'idle' ? 'run bob' : 'run again',
       runAgent: () => this.runAgent(false), runAgentReused: () => this.runAgent(true), resetAgent: this.resetAgent,
       agCanPayFull: failed && !ag.reused, payFullPrice: () => this.runAgent(false, true),
@@ -1623,6 +1752,61 @@ class Component extends DCLogic {
   }
   guideSteps(defs, cur) {
     return defs.map(([label, sub], i) => ({ label, sub, mark: i < cur ? '✓' : String(i + 1), bg: i === cur ? 'var(--ink)' : 'transparent', fg: i === cur ? 'var(--bg)' : 'var(--ink)', op: i <= cur ? 1 : 0.6 }));
+  }
+  // bb:zk-inline: the latest flow's proofs, shown stage by stage. Each stage appears on its real event (pol-real
+  // marks witness -> proved -> verified/refused); a finished stage is held at least DWELL ms so it can be read. The
+  // times shown are the measured ones. Reduced motion: no hold, no animation.
+  DWELL = 900;
+  hoodView(key, phase) {
+    const s = this.state, list = this.m && this.m.hood ? this.m.hood.list() : [], now = performance.now();
+    const sh = h => (h ? this.short(h, 8, 6) : '');
+    this.hoodShown = this.hoodShown || {};
+    let behind = false;
+    const items = list.map((h, idx) => {
+      const real = h.status === 'witness' ? 1 : h.status === 'proved' ? 2 : 3, k = key + ':' + idx + ':' + h.t0;
+      let sw = this.hoodShown[k];
+      if (!sw) sw = this.hoodShown[k] = { s: 1, at: now };
+      if (this.reduced) sw.s = real;
+      else if (sw.s < real && now - sw.at >= this.DWELL) { sw.s++; sw.at = now; }
+      if (sw.s < real) behind = true;
+      const st = sw.s, ok = h.status === 'verified' && st >= 3, refused = h.status === 'refused' && st >= 3;
+      // tree: while the witness is built the path lights leaf to root (cycling); once proved it stays lit
+      const n = Math.max(1, h.size), cycle = h.pathLen + 1;
+      const lit = this.reduced || st >= 2 ? 99 : 1 + (Math.floor((now - h.t0) / 160) % cycle);
+      if (!this.reduced && st < 2) behind = true;
+      const rows = [];
+      for (let l = h.pathLen; l >= 0; l--) {
+        // a level wider than 64 nodes shows the 64 around this identity's node, so the path is always visible
+        const full = Math.ceil(n / Math.pow(2, l)), cnt = Math.min(64, full), mine = h.leafIndex >= 0 ? (h.leafIndex >> l) : -1, on = l < lit;
+        const off = full > 64 ? Math.max(0, Math.min(full - 64, mine - 32)) : 0;
+        rows.push({ n: cnt, w: Math.max(4, (cnt / Math.min(64, n)) * 100) + '%', cells: Array.from({ length: cnt }, (_, i) => ({ bg: i + off === mine && on ? 'var(--accent)' : 'var(--ink-2)', bd: i + off === mine ? 'var(--accent)' : 'var(--ink-2)' })) });
+      }
+      const tx = h.tx ? this.tx(h.tx) : null, stx = h.spentTx ? this.tx(h.spentTx) : null;
+      const mk = (label, pass, txx) => ({ label, mark: pass === true ? '✓' : pass === false ? '✗' : '…', color: pass === true ? 'var(--accent)' : pass === false ? 'var(--warn)' : 'var(--ink-3)', hasTx: !!txx, txUrl: txx ? txx.url : '', txShort: txx ? txx.short : '' });
+      const checks = refused
+        ? [mk(stx ? 'nullifier already spent in' : h.spentOnChain ? 'nullifier already spent (is_spent: true on chain)' : 'nullifier already spent', false, stx), mk('refused: the discount was not applied, nothing was charged', false, null)]
+        : [mk('root is in this place\'s history', ok ? true : null, ok ? tx : null), mk('nullifier never used', ok ? true : null, ok ? tx : null), mk('Groth16 pairing on BN254: valid', ok ? true : null, ok ? tx : null)].concat(h.payment ? [mk('USDC paid in the same tx', ok ? true : null, ok ? tx : null)] : []);
+      const secs = h.provedMs != null ? (h.provedMs / 1000).toFixed(2) + ' s' : ((now - h.t0) / 1000).toFixed(1) + ' s';
+      const sigs = [['root', h.root], ['nullifier', h.nullifier], ['hash(message)', h.messageHash], ['hash(scope)', h.scopeHash]].filter(([, v]) => v);
+      const open = !!(s.hoodOpen && s.hoodOpen[k]), copy = v => () => { if (navigator.clipboard) navigator.clipboard.writeText(v).catch(() => {}); this.setState({ hoodCopied: v }); };
+      return {
+        label: h.label, rows, treeAria: `merkle tree of ${h.treeName}, leaf ${h.leafIndex + 1} of ${h.size}`,
+        treeLine: `${h.treeName} · leaf ${h.leafIndex + 1} of ${h.size}`, pathLine: st >= 2 && h.root ? `path ${h.pathLen} levels · root ${sh(h.root)}${ok ? ', the one the contract checked ✓' : ''}` : `path ${h.pathLen} levels · max depth ${h.maxDepth}`,
+        s1m: st >= 2 ? '✓' : '1', s1c: st >= 2 ? 'var(--accent)' : 'var(--ink)',
+        show2: true, s2m: st >= 2 ? '✓' : '2', s2c: st >= 2 ? 'var(--accent)' : 'var(--ink-3)',
+        s2label: (h.combined ? 'proving and posting · Semaphore v4 · ' : 'proving in your browser · Semaphore v4 · ') + secs,
+        hasSignals: st >= 2, signals: sigs.map(([name, v]) => ({ name, short: sh(v) })),
+        show3: st >= 2, s3m: refused ? '✗' : ok ? '✓' : '3', s3c: refused ? 'var(--warn)' : ok ? 'var(--accent)' : 'var(--ink-3)', checks,
+        foot: refused ? 'the contract refused this proof: its nullifier was already used.' : 'all checks run inside the contract; the tx would fail if any failed.',
+        anim: this.reduced ? 'none' : 'bb-in .35s ease both',
+        open, toggle: () => this.setState(st2 => ({ hoodOpen: { ...(st2.hoodOpen || {}), [k]: !open } })), toggleLabel: open ? 'hide details' : 'details',
+        scopeText: h.scopeText, full: sigs.map(([name, v]) => ({ name, v, copy: copy(v), copyLabel: s.hoodCopied === v ? 'copied' : 'copy' })),
+      };
+    });
+    // keep re-rendering while a stage is held or the path is lighting (the flow's own ticker stops when the tx lands)
+    if (behind && !this.hoodTimer) this.hoodTimer = setTimeout(() => { this.hoodTimer = null; this.setState(st2 => ({ hoodTick: (st2.hoodTick || 0) + 1 })); }, 120);
+    this.hoodBehind = this.hoodBehind || {}; this.hoodBehind[key] = list.some((h, idx) => { const sw = this.hoodShown[key + ':' + idx + ':' + h.t0]; return sw && sw.s < (h.status === 'witness' ? 1 : h.status === 'proved' ? 2 : 3); });
+    return { has: list.length > 0 && phase, explainer: this.m && this.m.hood ? this.m.hood.explainer : '', items };
   }
   vMerchant() {
     const s = this.state, P0 = this.byId(this.state.mPlace || 0), dk = s.desk, dres = dk.result, newIdx = dk.phase === 'success' && dres ? dres.leafIndex : -1;
@@ -1816,7 +2000,8 @@ class Component extends DCLogic {
       showFlow: !!f, flowTitle: f ? (fp ? fp.name : '') : '',
       flowHeadline: !f ? '' : f.kind === 'review' ? 'posting, without a name.' : groups.length > 1 ? 'proving what you earned.' : groups.length ? 'proving you came back.' : 'paying, no fee.',
       flowStatus: !f ? '' : f.phase === 'running' ? (active ? active.label : '') : f.phase === 'success' ? 'verified' : f.phase === 'rejected' ? 'refused, as designed' : 'stopped',
-      flowRunning: !!f && f.phase === 'running', flowDone: !!f && f.phase !== 'running', closeOpacity: 1,
+      fh: this.hoodView('flow', !!f && f.phase !== 'error'),
+      flowRunning: !!f && f.phase === 'running', flowDone: !!f && f.phase !== 'running' && !(this.hoodBehind && this.hoodBehind.flow), closeOpacity: 1,
       closeFlow: this.closeFlow, steps, res, resHeadColor: f && f.phase === 'error' ? 'var(--warn)' : 'var(--ink)',
       fieldColor: f && f.phase === 'success' ? 'var(--accent)' : f && f.phase === 'error' ? 'var(--warn)' : 'var(--ink)',
       onPrimary: () => this.flowAct(res.pKey), onSecondary: () => this.flowAct(res.sKey),
