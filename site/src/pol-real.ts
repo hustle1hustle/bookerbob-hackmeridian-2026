@@ -1531,6 +1531,8 @@ export function signRebind(old: { commitment: bigint; publicKey: [bigint, bigint
 /** The stay identity an EARLIER generation of this browser used for a group membership, or null. It reads that
  *  generation's namespace (its master secret and stays) and derives the identity the same way the SDK does. */
 export function oldIdentityFor(groupId: number) {
+  // only a passkey generation ("start over") moves a membership; a fresh demo or a new passkey never does
+  if (!/^pk-g\d+-/.test(nsNow)) return null
   const leaves = state?.groupLeaves.get(groupId) ?? []
   if (!leaves.length) return null
   const cur = new Set(sdk.stays.list().map((s) => s.commitment))
@@ -1604,10 +1606,13 @@ export const rep = {
     } else if (r?.status === "failed") {
       const joined = /already joined/i.test(String(r.reason ?? ""))
       // the operator rehearses with the same REP account: offer a reset instead of a dead end
-      const op = joined && (await repDemo())
+      const operator = await repDemo()
+      const op = joined && operator
+      // the operator sees the server's own reason under the plain line (rehearsal diagnosis); visitors never do
+      const raw = operator && r.reason && r.reason !== "expired" && !joined ? ` (${String(r.reason).slice(0, 140)})` : ""
       repState = {
         status: "failed",
-        why: r.reason === "expired" ? "the request expired. try again." : op ? "this REP account already joined in an earlier demo." : joined ? "a new generation needs a new proof in REP Bob." : "REP could not confirm it.",
+        why: r.reason === "expired" ? "the request expired. try again." : op ? "this REP account already joined in an earlier demo." : joined ? "a new generation needs a new proof in REP Bob." : `REP could not confirm it.${raw}`,
         ...(op ? { canReset: true } : {}),
       }
     }

@@ -18,6 +18,7 @@ import type { IncomingMessage, ServerResponse } from "node:http"
 import { randomBytes, createHash, timingSafeEqual } from "node:crypto"
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
+import { record as opsRecord, scrub } from "./ops.ts"
 import { Keypair } from "@stellar/stellar-sdk"
 import { getClient, write, views, TESTNET } from "../../packages/sdk/src/contract.ts"
 import { contractId } from "../../packages/sdk/src/deployment.ts"
@@ -202,6 +203,8 @@ export function createRep(deps: RepDeps) {
   const fail = (s: Session, reason: string) => {
     s.status = "failed"
     s.reason = reason
+    // the reason reaches ops-watch (no PII: reasons are fixed phrases plus an error tail, scrubbed)
+    opsRecord({ source: "server", kind: "rep verify-failed", message: scrub(reason, 200) })
     return { code: 400, body: { error: "verification failed" } }
   }
 
