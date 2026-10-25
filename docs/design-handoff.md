@@ -37,17 +37,20 @@ Without a wallet, the app opens in **read-only mode**: all hotels, ratings and r
 - **Rating comparison** (hotel page or landing): "public platform rating 9.1 from 2,000 unverified reviews" next to "8.4 from 12 proven stays". The left number is static demo copy.
 - **What each party sees** (small explainer, landing or footer): hotel, arbiter, public, nobody. This is the security model, drawn simply.
 
+## Places, not only hotels
+The contract is merchant-generic: every place has a `kind` (`hotel`, `cafe`, `shop`, `restaurant`, ...). Use "places" as the product word. Hotels stay the hero: first section, default view, the demo story. Show a small kind label or icon on every card and page header; never redesign per kind. Copy that says "stay" for hotels reads "visit" or "purchase" for other kinds only where it would otherwise be wrong.
+
 ## Data contract (what the chain gives you; design for exactly this)
 From contract `proof_of_stay` (view calls, free, no wallet needed):
-- `hotel_count() -> u32`
-- `get_hotel(id) -> { admin, name, price (USDC, 7 decimals), discount_bps, tree (size), roots, rating_sum, rating_count, verified_count }`
+- `merchant_count() -> u32`
+- `get_merchant(id) -> { admin, kind (hotel | cafe | shop | ...), name, price (USDC, 7 decimals), discount_bps, tree (size), roots, rating_sum, rating_count, verified_count }`
 - `get_rating(id) -> { sum, count, verified_count }` (avg = sum / count; count 0 = "no proven reviews yet", never "0.0")
-- `get_reviews(hotel) -> [{ hotel, rating 1-5, content_hash, disclosure_commit, nullifier, verified, ledger }]`
+- `get_reviews(merchant) -> [{ id, merchant, rating 1-5, content_hash, disclosure_commit, nullifier, verified, ledger }]`
 
 The contract stores only the hash of the review text. The text comes from our backend by `content_hash`, and the app checks that the hash matches. If the text is missing, show the stars and "text unavailable", never an empty card.
 
 Write calls return a tx hash and fail with one of these errors. Each needs human copy:
-- HotelNotFound, UnknownRoot ("this proof is for an older state of the hotel, refresh and retry");
+- MerchantNotFound, UnknownRoot ("this proof is for an older state of the place, refresh and retry");
 - NullifierUsed (already reviewed / discount already used this season);
 - NonCanonical, InvalidProof ("the proof did not check out");
 - BadRating, ReviewNotFound, DuplicateLeaf (already checked in), TreeFull, BadParams.
@@ -55,14 +58,14 @@ Write calls return a tx hash and fail with one of these errors. Each needs human
 Missing-data rule: a block with no data drops or shows a plain empty state. It never shows zeros or spinners that never end.
 
 ## Bind points (the only seams the build touches)
-1. `chain`: `listHotels()`, `getHotel(id)`, `getReviews(id)`, `checkout(hotel, commitment)`, `book(hotel)`, `bookWithDiscount(hotel, season)`, `postReview(hotel, rating, text)`, `attest(reviewId)`. Every write returns `{ txHash } | { error: ErrorName }`.
-2. `prover`: `prove(kind, hotel, ...) -> AsyncIterable<'download' | 'proving' | 'verifying' | 'done'>`. The UI animates on these real events.
+1. `chain`: `listMerchants()`, `getMerchant(id)`, `getReviews(id)`, `checkout(merchant, commitment)`, `book(merchant)`, `bookWithDiscount(stay, season)`, `postReview(stay, rating, text)`, `attest(reviewId)`. Exact types: `packages/sdk/src/types.ts`. Every write returns `{ txHash } | { error: ErrorName }`.
+2. `prover`: `prove({ kind: "review" | "discount", stay, ... }) -> AsyncIterable<'download' | 'proving' | 'verifying' | 'done'>`. The UI animates on these real events.
 3. `wallet`: `connect() / address / signer`. Passkey first, Freighter as fallback; read-only when not connected.
 
 Components must take data as props and call these three. Ship a mock implementation of all three so the screens render standalone, and so we can screenshot every state.
 
 ## Seed data reality (design for this, not for richer data)
-- 3 fictional hotels in Lisbon (we name them), each with 5-12 reviews, 1-3 arbiter-verified, 1 discount booking, 1 open dispute.
+- 3 fictional hotels in Lisbon (we name them), each with 5-12 reviews, 1-3 arbiter-verified, 1 discount booking, 1 open dispute; plus a fictional café and shop with a few reviews, one of them with none.
 - Banner: "demo data on Stellar testnet". Every review is still a real proof and a real transaction.
 - Later stage (if time): real Lisbon hotels via our booking partner, with real reviews only. The design must hold with 0-3 reviews per hotel.
 
