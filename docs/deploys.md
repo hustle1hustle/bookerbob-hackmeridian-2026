@@ -15,3 +15,5 @@ Live: https://stellarbob2026.xyz (Fly app `stellarbob2026`). **Protocol (everyon
 | 2026-10-25 (evening) | 5ea9644 | brain session | operator REP demo reset (server) |
 | 2026-10-25 ~18:50 WET | 54ac576 | brain session | inline ZK steps in the flow, Ask Bob hero, passkey sign-in never creates, rep-onchain-tier matching wasm d66cd00f, rebind client; contract upgraded before it |
 | 2026-10-25 ~19:05 WET | b8be83a | brain session | rebind server (operator replace_member in every mode) + client, deck v7 |
+| 2026-10-25 (evening) | 0c8de61, 2d9d05d | brain session | intermediate fixes, deployed by brain (exact times not logged) |
+| 2026-10-25 (evening) | 3275202 | brain session | UCP reused-proof demo resends the stored proof (same nullifier), store tree read live; 1e99a9a after it is docs/deck only, no redeploy |
