@@ -47,7 +47,8 @@ function harness() {
   const added: bigint[] = []
   let t = NOW * 1000
   const rep = createRep({ jwks: { keys: [JWK] }, now: () => t, addMember: async (c) => (added.push(c), "ab".repeat(32)) })
-  const server = createServer((req, res) => rep.handle(req, res, req.url!))
+  // exactly like index.ts: the handler gets the pathname, the query stays on req.url
+  const server = createServer((req, res) => rep.handle(req, res, new URL(req.url!, "http://x").pathname))
   const base = new Promise<string>((ok) => server.listen(0, "127.0.0.1", () => ok(`http://127.0.0.1:${(server.address() as any).port}/api/rep`)))
   const call = async (path: string, body?: unknown) => {
     const r = await fetch(`${await base}${path}`, body === undefined ? {} : { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
