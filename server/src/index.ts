@@ -7,6 +7,7 @@
 //   GET  /api/disputes  POST /api/disputes  dispute packages for the arbiter
 //   POST /api/attest                       demo arbiter: checks the disclosure, then attest_review
 //   POST /api/context/attest               context provider hook (stub)
+//   GET  /api/search?q=                    Ask Bob: federated search over source adapters, ranked by proven reviews
 import { contractId } from "../../packages/sdk/src/deployment.ts"
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
 import { readFileSync, existsSync, statSync } from "node:fs"
@@ -16,6 +17,11 @@ import { Store } from "./store.ts"
 import { TESTNET, views } from "../../packages/sdk/src/contract.ts"
 import { contentHash } from "../../packages/sdk/src/derive.ts"
 import { checkDisclosure } from "../../packages/sdk/src/disclosure.ts"
+import { federatedSearch } from "./search/index.ts"
+import { placesAdapter } from "./search/places.ts"
+import { ucpAdapter } from "./search/ucp.ts"
+import { jmprAdapter } from "./search/jmpr.ts"
+import type { Merchant, Review } from "../../packages/sdk/src/types.ts"
 
 const CONTRACT = contractId()
 const net = { ...TESTNET, rpcUrl: process.env.STELLAR_RPC_URL ?? TESTNET.rpcUrl, contractId: CONTRACT }
@@ -24,6 +30,24 @@ const STATIC = process.env.STATIC_DIR ?? join(ROOT, "../app/dist")
 const store = new Store(CONTRACT, join(ROOT, "data"), process.env.DATA_DIR ?? join(ROOT, ".data"))
 const ops = new Ops(net, keysFromEnv())
 const FAUCET_AMOUNT = 1000n * 10_000_000n
+
+// Chain snapshot for search (merchants + all reviews), refreshed at most every 15 s.
+let snap: { at: number; merchants: Merchant[]; reviews: Review[] } | null = null
+async function snapshot() {
+  if (snap && Date.now() - snap.at < 15_000) return snap
+  const read = await ops.read()
+  const n = await views.merchantCount(read)
+  const merchants = await Promise.all(Array.from({ length: n }, (_, i) => views.merchant(read, i)))
+  const reviews = (await Promise.all(merchants.map((m) => views.reviews(read, m.id)))).flat() as Review[]
+  snap = { at: Date.now(), merchants, reviews }
+  return snap
+}
+const UCP_MERCHANTS = new Set((process.env.UCP_MERCHANTS ?? "5").split(",").filter(Boolean).map(Number))
+const adapters = [
+  placesAdapter(async () => (await snapshot()).merchants, UCP_MERCHANTS),
+  ucpAdapter(process.env.UCP_BRIDGE_URL ?? "https://bookerbob-ucp-bridge.fly.dev"),
+  jmprAdapter(process.env.JMPR_ENABLED === "1"),
+]
 
 const json = (res: ServerResponse, code: number, body: unknown) => {
   res.writeHead(code, { "content-type": "application/json", "access-control-allow-origin": "*" })
@@ -76,10 +100,15 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
     return json(res, 200, rs.map((r) => {
       const meta = store.review(r.id)
       const text = meta && contentHash(meta.text).slice(2) === r.contentHash ? meta.text : null
-      return { ...r, text, txHash: meta?.txHash ?? null, time: meta?.time ?? null }
+      return { ...r, text, txHash: meta?.txHash ?? null, time: meta?.time ?? null, demoActivity: meta?.demoActivity ?? false }
     }))
   }
   // The disclosure package stays server-side (the arbiter's side); the public queue gets status only.
+  if (req.method === "GET" && path === "/api/search") {
+    const q = String(new URL(req.url ?? "", "http://x").searchParams.get("q") ?? "").slice(0, 200)
+    const sn = await snapshot()
+    return json(res, 200, await federatedSearch(q, adapters, sn.merchants, sn.reviews))
+  }
   if (req.method === "GET" && path === "/api/disputes") return json(res, 200, store.disputes().map(({ pkg, ...d }) => d))
   if (req.method === "GET" && (m = path.match(/^\/api\/disputes\/(\d+)\/check$/))) {
     const id = Number(m[1])
@@ -101,7 +130,7 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
     const r = await ops.postReview({ merchant: b.merchant, rating: b.rating, text: b.text, disclosureCommit: b.disclosureCommit.replace(/^0x/, ""), proof: b.proof, root: BigInt(b.root), nullifier: BigInt(b.nullifier) })
     if (!r.ok) return fail(res, r)
     const id = Number(r.value)
-    store.putReview(id, { text: b.text, txHash: r.txHash, time: Date.now() })
+    store.putReview(id, { text: b.text, txHash: r.txHash, time: Date.now(), ...(b.label === "demo-activity" ? { demoActivity: true } : {}) })
     return json(res, 200, { txHash: r.txHash, reviewId: id })
   }
   if (path === "/api/checkout") {
