@@ -32,6 +32,8 @@ const CONTRACT = contractId()
 const net = { ...TESTNET, rpcUrl: process.env.STELLAR_RPC_URL ?? TESTNET.rpcUrl, contractId: CONTRACT }
 const ROOT = resolve(import.meta.dirname, "..")
 const STATIC = process.env.STATIC_DIR ?? join(ROOT, "../app/dist")
+// The Claude Design site (site/public) is served at /; the earlier app shell stays at /classic/.
+const SITE = process.env.SITE_DIR ?? join(ROOT, "../site/public")
 const store = new Store(CONTRACT, join(ROOT, "data"), process.env.DATA_DIR ?? join(ROOT, ".data"))
 const ops = new Ops(net, keysFromEnv())
 const FAUCET_AMOUNT = 1000n * 10_000_000n
@@ -245,13 +247,19 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
   return json(res, 404, { error: "NotFound" })
 }
 
-function serveStatic(res: ServerResponse, path: string) {
-  let f = join(STATIC, path === "/" ? "index.html" : path)
-  if (!f.startsWith(STATIC) || !existsSync(f) || statSync(f).isDirectory()) f = join(STATIC, "index.html")
+function serveFile(res: ServerResponse, root: string, rel: string) {
+  let f = join(root, rel === "/" || rel === "" ? "index.html" : rel)
+  if (!f.startsWith(root) || !existsSync(f) || statSync(f).isDirectory()) f = join(root, "index.html")
   if (!existsSync(f)) return json(res, 404, { error: "app not built" })
   const ext = extname(f)
-  res.writeHead(200, { "content-type": MIME[ext] ?? "application/octet-stream", "cache-control": ext === ".html" ? "no-cache" : "public, max-age=86400" })
+  res.writeHead(200, { "content-type": MIME[ext] ?? "application/octet-stream", "cache-control": ext === ".html" ? "no-cache" : "public, max-age=3600" })
   res.end(readFileSync(f))
+}
+
+function serveStatic(res: ServerResponse, path: string) {
+  if (path === "/classic" || path.startsWith("/classic/")) return serveFile(res, STATIC, path.slice("/classic".length) || "/")
+  if (existsSync(join(SITE, "index.html"))) return serveFile(res, SITE, path)
+  return serveFile(res, STATIC, path)
 }
 
 createServer(async (req, res) => {
