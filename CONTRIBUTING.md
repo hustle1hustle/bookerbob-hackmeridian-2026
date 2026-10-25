@@ -17,3 +17,6 @@ The app talks to the chain only through `packages/sdk` (`chain`, `prover`, `wall
 ## Checks before merging to main
 - `cd contracts/proof_of_stay && cargo test`
 - `node packages/sdk/src/smoke.test.ts` and `npx -p typescript@5.6.3 tsc -p packages/sdk`
+
+## Deploys
+- Live app: Fly `stellarbob2026` (https://stellarbob2026.xyz). Deploy only from `main` HEAD after `git pull --ff-only` with a clean tree; never from a local tree with uncommitted or unpushed changes. Check `fly releases -a stellarbob2026` first, then log the deploy in [`docs/deploys.md`](docs/deploys.md).
