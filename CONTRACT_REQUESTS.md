@@ -1,5 +1,7 @@
 # Requests to the core contract (routed by the coordinator, not edited here)
 
+Status: both delivered in contract v2 `CBEGVNZF…L5EBY` (`book_amount`, `book_with_discount_amount`, `redeem`) and used by the bridge.
+
 ## 1. Per-order amount for real stores
 **Now:** a `Merchant` has one `price`; `book` / `book_with_discount` always charge it. A Shopify store has many items, quantities and shipping, so the UCP module can only take one item at one price (the tee, 40.80 test USDC) on the Stellar path.
 **Ask:** `book_with_discount_amount(merchant, guest, season, amount, order_ref, proof, root, nullifier)` (and the full-price twin), where `amount` and `order_ref` (32-byte hash of the store order) are authorized by the merchant admin (`admin.require_auth()` on a signed quote, or the admin co-signs). Discount still applied by the contract from `discount_bps`, so a merchant cannot quote one price and charge another without signing it.
