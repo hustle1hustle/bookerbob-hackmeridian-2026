@@ -8,6 +8,7 @@ COPY scripts/package.json scripts/
 RUN npm ci --no-audit --no-fund
 COPY packages packages
 COPY server server
+COPY config config
 
 FROM node:22-slim
 WORKDIR /repo

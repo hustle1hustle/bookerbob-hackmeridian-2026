@@ -1,6 +1,7 @@
 // Seeds the deployed contract through the real cycle: register places, check stays in, prove and post reviews
 // via the relayer, one full-price + one discounted booking, arbiter attestations and one open dispute.
 // Keys are read in-process from the local stellar-cli keystore and never printed. SEED_MASTER lives in .env.
+import { contractId } from "../packages/sdk/src/deployment.ts"
 import { execFileSync } from "node:child_process"
 import { existsSync, readFileSync, appendFileSync } from "node:fs"
 import { randomBytes } from "node:crypto"
@@ -12,7 +13,7 @@ import * as d from "../packages/sdk/src/derive.ts"
 import { loadArtifacts, proveMembership } from "../packages/sdk/src/prove.ts"
 import { buildDisclosure } from "../packages/sdk/src/disclosure.ts"
 
-const CONTRACT = process.env.PROOF_OF_STAY_CONTRACT_ID ?? "CBZ7I3VOQEMK5LKDZLCUJ4VU6KQX5WT747XN4KLGM23EIUCISTDX5MTL"
+const CONTRACT = contractId()
 const net = { ...TESTNET, contractId: CONTRACT }
 const key = (alias: string) => Keypair.fromSecret(execFileSync("stellar", ["keys", "secret", alias], { encoding: "utf8" }).trim())
 

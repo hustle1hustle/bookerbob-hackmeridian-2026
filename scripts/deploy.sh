@@ -6,6 +6,7 @@ cd "$(dirname "$0")/.."
 NET=${STELLAR_NETWORK:-testnet}
 SRC=${DEPLOYER_KEY:-deployer}
 ARBITER=$(stellar keys address "${ARBITER_KEY:-arbiter}")
+ADMIN=$(stellar keys address "$SRC")
 
 if [ -z "${USDC_SAC_ID:-}" ]; then
   ISSUER=$(stellar keys address usdc-issuer)
@@ -19,5 +20,7 @@ WASM=contracts/proof_of_stay/target/wasm32v1-none/release/proof_of_stay.wasm
 VK=$(node -e 'const j=require("./circuits/golden/depth10/soroban.json");process.stdout.write(JSON.stringify(j.vk))')
 
 ID=$(stellar contract deploy --wasm "$WASM" --source "$SRC" --network "$NET" --alias proof_of_stay -- \
-  --arbiter "$ARBITER" --usdc "$USDC_SAC_ID" --vk "$VK")
+  --admin "$ADMIN" --arbiter "$ARBITER" --usdc "$USDC_SAC_ID" --vk "$VK")
 echo "PROOF_OF_STAY_CONTRACT_ID=$ID"
+# Single source of truth for servers and scripts; the app reads it from the backend's /api/config.
+node -e "const f='config/testnet.json',j=require('./'+f);j.contractId='$ID';j.usdcSac='$USDC_SAC_ID';require('fs').writeFileSync(f,JSON.stringify(j,null,2)+'\n')"

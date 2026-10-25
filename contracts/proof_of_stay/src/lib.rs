@@ -76,6 +76,7 @@ pub struct Rating {
 
 #[contracttype]
 enum Key {
+    Admin,
     Vk,
     Arbiter,
     Usdc,
@@ -200,11 +201,12 @@ fn bump_instance(env: &Env) {
 
 #[contractimpl]
 impl ProofOfStay {
-    pub fn __constructor(env: Env, arbiter: Address, usdc: Address, vk: VerificationKey) {
+    pub fn __constructor(env: Env, admin: Address, arbiter: Address, usdc: Address, vk: VerificationKey) {
         if vk.ic.len() != 5 {
             panic_with_error!(&env, Error::BadParams);
         }
         let s = env.storage().instance();
+        s.set(&Key::Admin, &admin);
         s.set(&Key::Vk, &vk);
         s.set(&Key::Arbiter, &arbiter);
         s.set(&Key::Usdc, &usdc);
@@ -298,6 +300,77 @@ impl ProofOfStay {
         bump_instance(&env);
         env.events().publish((soroban_sdk::symbol_short!("discount"), merchant), (guest, amount, season));
         amount
+    }
+
+    /// Full-price order with a merchant-quoted amount (any cart). The merchant admin co-signs
+    /// `amount` and `order_ref` (hash of the store order), so the charged amount is the signed one.
+    pub fn book_amount(env: Env, merchant: u32, guest: Address, amount: i128, order_ref: BytesN<32>) -> i128 {
+        guest.require_auth();
+        let h = load_merchant(&env, merchant);
+        h.admin.require_auth();
+        if amount <= 0 {
+            panic_with_error!(&env, Error::BadParams);
+        }
+        let usdc: Address = env.storage().instance().get(&Key::Usdc).unwrap();
+        token::Client::new(&env, &usdc).transfer(&guest, &h.admin, &amount);
+        bump_instance(&env);
+        env.events().publish((soroban_sdk::symbol_short!("book"), merchant), (guest, amount, order_ref));
+        amount
+    }
+
+    /// Returning-customer order with a merchant-quoted amount. Same proof and nullifier as
+    /// `book_with_discount` (one discount per past stay per season, whatever the rail), the contract
+    /// applies `discount_bps` to the admin-signed `amount`.
+    pub fn book_with_discount_amount(
+        env: Env,
+        merchant: u32,
+        guest: Address,
+        season: u32,
+        amount: i128,
+        order_ref: BytesN<32>,
+        proof: Proof,
+        root: U256,
+        nullifier: U256,
+    ) -> i128 {
+        guest.require_auth();
+        let h = load_merchant(&env, merchant);
+        h.admin.require_auth();
+        if amount <= 0 {
+            panic_with_error!(&env, Error::BadParams);
+        }
+        let scope = discount_scope(&env, merchant, season);
+        let message = discount_message(&env, &guest);
+        spend(&env, &h, &root, &nullifier, &message, &scope, &proof);
+        let paid = amount * (BPS - h.discount_bps as i128) / BPS;
+        let usdc: Address = env.storage().instance().get(&Key::Usdc).unwrap();
+        token::Client::new(&env, &usdc).transfer(&guest, &h.admin, &paid);
+        bump_instance(&env);
+        env.events().publish((soroban_sdk::symbol_short!("discount"), merchant), (guest, paid, season, order_ref));
+        paid
+    }
+
+    /// Spends the discount nullifier without moving USDC (the order is paid on another rail, e.g. a card).
+    /// Only the merchant admin (its checkout bridge) may call it. The proof still binds the guest address.
+    pub fn redeem(env: Env, merchant: u32, guest: Address, season: u32, order_ref: BytesN<32>, proof: Proof, root: U256, nullifier: U256) {
+        let h = load_merchant(&env, merchant);
+        h.admin.require_auth();
+        let scope = discount_scope(&env, merchant, season);
+        let message = discount_message(&env, &guest);
+        spend(&env, &h, &root, &nullifier, &message, &scope, &proof);
+        bump_instance(&env);
+        env.events().publish((soroban_sdk::symbol_short!("redeem"), merchant), (guest, season, order_ref));
+    }
+
+    /// Contract admin replaces the code; storage and the contract ID stay. On testnet the admin is our deployer key;
+    /// a production deployment hands this to a multisig or a timelock.
+    pub fn upgrade(env: Env, new_wasm_hash: BytesN<32>) {
+        let admin: Address = env.storage().instance().get(&Key::Admin).unwrap();
+        admin.require_auth();
+        env.deployer().update_current_contract_wasm(new_wasm_hash);
+    }
+
+    pub fn admin(env: Env) -> Address {
+        env.storage().instance().get(&Key::Admin).unwrap()
     }
 
     /// Anonymous review. Any account (relayer or fresh key) may submit, no auth.

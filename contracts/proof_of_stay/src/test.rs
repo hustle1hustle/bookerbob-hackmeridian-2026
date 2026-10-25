@@ -128,10 +128,11 @@ fn setup<'a>() -> Ctx<'a> {
     env.mock_all_auths();
     env.cost_estimate().budget().reset_unlimited();
     let (vk, _, _) = load(&env);
+    let admin = Address::generate(&env);
     let arbiter = Address::generate(&env);
     let issuer = Address::generate(&env);
     let sac = env.register_stellar_asset_contract_v2(issuer);
-    let id = env.register(ProofOfStay, (arbiter, sac.address(), vk));
+    let id = env.register(ProofOfStay, (admin, arbiter, sac.address(), vk));
     let client = ProofOfStayClient::new(&env, &id);
     let usdc = token::Client::new(&env, &sac.address());
     let hotel_admin = Address::generate(&env);
@@ -302,4 +303,132 @@ fn leaves_view_matches_checkouts() {
     }
     assert_eq!(c.client.leaf_index(&0, &U256::from_u32(&c.env, 7)), None);
     assert_eq!(tree::lean_imt_root(&c.env, &leaves), c.client.get_root(&0));
+}
+
+// ---- v2: merchant-quoted amounts, redeem, upgrade ----
+
+use soroban_sdk::testutils::{AuthorizedFunction, MockAuth, MockAuthInvoke};
+use soroban_sdk::IntoVal;
+
+fn discount_args(c: &Ctx) -> (Address, u32, verifier::Proof, U256, U256) {
+    let d = &c.fx["discount"];
+    (
+        Address::from_str(&c.env, c.fx["guest"].as_str().unwrap()),
+        c.fx["season"].as_u64().unwrap() as u32,
+        proof_from(&c.env, &d["proof"]),
+        u256_dec(&c.env, d["root"].as_str().unwrap()),
+        u256_dec(&c.env, d["nullifier"].as_str().unwrap()),
+    )
+}
+
+fn fund(c: &Ctx, who: &Address) {
+    soroban_sdk::token::StellarAssetClient::new(&c.env, &c.usdc.address).mint(who, &5_000_000_000);
+}
+
+#[test]
+fn discount_amount_charges_signed_amount_and_requires_admin() {
+    let c = setup();
+    let (guest, season, proof, root, nf) = discount_args(&c);
+    fund(&c, &guest);
+    let order = BytesN::from_array(&c.env, &[7u8; 32]);
+    // 250 USDC cart, 20% off
+    let paid = c.client.book_with_discount_amount(&0, &guest, &season, &2_500_000_000, &order, &proof, &root, &nf);
+    // env.auths() reflects the last invocation only, so read it before any other call
+    let auths = c.env.auths();
+    assert_eq!(paid, 2_000_000_000);
+    assert_eq!(c.usdc.balance(&c.hotel_admin), 2_000_000_000);
+    // the merchant admin authorized exactly these arguments, amount and order_ref included
+    let admin_auth = auths.iter().find(|(a, _)| *a == c.hotel_admin).expect("admin auth missing");
+    match &admin_auth.1.function {
+        AuthorizedFunction::Contract((_, name, args)) => {
+            assert_eq!(*name, Symbol::new(&c.env, "book_with_discount_amount"));
+            let amount: i128 = args.get(3).unwrap().into_val(&c.env);
+            assert_eq!(amount, 2_500_000_000);
+        }
+        _ => panic!("unexpected auth"),
+    }
+    // same nullifier cannot be used again on the fixed-price path either
+    let err = c.client.try_book_with_discount(&0, &guest, &season, &proof, &root, &nf);
+    assert_eq!(err.err().unwrap().unwrap(), Error::NullifierUsed.into());
+}
+
+#[test]
+fn amount_without_admin_signature_is_refused() {
+    let c = setup();
+    let (guest, _, _, _, _) = discount_args(&c);
+    fund(&c, &guest);
+    let order = BytesN::from_array(&c.env, &[9u8; 32]);
+    // only the guest signs (including the token transfer it would make); the merchant admin does not
+    let args = (0u32, guest.clone(), 1i128, order.clone()).into_val(&c.env);
+    c.env.mock_auths(&[MockAuth {
+        address: &guest,
+        invoke: &MockAuthInvoke { contract: &c.client.address, fn_name: "book_amount", args, sub_invokes: &[] },
+    }]);
+    let r = c.client.try_book_amount(&0, &guest, &1, &order);
+    assert!(r.is_err(), "book_amount passed without the merchant admin's signature");
+    assert_eq!(c.usdc.balance(&c.hotel_admin), 0);
+}
+
+#[test]
+fn book_amount_full_price() {
+    let c = setup();
+    let guest = Address::generate(&c.env);
+    fund(&c, &guest);
+    let order = BytesN::from_array(&c.env, &[1u8; 32]);
+    assert_eq!(c.client.book_amount(&0, &guest, &408_000_000, &order), 408_000_000);
+    let err = c.client.try_book_amount(&0, &guest, &0, &order);
+    assert_eq!(err.err().unwrap().unwrap(), Error::BadParams.into());
+}
+
+#[test]
+fn redeem_spends_nullifier_without_transfer_once() {
+    let c = setup();
+    let (guest, season, proof, root, nf) = discount_args(&c);
+    let order = BytesN::from_array(&c.env, &[3u8; 32]);
+    c.client.redeem(&0, &guest, &season, &order, &proof, &root, &nf);
+    let auths = c.env.auths();
+    assert_eq!(c.usdc.balance(&c.hotel_admin), 0);
+    assert!(auths.iter().any(|(a, _)| *a == c.hotel_admin), "redeem must require the merchant admin");
+    let err = c.client.try_redeem(&0, &guest, &season, &order, &proof, &root, &nf);
+    assert_eq!(err.err().unwrap().unwrap(), Error::NullifierUsed.into());
+    // and the USDC path is closed for that season too
+    fund(&c, &guest);
+    let err = c.client.try_book_with_discount(&0, &guest, &season, &proof, &root, &nf);
+    assert_eq!(err.err().unwrap().unwrap(), Error::NullifierUsed.into());
+}
+
+#[test]
+fn redeem_for_another_guest_fails() {
+    let c = setup();
+    let (_, season, proof, root, nf) = discount_args(&c);
+    let other = Address::generate(&c.env);
+    let order = BytesN::from_array(&c.env, &[4u8; 32]);
+    let err = c.client.try_redeem(&0, &other, &season, &order, &proof, &root, &nf);
+    assert_eq!(err.err().unwrap().unwrap(), Error::InvalidProof.into());
+}
+
+const WASM: &[u8] = include_bytes!("../target/wasm32v1-none/release/proof_of_stay.wasm");
+
+#[test]
+fn upgrade_by_admin_keeps_state() {
+    let c = setup();
+    let hash = c.env.deployer().upload_contract_wasm(WASM);
+    let root_before = c.client.get_root(&0);
+    let admin = c.client.admin();
+    c.client.upgrade(&hash);
+    assert!(c.env.auths().iter().any(|(a, _)| *a == admin));
+    assert_eq!(c.client.get_root(&0), root_before);
+}
+
+#[test]
+fn upgrade_by_non_admin_is_refused() {
+    let c = setup();
+    let hash = c.env.deployer().upload_contract_wasm(WASM);
+    let stranger = Address::generate(&c.env);
+    let args = (hash.clone(),).into_val(&c.env);
+    c.env.mock_auths(&[MockAuth {
+        address: &stranger,
+        invoke: &MockAuthInvoke { contract: &c.client.address, fn_name: "upgrade", args, sub_invokes: &[] },
+    }]);
+    assert!(c.client.try_upgrade(&hash).is_err());
 }

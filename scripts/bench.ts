@@ -1,10 +1,11 @@
 // Verification cost on testnet: simulates verify() with the golden proof and reads the real resource usage
 // of seeded transactions (checkout, post_review, book_with_discount). Writes docs/bench.md.
+import { contractId } from "../packages/sdk/src/deployment.ts"
 import { readFileSync, writeFileSync } from "node:fs"
 import { rpc, xdr, Account, TransactionBuilder, Operation, BASE_FEE, nativeToScVal } from "@stellar/stellar-sdk"
 import { TESTNET } from "../packages/sdk/src/contract.ts"
 
-const CONTRACT = process.env.PROOF_OF_STAY_CONTRACT_ID ?? "CBZ7I3VOQEMK5LKDZLCUJ4VU6KQX5WT747XN4KLGM23EIUCISTDX5MTL"
+const CONTRACT = contractId()
 const s = new rpc.Server(TESTNET.rpcUrl)
 const G = "circuits/golden/depth10"
 const golden = JSON.parse(readFileSync(`${G}/soroban.json`, "utf8"))

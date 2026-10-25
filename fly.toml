@@ -6,7 +6,6 @@ primary_region = "cdg"
 [env]
   PORT = "8080"
   DATA_DIR = "/data"
-  PROOF_OF_STAY_CONTRACT_ID = "CBZ7I3VOQEMK5LKDZLCUJ4VU6KQX5WT747XN4KLGM23EIUCISTDX5MTL"
 
 [[mounts]]
   source = "pos_data"

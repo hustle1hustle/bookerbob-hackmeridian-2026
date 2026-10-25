@@ -1,6 +1,8 @@
 // Thin typed layer over the deployed proof_of_stay contract (stellar-sdk contract.Client, spec read from chain).
 // Shared by the browser SDK, the BookerBob backend and the seed script.
 import { contract } from "@stellar/stellar-sdk"
+// Explicit import so browsers (no global Buffer) work without a polyfill.
+import { Buffer } from "buffer"
 import type { ContractError, Merchant, Review } from "./types.ts"
 import { hexToBytes, type SorobanProofHex } from "./convert.ts"
 
