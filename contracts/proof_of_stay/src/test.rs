@@ -34,6 +34,10 @@ fn num_be32(s: &str) -> [u8; 32] {
     out
 }
 
+pub(crate) fn load_vk(env: &Env) -> (verifier::VerificationKey, verifier::Proof, Vec<Bn254Fr>) {
+    load(env)
+}
+
 fn load(env: &Env) -> (verifier::VerificationKey, verifier::Proof, Vec<Bn254Fr>) {
     let j: serde_json::Value = serde_json::from_str(GOLDEN).unwrap();
     let g1 = |h: &serde_json::Value| Bn254G1Affine::from_bytes(bytes::<64>(env, h.as_str().unwrap()));

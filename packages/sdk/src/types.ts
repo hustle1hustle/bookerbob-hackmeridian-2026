@@ -15,6 +15,17 @@ export type ContractError =
   | "BadRating"
   | "ReviewNotFound"
   | "BadParams"
+  | "NotInPolicy"
+  | "GroupNotFound"
+  | "DuplicateClaim"
+  | "RepNotConfigured"
+  | "RepMalformed"
+  | "RepIssuer"
+  | "RepExpired"
+  | "RepNoTier"
+  | "RepHolder"
+  | "RepNonce"
+  | "RepReplay"
 export type ClientError = "WalletNotConnected" | "UserRejected" | "InsufficientFunds" | "NotDemoMerchant" | "NotInTree" | "DisclosureRejected" | "Network" | "Unknown"
 export type ErrorName = ContractError | ClientError
 
@@ -295,6 +306,17 @@ export const errorCopy: Record<ErrorName, string> = {
   BadRating: "pick 1 to 5 stars",
   ReviewNotFound: "review not found",
   BadParams: "invalid request",
+  NotInPolicy: "this place has no perk for that group",
+  GroupNotFound: "group not found",
+  DuplicateClaim: "that perk is already in this booking",
+  RepNotConfigured: "this group does not take REP verdicts",
+  RepMalformed: "the REP verdict could not be read",
+  RepIssuer: "the verdict is not from REP",
+  RepExpired: "the REP verdict expired, make a fresh proof",
+  RepNoTier: "the verdict has no lodging tier from Airbnb or Booking",
+  RepHolder: "the verdict was not presented by its own device",
+  RepNonce: "the verdict was presented for another identity",
+  RepReplay: "this REP verdict was already used",
   WalletNotConnected: "connect to continue",
   UserRejected: "signing was cancelled",
   InsufficientFunds: "not enough USDC, get test USDC first",

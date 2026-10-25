@@ -56,3 +56,48 @@ Undo afterwards: clear the Issuer URL in DevTools.
 | 0:00 | web, tap "verify with REP" | "Your past stays, proven in REP." |
 | 0:03 | phone: consent sheet "BookerBob: are you a verified traveler?", tap share | "You approve on your phone." |
 | 0:07 | web: "verified traveler", Stellar tx link; a place's price drops by the 5% perk | "BookerBob keeps only yes. The discount follows you." |
+
+## On-chain check (branch choly/rep-onchain, flag OFF by default)
+
+`add_member_with_rep(group, id_commitment, verdict, kb)` lets anyone join group 1 with a REP verdict that the
+contract checks itself, so membership no longer depends on a trusted attester server. The attester path
+(`add_member` with the `rep-attester` key) stays as the default and the fallback.
+
+- Input: the compact verdict JWS and the phone's compact KB-JWT, exactly as presented. The contract decodes
+  base64url itself and verifies both ES256 signatures with the host's secp256r1 (`env.crypto().secp256r1_verify`,
+  SEC-1 key, sha256 digest, raw r||s). The host takes only low-S; JOSE signers emit either, so the contract maps
+  s to n - s first.
+- Checks: typ and alg; REP's key pinned per group by the contract admin (`set_rep_issuer`, rotation = the same
+  call); iss, rep_profile 1, nbf, exp, `max_age` since iat (default 7 days); a non-empty `lodging_spend_tier`;
+  `server_name` airbnb.com or booking.com; the KB header's `jwk` hashes (RFC 7638) to `cnf.jkt` and signed the
+  proof; aud `bookerbob`; `at_hash` over this exact verdict; KB iat within 300 s of the ledger clock; nonce
+  `pos:<id_commitment>:<rand>`, so a proof can only add the commitment it was made for.
+- Replay: one verdict adds one member. The spent key is sha256 of the verdict's signing input, which excludes the
+  signature, so an n - s copy of the same verdict is refused too.
+- Not on-chain: the issuer's revocation status list. `exp` and `max_age` bound the window; the server still
+  checks revocation before it submits.
+- Cost: about 6.5M CPU instructions (limit 100M) and 160 KB memory; the wasm is 59 KB.
+- Tests: `cargo test` in `contracts/proof_of_stay` (`test_rep.rs`: real-shape verdict, low and high S, forged
+  issuer, rotated key, wrong device key, wrong aud, at_hash for another verdict, nonce for another commitment,
+  expired, too old, stale holder proof, before nbf, no tier, not a lodging source, wrong iss, replay, S-flip
+  replay). Fixtures come from `fixtures/gen-rep.mjs`: the live verdict's shape signed with throwaway keys, with no
+  PII and synthetic hashes. They agree case by case with REP's own `verify-rep.mjs`.
+
+**Privacy cost, why the flag is OFF.** The verdict and the holder proof become permanent, public tx arguments.
+A rep-attest verdict carries more than the tier: `lodging_spend_approx` (spend rounded to $5k), `city_footprint`,
+`server_name`, `evidence_time`, `attestation_hash`, the status index, and the device key (in the KB header, and
+as `cnf.jkt`). The device key is the same for every verifier, so all on-chain joins from one phone are linkable.
+The contract stores nothing beyond the replay key, but the arguments stay in the ledger. So this path is
+trustless but publishes band details. Production needs a tier-only issuer-signed verdict (SD-JWT or a
+tier-only JWS from rep-attest) and a pairwise holder key per verifier.
+
+Turn it on (testnet, after review):
+
+```
+scripts/rep-onchain.sh upgrade        # admin: new wasm through upgrade(), storage and contract ID stay
+scripts/rep-onchain.sh set-issuer     # admin: pins kid rep-attest-1 from the live JWKS for group 1
+fly secrets set --app <backend app> REP_ONCHAIN=1 REP_RELAYER_SECRET="$(stellar keys show <any funded key>)" > /dev/null
+```
+
+The relayer only pays fees and holds no group rights. Leave `REP_ATTESTER_SECRET` set: unset `REP_ONCHAIN` and the
+attester path is back.
