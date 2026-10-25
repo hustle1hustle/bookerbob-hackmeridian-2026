@@ -9,3 +9,4 @@ data-bridge.log
 agent/.payers.json
 agent/.payers-used.json
 agent/.buyer-v1.json
+.export/
