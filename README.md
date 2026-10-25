@@ -2,7 +2,7 @@
 
 **Everywhere you go.** Customers prove they were customers of a place without revealing who they are. In return they get honest reviews and returning-customer discounts, and BookerBob, their agent, books using only this kind of data. First medium: hotels (the hotel flow is "proof of stay").
 
-- Live demo: _coming with the deploy_ (read-only without a wallet; a demo key in the browser is enough to walk the full cycle)
+- Live demo: [https://bookerbob-proof-of-loyalty.fly.dev](https://bookerbob-proof-of-loyalty.fly.dev) (read-only without a wallet; a demo key in the browser is enough to walk the full cycle). API: `https://bookerbob-proof-of-loyalty.fly.dev/api/config`
 - Video: _link at submission_
 - Contract (Stellar testnet): [`CBZ7I3VOQEMK5LKDZLCUJ4VU6KQX5WT747XN4KLGM23EIUCISTDX5MTL`](https://stellar.expert/explorer/testnet/contract/CBZ7I3VOQEMK5LKDZLCUJ4VU6KQX5WT747XN4KLGM23EIUCISTDX5MTL)
 - Built at HackMeridian 2026 (Stellar), Genesis path, track Stellar Unlocked, by team BookerBob. Plan: [PLAN.md](PLAN.md). Prior work: [PRIOR_WORK.md](PRIOR_WORK.md). AI usage: [docs/ai-usage.md](docs/ai-usage.md).

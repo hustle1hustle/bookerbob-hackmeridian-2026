@@ -2,6 +2,8 @@
 
 Network: Stellar testnet (Protocol 29). Explorer links: stellar.expert.
 
+Live app and BookerBob backend: [https://bookerbob-proof-of-loyalty.fly.dev](https://bookerbob-proof-of-loyalty.fly.dev) (Fly, region cdg). API: `/api/config`, `/api/reviews/:merchant`, `/api/disputes`.
+
 | What | Value |
 |---|---|
 | `proof_of_stay` contract (current, merchant-generic) | [`CBZ7I3VOQEMK5LKDZLCUJ4VU6KQX5WT747XN4KLGM23EIUCISTDX5MTL`](https://stellar.expert/explorer/testnet/contract/CBZ7I3VOQEMK5LKDZLCUJ4VU6KQX5WT747XN4KLGM23EIUCISTDX5MTL) |

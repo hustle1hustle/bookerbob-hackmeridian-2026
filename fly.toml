@@ -1,5 +1,5 @@
-app = "bookerbob-proof-of-stay"
-primary_region = "mad"
+app = "bookerbob-proof-of-loyalty"
+primary_region = "cdg"
 
 [build]
 
