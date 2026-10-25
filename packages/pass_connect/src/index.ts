@@ -41,6 +41,8 @@ export interface PassConnectOptions {
   /** Friendbot URL for first-time funding (testnet). Empty = skip. */
   friendbotUrl?: string
   storage?: Pick<Storage, "getItem" | "setItem" | "removeItem">
+  /** Name shown in the OS passkey list for a NEW credential, e.g. "BookerBob demo 16:40". */
+  displayName?: string
 }
 
 export interface PassSigner {
@@ -253,7 +255,7 @@ export async function connectPasskey(opts: PassConnectOptions = {}): Promise<{ s
     const cred = (await navigator.credentials.create({
       publicKey: {
         rp: { name: rpName, id: rpId },
-        user: { id: userId, name: "bookerbob-guest", displayName: "BookerBob guest" },
+        user: { id: userId, name: opts.displayName ?? "bookerbob-guest", displayName: opts.displayName ?? "BookerBob guest" },
         challenge: challenge(),
         pubKeyCredParams: [
           { type: "public-key", alg: -7 },
