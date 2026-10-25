@@ -16,7 +16,84 @@ import type { Stay } from "../../packages/sdk/src/types.ts"
 
 const API = (globalThis as any).POL_API ?? ""
 const BRIDGE = (globalThis as any).POL_UCP_BRIDGE ?? "https://bookerbob-ucp-bridge.fly.dev"
-const sdk = createTestnetSdk({ apiUrl: API })
+// Proving files from our own origin (brotli, immutable), persisted in the Cache API so a revisit never downloads them
+// again, and prefetched at idle after first paint. The SDK keeps its own default URL; we pass ours.
+export const ARTIFACTS = `${API}/artifacts/semaphore/4.13.0`
+const ARTIFACT_CACHE = "bb-artifacts-4.13.0"
+const artProgress = { loaded: 0, total: 0, files: 0 }
+const artifactBytes = new Map<string, Promise<Uint8Array>>()
+function artifactFile(url: string, low: boolean): Promise<Uint8Array> {
+  if (!artifactBytes.has(url))
+    artifactBytes.set(
+      url,
+      (async () => {
+        try {
+          const c = await caches.open(ARTIFACT_CACHE)
+          const hit = await c.match(url)
+          if (hit) {
+            const b = new Uint8Array(await hit.arrayBuffer())
+            artProgress.loaded += b.length
+            artProgress.total += b.length
+            return b
+          }
+        } catch {
+          /* no Cache API (private mode): network only */
+        }
+        const res = await nativeFetch(url, { priority: low ? "low" : "auto" } as RequestInit)
+        if (!res.ok || !res.body) throw new Error(`artifact ${res.status}`)
+        // byte progress over the uncompressed size the server announces (the body stream is already decoded)
+        artProgress.total += Number(res.headers.get("x-uncompressed-length") ?? res.headers.get("content-length") ?? 0)
+        const reader = res.body.getReader()
+        const parts: Uint8Array[] = []
+        let n = 0
+        for (;;) {
+          const { done, value } = await reader.read()
+          if (done) break
+          parts.push(value)
+          n += value.length
+          artProgress.loaded += value.length
+        }
+        const bytes = new Uint8Array(n)
+        let o = 0
+        for (const p of parts) (bytes.set(p, o), (o += p.length))
+        try {
+          await (await caches.open(ARTIFACT_CACHE)).put(url, new Response(bytes, { headers: { "content-type": "application/octet-stream" } }))
+        } catch {
+          /* cache full or unavailable: still fine for this page */
+        }
+        return bytes
+      })().catch((e) => {
+        artifactBytes.delete(url)
+        throw e
+      }),
+    )
+  return artifactBytes.get(url)!
+}
+// The SDK's loader calls fetch() for these URLs: answer from the cache-backed loader above.
+const nativeFetch = globalThis.fetch.bind(globalThis)
+let prefetching = false
+globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url
+  const abs = new URL(url, location.href).href
+  if (abs.startsWith(new URL(ARTIFACTS, location.href).href + "/")) return new Response(await artifactFile(abs, prefetching))
+  return nativeFetch(input as any, init)
+}) as typeof fetch
+
+const sdk = createTestnetSdk({ apiUrl: API, artifactsUrl: ARTIFACTS })
+
+/** Warm the proving files without blocking anything; the SDK keeps them in memory once loaded. */
+export function warmArtifacts(): Promise<unknown> {
+  return loadArtifacts(ARTIFACTS).catch(() => null)
+}
+if (typeof window !== "undefined") {
+  const go = () => {
+    prefetching = true
+    void warmArtifacts().finally(() => (prefetching = false))
+  }
+  const ric = (window as any).requestIdleCallback as undefined | ((f: () => void, o?: any) => void)
+  if (document.readyState === "complete") ric ? ric(go, { timeout: 3000 }) : setTimeout(go, 800)
+  else window.addEventListener("load", () => (ric ? ric(go, { timeout: 3000 }) : setTimeout(go, 800)), { once: true })
+}
 
 // ---- constants the design reads ----
 export const config: { forceError: string | null; firstProof: boolean; sparse: boolean } = { forceError: null, firstProof: true, sparse: false }
@@ -530,7 +607,7 @@ async function* ucpRun(reuse: boolean): AsyncGenerator<any> {
     yield snap()
     yield step(3, "done", { detail: `provisional ${off.toFixed(2)} usdc off, held until the proof checks out.` })
     yield step(4, "running")
-    const artifacts = await loadArtifacts()
+    const artifacts = await loadArtifacts(ARTIFACTS)
     const leaves = await views.leaves(await getClient({ ...TESTNET, contractId: (await apiConfig()).contractId }), UCP_MERCHANT)
     const holder = shopStay ?? next
     const t0 = performance.now()
@@ -595,6 +672,10 @@ export const prover = {
   get cached() {
     return artifactsCached()
   },
+  /** Real bytes of the proving files received so far (uncompressed), for the download step. */
+  progress() {
+    return { ...artProgress }
+  },
   resetCache() {},
   // Real stages: the proving files download once; for pay, one membership proof per group is made here, bound to a
   // fresh one-time payer address; review proofs are made in postReview (they bind the rating and text).
@@ -604,7 +685,7 @@ export const prover = {
     const n = kind === "review" ? 1 : groups.length
     if (n && !artifactsCached()) {
       yield "download"
-      await loadArtifacts()
+      await loadArtifacts(ARTIFACTS)
     }
     if (kind === "review") {
       yield "proving"
@@ -618,7 +699,7 @@ export const prover = {
         const e = elig.find((x: any) => x.group === g)
         if (!e?._holder) continue
         const leaves = e._ref.kind === "merchant" ? (state!.places.find((x) => x.mid === e._ref.id)?.leaves ?? []) : (state!.groupLeaves.get(e._ref.id) ?? [])
-        const mp = await proveMembership(sdk.stays.identity(e._holder), leaves, d.discountMessage(payer.publicKey()), d.ctxScope(p.mid, e._ref, SEASON_N), await loadArtifacts())
+        const mp = await proveMembership(sdk.stays.identity(e._holder), leaves, d.discountMessage(payer.publicKey()), d.ctxScope(p.mid, e._ref, SEASON_N), await loadArtifacts(ARTIFACTS))
         claims.push({ key: g, arg: { group: { tag: e._ref.kind === "merchant" ? "Merchant" : "Group", values: [e._ref.id] }, proof: proofArg(mp.proof), root: mp.root, nullifier: mp.nullifier } })
       }
       pending = { place, groups, payer, claims }

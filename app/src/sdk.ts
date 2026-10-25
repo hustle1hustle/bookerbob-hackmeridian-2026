@@ -9,7 +9,7 @@ let failOnce: ErrorName | null = demo.fail
 export const sdk = createSdk({
   mode,
   // testnet: same-origin BookerBob backend (vite dev proxies /api to it)
-  testnet: { apiUrl: "" },
+  testnet: { apiUrl: "", artifactsUrl: "/artifacts/semaphore/4.13.0" },
   mock: {
     speed: demo.speed,
     failNext: () => {

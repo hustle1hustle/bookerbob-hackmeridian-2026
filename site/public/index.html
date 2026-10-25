@@ -1478,7 +1478,13 @@ class Component extends DCLogic {
     try {
       for await (const ev of m.prover.prove(kind, ctx.placeId, { groups: ctx.groups || [] })) {
         if (!this.state.flow) return;
-        if (ev === 'download') { upd(f => { f.steps[0].label = 'fetching proving files'; f.steps[0].sub = '4.1 mb, only the first time.'; }); this.setField('scan'); }
+        if (ev !== 'download' && this.dlT) { clearInterval(this.dlT); this.dlT = null; }
+        if (ev === 'download') {
+          upd(f => { f.steps[0].label = 'fetching proving files'; f.steps[0].sub = 'only the first time.'; }); this.setField('scan');
+          clearInterval(this.dlT);
+          // real bytes received (bb: live progress)
+          this.dlT = setInterval(() => { const p = m.prover.progress ? m.prover.progress() : null; if (!p || !p.total || !this.state.flow) return; upd(f => { f.steps[0].sub = `${(p.loaded / 1e6).toFixed(1)} of ${(p.total / 1e6).toFixed(1)} mb, only the first time.`; }); if (p.loaded >= p.total) clearInterval(this.dlT); }, 200);
+        }
         else if (ev === 'proving') { advance('p' + pi); pi++; this.setField('churn'); }
         else if (ev === 'verifying') {
           advance('verifying'); this.setField('ring');
