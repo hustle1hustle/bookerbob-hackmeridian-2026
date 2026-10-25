@@ -4,7 +4,7 @@
 // business never learns which past order, or which person, the proof stands for.
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { toBeHex } from "ethers/utils"
-import { MERCHANT, NET, currentSeason, ctxScope, leaves, merchant, perks, treeOf, groupKey, type GroupRef } from "./core.ts"
+import { MERCHANT, NET, seasonNow, ctxScope, leaves, merchant, perks, treeOf, groupKey, type GroupRef } from "./core.ts"
 
 export const NS = "com.bookerbob.patronage"
 export const EXT_VERSION = "2026-10-25"
@@ -55,9 +55,10 @@ export const st = () => state
 /** Checkout ids carry a `?key=` secret; sessions are keyed by the bare gid. */
 export const sessionKey = (id: string) => id.split("?")[0]
 export const session = (id: string): Session | undefined => state.sessions[sessionKey(id)]
-export function openSession(id: string, claimed: boolean): Session {
+export async function openSession(id: string, claimed: boolean): Promise<Session> {
   const k = sessionKey(id)
-  const s = (state.sessions[k] ??= { checkoutId: k, claimed, season: currentSeason() })
+  const season = state.sessions[k]?.season ?? (await seasonNow())
+  const s = (state.sessions[k] ??= { checkoutId: k, claimed, season })
   s.claimed ||= claimed
   save()
   return s
