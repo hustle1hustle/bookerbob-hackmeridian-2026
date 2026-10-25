@@ -70,10 +70,14 @@ Contract v2 `CBEGVNZF…L5EBY` (frozen id):
 |---|---|
 | merchant 5 registered | [`4447cc1a…`](https://stellar.expert/explorer/testnet/tx/4447cc1a1cbb1753be44021e9deb1f3f44a422350eb2a0c6dd9d688a1c210466) |
 | first purchase, `book_amount` 40.80 USDC co-signed by the store | [`3babdbf4…`](https://stellar.expert/explorer/testnet/tx/3babdbf4ad9b407bf6155bdc4afa7bc5408af7b2b3fb69bdad26a64938442fa5), `evidence/run-1-first-purchase.log` |
-| returning purchase, `book_with_discount_amount` with proof | `evidence/run-2-returning.log` |
+| returning purchase, `book_with_discount_amount` with proof, 36.72 USDC | [`d61a94c0…`](https://stellar.expert/explorer/testnet/tx/d61a94c0d65637e2996eb2adb09c5159dcf69088e5eaba68f5ddee4bd5ae2623), `evidence/run-2-returning.log` (19 s end to end) |
 | replayed proof | `evidence/replay.log` |
 
 Earlier on v1 `CBZ7I3VO…5MTL` (`evidence/v1/`): full price [`a76bfa80…`](https://stellar.expert/explorer/testnet/tx/a76bfa80e5d1bba740ca3a8b1a2081bb7fb92247a611a11f035a66c3f95bc843), returning with proof 36.72 USDC [`eb0944c9…`](https://stellar.expert/explorer/testnet/tx/eb0944c9a5d27d67abf7d9809e088b95e4ae978e63b1be39599f8b97aeaf2490), replay refused `NullifierUsed`, forged proof refused `UnknownRoot`.
+
+## Ask Bob search
+
+`GET /search?q=&max_price=` (USDC): the store's UCP catalog as `[{source: "ucp", merchantId, title, kind, price, currency, url, provenRating, reviewCount, verifiedCount, ...}]`, ratings from the chain only.
 
 ## Run
 

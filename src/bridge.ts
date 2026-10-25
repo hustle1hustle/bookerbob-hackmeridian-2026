@@ -341,6 +341,9 @@ for (const n of ["get_cart", "create_cart", "update_cart", "cancel_cart", "cance
 // own price and currency ride along. Backed by the store's UCP catalog search.
 async function search(q: string, maxPrice: number | null) {
   const found = await storeTool("search_catalog", { catalog: { query: q || "rep" } })
+  const m = await merchant()
+  // Store-level ratings from proven buyers only (on chain); no scripted reviews on this real store.
+  const proven = { provenRating: m.ratingCount ? Math.round((m.ratingSum / m.ratingCount) * 10) / 10 : null, reviewCount: m.ratingCount, verifiedCount: m.verifiedCount, provenCustomers: m.provenStays }
   const out = []
   for (const p of found.products ?? []) {
     const v = (p.variants ?? []).find((x: any) => x.availability?.available !== false) ?? p.variants?.[0]
@@ -361,7 +364,8 @@ async function search(q: string, maxPrice: number | null) {
       imageUrl: v.media?.[0]?.url ?? p.media?.[0]?.url ?? null,
       url: p.url ?? null,
       ucp: `${PUBLIC_URL}/.well-known/ucp`,
-      returningDiscountBps: (await merchant()).discountBps,
+      returningDiscountBps: m.discountBps,
+      ...proven,
     })
   }
   return out
