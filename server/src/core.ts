@@ -99,7 +99,7 @@ export class Ops {
     tx.sign(source)
     const sent = await s.sendTransaction(tx)
     if (sent.status === "ERROR") throw new Error(`send failed ${JSON.stringify(sent.errorResult)}`)
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 60; i++) {
       const r = await s.getTransaction(sent.hash)
       if (r.status === "SUCCESS") return sent.hash
       if (r.status === "FAILED") throw new Error(`tx failed ${sent.hash}`)
@@ -132,7 +132,7 @@ export class Ops {
     tx.sign(source)
     const sent = await s.sendTransaction(tx)
     if (sent.status === "ERROR") throw new Error(`loyalty attest send failed ${JSON.stringify(sent.errorResult)}`)
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 60; i++) {
       const r = await s.getTransaction(sent.hash)
       if (r.status === "SUCCESS") return sent.hash
       if (r.status === "FAILED") throw new Error(`loyalty attest failed ${sent.hash}`)
@@ -153,7 +153,7 @@ export class Ops {
     tx.sign(issuer)
     const sent = await s.sendTransaction(tx)
     if (sent.status === "ERROR") throw new Error(`mint send failed`)
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 60; i++) {
       const r = await s.getTransaction(sent.hash)
       if (r.status === "SUCCESS") return sent.hash
       if (r.status === "FAILED") throw new Error(`mint failed ${sent.hash}`)
