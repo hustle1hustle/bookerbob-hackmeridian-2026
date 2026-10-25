@@ -120,3 +120,5 @@ The wallet row in Connect offers "sign in with my passkey" (`wallet.connect('pas
 - The agent headline uses the run's own `headline` event when present (e.g. "same proof again: refused. it only works once."), else the computed one.
 - After a refusal that is not the replay demo, "pay full price" runs `ucp.run({ noClaim: true })`.
 - Step 2's label is "add it to the cart" (it was "add the t-shirt", wrong for the cap or a hoodie).
+
+- Footer: a "how it works" link to `/how` (site/public/how.html, served by one line in server/src/index.ts), added by the UCP module session with Choly's OK. Restyle of /how to the v2 language follows.
