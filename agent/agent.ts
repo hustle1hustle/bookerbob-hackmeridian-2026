@@ -167,7 +167,7 @@ async function main() {
   say(`store saw: a valid proof, a fresh payer, a fresh customer code. Not who the buyer is, nor which past order.`)
 }
 
-main().catch((e) => {
+main().then(() => process.exit(0)).catch((e) => {
   console.error(`agent stopped: ${e.message}`)
   process.exit(1)
 })

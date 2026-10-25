@@ -84,14 +84,18 @@ export async function readPayment(txHash: string): Promise<PaidOnChain> {
     await new Promise((ok) => setTimeout(ok, 1000))
   }
   if (r.status !== "SUCCESS") throw new Error(`tx ${r.status}`)
-  const op = r.envelopeXdr.v1().tx().operations()[0].body()
-  if (op.switch().name !== "invokeHostFunction") throw new Error("not a contract call")
-  const call = op.invokeHostFunctionOp().hostFunction().invokeContract()
-  const target = Address.fromScAddress(call.contractAddress()).toString()
+  // stellar-sdk 17 decodes XDR to plain objects (unions as {type, <arm>}), not accessor classes.
+  const raw = (v: any) => (typeof v === "string" ? v : v.toXDR("base64"))
+  const env: any = xdr.TransactionEnvelope.fromXDR(raw(r.envelopeXdr), "base64")
+  const body = env.v1?.tx?.operations?.[0]?.body
+  if (body?.type !== "invokeHostFunction") throw new Error("not a contract call")
+  const call = body.invokeHostFunctionOp.hostFunction.invokeContract
+  if (!call) throw new Error("not a contract call")
+  const target = Address.fromScAddress(call.contractAddress).toString()
   if (target !== NET.contractId) throw new Error("not the core contract")
-  const fn = call.functionName().toString()
+  const fn = String(call.functionName)
   if (fn !== "book" && fn !== "book_with_discount") throw new Error(`unexpected function ${fn}`)
-  const args = call.args().map((a: xdr.ScVal) => scValToNative(a))
+  const args = call.args.map((a: any) => scValToNative(a))
   const amount = BigInt(scValToNative(r.returnValue))
   const out: PaidOnChain = { fn, merchant: Number(args[0]), guest: String(args[1]), amount, ledger: r.ledger }
   if (fn === "book_with_discount") {

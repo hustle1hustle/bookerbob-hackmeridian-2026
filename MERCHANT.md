@@ -12,3 +12,6 @@
 | store | jwq0dd-rp.myshopify.com (external service, test mode) |
 
 Real store: no seed reviews. Leaves come only from real test purchases through the bridge, which signs `checkout` as the merchant admin.
+
+## Demo payer accounts (testnet, one per purchase, 100 test USDC each from the core issuer)
+`GBJQ7PFI3K4HQRLPAMYLM7AL5SEDT33G3PTBXZ7C3AUIF4Y32WZFHSDR`, `GBUKQ4DTGDLJCEXPRWDASMY5LJOKB5EA4SA3IFIVHOPA56KEA3EHLHDQ`, `GCRCWQM2HJYRGF7UJJKOYBK375O3NWZEGIS7CG7WLAFVQ2KXSQUM5CWC`, `GAJT2VLOCBIDLIJMHIJJVL47M4GM76JJFF3GA7QM5HNODP2WK7II23HY`. Secrets only in the gitignored `agent/.payers.json`.
