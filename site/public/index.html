@@ -374,7 +374,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
                 <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;align-items:center">
                   <sc-if value="{{ r.hasTx }}" hint-placeholder-val="{{ true }}"><a href="{{ r.txUrl }}" target="_blank" rel="noopener" title="the proof, on stellar.expert" style="display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 9px;border:1px solid var(--rule-soft);font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;color:var(--ink)" style-hover="border-color:var(--ink)"><span style="width:6px;height:6px;background:var(--ink)"></span>{{ r.proofLabel }}</a></sc-if>
                   <sc-if value="{{ r.noTx }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 9px;border:1px solid var(--rule-soft);font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink)"><span style="width:6px;height:6px;background:var(--ink)"></span>{{ r.proofPlain }}</span></sc-if>
-                  <sc-if value="{{ r.verified }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;height:26px;padding:0 9px;background:var(--accent);color:var(--accent-ink);font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase">{{ r.verifiedLabel }}</span></sc-if>
+                  <sc-if value="{{ r.verified }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;height:26px;padding:0 9px;background:var(--accent);color:var(--accent-ink);font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase">{{ r.verifiedLabel }}</span></sc-if><sc-if value="{{ r.demo }}" hint-placeholder-val="{{ false }}"><span title="posted by the BookerBob demo script on testnet, not by an organic guest" style="display:inline-flex;align-items:center;height:26px;padding:0 9px;border:1px dashed var(--ink-3);color:var(--ink-2);font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase">testnet demo activity</span></sc-if>
                 </div>
               </div>
             </article>
@@ -722,6 +722,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
             <sc-if value="{{ r.noText }}" hint-placeholder-val="{{ false }}"><p style="margin:0;font-size:17px;color:var(--ink-3)">text unavailable</p></sc-if>
             <div style="display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:8px;font-size:13px;color:var(--ink-3)">
               <sc-if value="{{ r.verified }}" hint-placeholder-val="{{ false }}"><span style="color:var(--accent)">✓ verified stay</span></sc-if>
+              <sc-if value="{{ r.demo }}" hint-placeholder-val="{{ false }}"><span style="color:var(--ink-2)">testnet demo activity</span></sc-if>
               <sc-if value="{{ r.hasDState }}" hint-placeholder-val="{{ false }}"><span style="color:var(--ink)">{{ r.dState }}</span></sc-if>
             </div>
           </div>
@@ -1132,7 +1133,7 @@ class Component extends DCLogic {
   stars(n) { return [1, 2, 3, 4, 5].map(i => ({ bg: i <= n ? 'var(--ink)' : 'transparent' })); }
   rv(r, P) {
     const t = this.state.texts[r.content_hash], x = this.tx(r.txHash), hotel = this.isHotel(P);
-    return { id: r.id, stars: this.stars(r.rating), aria: r.rating + ' of 5', hasText: !!t, noText: !t, text: t || '', txUrl: x.url, txShort: x.short, verified: r.verified, age: this.age(r.ledger), proofLabel: hotel ? 'proven stay ↗' : 'proven customer ↗', hasTx: !!r.txHash, noTx: !r.txHash, proofPlain: hotel ? 'proven stay' : 'proven customer', verifiedLabel: hotel ? '✓ verified stay' : '✓ verified purchase' };
+    return { id: r.id, stars: this.stars(r.rating), aria: r.rating + ' of 5', hasText: !!t, noText: !t, text: t || '', txUrl: x.url, txShort: x.short, verified: r.verified, demo: !!r.demoActivity, age: this.age(r.ledger), proofLabel: hotel ? 'proven stay ↗' : 'proven customer ↗', hasTx: !!r.txHash, noTx: !r.txHash, proofPlain: hotel ? 'proven stay' : 'proven customer', verifiedLabel: hotel ? '✓ verified stay' : '✓ verified purchase' };
   }
   byId(id) { return this.state.places.find(p => p.id === id); }
 
