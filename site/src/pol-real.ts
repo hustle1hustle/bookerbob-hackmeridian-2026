@@ -31,7 +31,6 @@ const nsNow = (() => {
 })()
 const nsStorage = (ns: string): Pick<Storage, "getItem" | "setItem" | "removeItem"> | undefined =>
   !LS || !ns ? undefined : { getItem: (k) => LS.getItem(`${ns}:${k}`), setItem: (k, v) => LS.setItem(`${ns}:${k}`, v), removeItem: (k) => LS.removeItem(`${ns}:${k}`) }
-const sdk = createTestnetSdk({ apiUrl: API, storage: nsStorage(nsNow) })
 
 const isOperator = () => fetch(`${API}/api/rep/status`, { credentials: "same-origin" }).then((r) => r.json()).then((d) => !!d.demo).catch(() => false)
 const reloadClean = () => {
@@ -69,10 +68,91 @@ export const demo = {
   },
 }
 // ?fresh=1 on load: verified against the operator cookie, then switch namespace (also ?demo=<token> sets the cookie server-side first)
-if (typeof location !== "undefined" && new URLSearchParams(location.search).get("fresh") === "1") {
-  isOperator().then((ok) => (ok ? demo.reset() : reloadClean()))
-} else if (nsNow) {
-  void demo.prepare()
+// (deferred: the sdk is created below)
+setTimeout(() => {
+  if (typeof location !== "undefined" && new URLSearchParams(location.search).get("fresh") === "1") {
+    isOperator().then((ok) => (ok ? demo.reset() : reloadClean()))
+  } else if (nsNow) {
+    void demo.prepare()
+  }
+}, 0)
+// Proving files from our own origin (brotli, immutable), persisted in the Cache API so a revisit never downloads them
+// again, and prefetched at idle after first paint. The SDK keeps its own default URL; we pass ours.
+export const ARTIFACTS = `${API}/artifacts/semaphore/4.13.0`
+const ARTIFACT_CACHE = "bb-artifacts-4.13.0"
+const artProgress = { loaded: 0, total: 0, files: 0 }
+const artifactBytes = new Map<string, Promise<Uint8Array>>()
+function artifactFile(url: string, low: boolean): Promise<Uint8Array> {
+  if (!artifactBytes.has(url))
+    artifactBytes.set(
+      url,
+      (async () => {
+        try {
+          const c = await caches.open(ARTIFACT_CACHE)
+          const hit = await c.match(url)
+          if (hit) {
+            const b = new Uint8Array(await hit.arrayBuffer())
+            artProgress.loaded += b.length
+            artProgress.total += b.length
+            return b
+          }
+        } catch {
+          /* no Cache API (private mode): network only */
+        }
+        const res = await nativeFetch(url, { priority: low ? "low" : "auto" } as RequestInit)
+        if (!res.ok || !res.body) throw new Error(`artifact ${res.status}`)
+        // byte progress over the uncompressed size the server announces (the body stream is already decoded)
+        artProgress.total += Number(res.headers.get("x-uncompressed-length") ?? res.headers.get("content-length") ?? 0)
+        const reader = res.body.getReader()
+        const parts: Uint8Array[] = []
+        let n = 0
+        for (;;) {
+          const { done, value } = await reader.read()
+          if (done) break
+          parts.push(value)
+          n += value.length
+          artProgress.loaded += value.length
+        }
+        const bytes = new Uint8Array(n)
+        let o = 0
+        for (const p of parts) (bytes.set(p, o), (o += p.length))
+        try {
+          await (await caches.open(ARTIFACT_CACHE)).put(url, new Response(bytes, { headers: { "content-type": "application/octet-stream" } }))
+        } catch {
+          /* cache full or unavailable: still fine for this page */
+        }
+        return bytes
+      })().catch((e) => {
+        artifactBytes.delete(url)
+        throw e
+      }),
+    )
+  return artifactBytes.get(url)!
+}
+// The SDK's loader calls fetch() for these URLs: answer from the cache-backed loader above.
+const nativeFetch = globalThis.fetch.bind(globalThis)
+let prefetching = false
+globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url
+  const abs = new URL(url, location.href).href
+  if (abs.startsWith(new URL(ARTIFACTS, location.href).href + "/")) return new Response(await artifactFile(abs, prefetching))
+  return nativeFetch(input as any, init)
+}) as typeof fetch
+
+const sdk = createTestnetSdk({ apiUrl: API, artifactsUrl: ARTIFACTS, storage: nsStorage(nsNow) })
+
+/** Warm the proving files without blocking anything; the SDK keeps them in memory once loaded. */
+export function warmArtifacts(): Promise<unknown> {
+  return loadArtifacts(ARTIFACTS).catch(() => null)
+}
+if (typeof window !== "undefined") {
+  const go = () => {
+    prefetching = true
+    void warmArtifacts().finally(() => (prefetching = false))
+  }
+  const ric = (window as any).requestIdleCallback as undefined | ((f: () => void, o?: any) => void)
+  if (document.readyState === "complete") ric ? ric(go, { timeout: 3000 }) : setTimeout(go, 800)
+  else window.addEventListener("load", () => (ric ? ric(go, { timeout: 3000 }) : setTimeout(go, 800)), { once: true })
 }
 
 // ---- constants the design reads ----
@@ -566,13 +646,13 @@ async function* ucpRun(reuse: boolean): AsyncGenerator<any> {
   const items = await fetch(`${BRIDGE}/search?q=tee`).then((r) => r.json()).catch(() => [])
   const item = items[0]
   if (!item) return yield step(0, "failed", { error: "Network", detail: "the store did not answer." })
-  yield step(0, "done", { detail: `found REP Store on Shopify. its UCP profile: ${item.ucp ?? BRIDGE + "/.well-known/ucp"}` })
+  yield step(0, "done", { detail: "found REP Store on Shopify. it speaks UCP: checkout, cart and proof of loyalty.", link: { url: item.ucp ?? `${BRIDGE}/.well-known/ucp`, label: "UCP profile" } })
   yield step(1, "running")
   cart.nextBps = Number(item.returningDiscountBps ?? 0)
   cart.items.push({ title: String(item.title).toLowerCase(), price: Number(item.price), imageUrl: item.imageUrl ?? null, storePrice: item.storePrice ?? null, storeCurrency: item.storeCurrency ?? null })
   cart.total = Number(item.price)
   yield snap()
-  yield step(1, "done", { detail: `1 × ${String(item.title).toLowerCase()} · ${Number(item.price).toFixed(2)} usdc${item.storePrice ? ` (${Number(item.storePrice).toFixed(2)} ${String(item.storeCurrency ?? "").toLowerCase()} in the store)` : ""} · shopify variant ${String(item.variantId ?? "").split("/").pop()}` })
+  yield step(1, "done", { detail: `1 × ${String(item.title).toLowerCase()} · ${Number(item.price).toFixed(2)} usdc${item.storePrice ? ` (${Number(item.storePrice).toFixed(2)} ${String(item.storeCurrency ?? "").toLowerCase()} in the store)` : ""} · shopify variant ${String(item.variantId ?? "").split("/").pop()}`, ...(item.url ? { link: { url: item.url, label: "product page on Shopify" } } : {}) })
   const payer = await ensureWallet()
   await ready()
   const shopStay = sdk.stays.list().find((s) => s.merchant === UCP_MERCHANT && (findP(4)?.leaves ?? []).includes(BigInt(s.commitment)))
@@ -590,7 +670,7 @@ async function* ucpRun(reuse: boolean): AsyncGenerator<any> {
     yield snap()
     yield step(3, "done", { detail: `provisional ${off.toFixed(2)} usdc off, held until the proof checks out.` })
     yield step(4, "running")
-    const artifacts = await loadArtifacts()
+    const artifacts = await loadArtifacts(ARTIFACTS)
     const leaves = await views.leaves(await getClient({ ...TESTNET, contractId: (await apiConfig()).contractId }), UCP_MERCHANT)
     const holder = shopStay ?? next
     const t0 = performance.now()
@@ -606,7 +686,7 @@ async function* ucpRun(reuse: boolean): AsyncGenerator<any> {
       yield snap()
       return yield step(6, "failed", { detail: UCP_STEPS[6].failDetail })
     }
-    yield step(5, "done", pr.txHash ? { tx: pr.txHash, detail: "stellar checked the proof. it works once, so this discount cannot be reused." } : {})
+    yield step(5, "done", pr.txHash ? { tx: pr.txHash, detail: "stellar checked the proof. it works once, so this discount cannot be reused." } : { detail: "the proof checks out. stellar verifies it once, inside the payment." })
     yield step(6, "running")
     cart.discounts[0].proven = true
     yield snap()
@@ -625,9 +705,16 @@ async function* ucpRun(reuse: boolean): AsyncGenerator<any> {
   cart.total = Number(BigInt(q.quote.pays_raw)) / 1e7
   yield snap()
   yield step(7, "done", { tx: sent.txHash, detail: `${cart.total.toFixed(2)} usdc on stellar.` })
+  // with a claim, the proof is verified and spent inside the payment itself: same transaction
+  if (cart.discounts.length && cart.discounts[0].proven) {
+    yield step(5, "done", { tx: sent.txHash, detail: "stellar checked the proof in the same transaction as the payment. it works once, so it cannot be reused." })
+    yield step(6, "done", { tx: sent.txHash, detail: `−${cart.discounts[0].amount.toFixed(2)} usdc, confirmed in the same transaction as the payment.` })
+  }
   yield step(8, "running")
   const done = await bpost("/buy/complete", { checkoutId: st.checkoutId, txHash: sent.txHash })
-  const orderId = done?.order?.name ?? done?.order?.id ?? null
+  // Shopify returns a gid (gid://shopify/Order/123); show the order number, never the raw id
+  const rawOrder = done?.order?.name ?? done?.order?.id ?? null
+  const orderId = rawOrder ? (String(rawOrder).startsWith("gid://") ? `#${String(rawOrder).split("/").pop()}` : String(rawOrder)) : null
   yield step(8, "done", { tx: sent.txHash, detail: orderId ? `order ${orderId} · recorded in REP Store on Shopify` : "paid. the store records the order once draft orders are enabled." })
   yield step(9, "running")
   loading = null
@@ -655,6 +742,10 @@ export const prover = {
   get cached() {
     return artifactsCached()
   },
+  /** Real bytes of the proving files received so far (uncompressed), for the download step. */
+  progress() {
+    return { ...artProgress }
+  },
   resetCache() {},
   // Real stages: the proving files download once; for pay, one membership proof per group is made here, bound to a
   // fresh one-time payer address; review proofs are made in postReview (they bind the rating and text).
@@ -664,7 +755,7 @@ export const prover = {
     const n = kind === "review" ? 1 : groups.length
     if (n && !artifactsCached()) {
       yield "download"
-      await loadArtifacts()
+      await loadArtifacts(ARTIFACTS)
     }
     if (kind === "review") {
       yield "proving"
@@ -678,7 +769,7 @@ export const prover = {
         const e = elig.find((x: any) => x.group === g)
         if (!e?._holder) continue
         const leaves = e._ref.kind === "merchant" ? (state!.places.find((x) => x.mid === e._ref.id)?.leaves ?? []) : (state!.groupLeaves.get(e._ref.id) ?? [])
-        const mp = await proveMembership(sdk.stays.identity(e._holder), leaves, d.discountMessage(payer.publicKey()), d.ctxScope(p.mid, e._ref, SEASON_N), await loadArtifacts())
+        const mp = await proveMembership(sdk.stays.identity(e._holder), leaves, d.discountMessage(payer.publicKey()), d.ctxScope(p.mid, e._ref, SEASON_N), await loadArtifacts(ARTIFACTS))
         claims.push({ key: g, arg: { group: { tag: e._ref.kind === "merchant" ? "Merchant" : "Group", values: [e._ref.id] }, proof: proofArg(mp.proof), root: mp.root, nullifier: mp.nullifier } })
       }
       pending = { place, groups, payer, claims }
@@ -742,6 +833,8 @@ export interface Source {
   txHash?: string | null
   /** What it unlocks at this place, or across the network. */
   perk?: string
+  /** stellar.expert page of the connected account. */
+  accountUrl?: string
 }
 
 /** The REP app, one config value (may move to r3p.xyz). */
@@ -830,6 +923,7 @@ export async function sources(placeId?: number): Promise<Source[]> {
       proves: "pays for you. a fresh address for every payment, so purchases do not link.",
       status: addr ? "connected" : "none",
       detail: addr ? `${addr.slice(0, 4)}…${addr.slice(-4)}` : "passkey, freighter or a demo key in this browser",
+      ...(addr ? { accountUrl: `https://stellar.expert/explorer/testnet/account/${addr}` } : {}),
     },
     {
       id: "rep",

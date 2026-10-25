@@ -64,7 +64,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
               <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px"><span style="font-size:15px">{{ r.label }}</span><span style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:{{ r.statusColor }}">{{ r.status }}</span></div>
               <sc-if value="{{ r.hasPerk }}" hint-placeholder-val="{{ false }}"><div style="margin-top:4px;font-family:var(--mono);font-size:11px;font-weight:600;color:var(--deal-ink);background:var(--deal);display:inline-block;padding:2px 6px">{{ r.perk }}</div></sc-if>
               <p style="margin:4px 0 0;font-size:13px;line-height:1.45;color:var(--ink-2)">{{ r.proves }}</p>
-              <p style="margin:2px 0 0;font-size:13px;line-height:1.45;color:var(--ink-3)">{{ r.detail }}</p>
+              <p style="margin:2px 0 0;font-size:13px;line-height:1.45;color:var(--ink-3)">{{ r.detail }}<sc-if value="{{ r.hasAccount }}" hint-placeholder-val="{{ false }}"> · <a href="{{ r.accountUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">account ↗</a></sc-if></p>
               <sc-if value="{{ r.hasTx }}" hint-placeholder-val="{{ false }}"><p style="margin:4px 0 0;font-size:12px;color:var(--ink-2)">joined · <a href="{{ r.txUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">tx {{ r.txShort }} ↗</a></p></sc-if>
               <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
                 <sc-for list="{{ r.actions }}" as="a" hint-placeholder-count="1"><button onClick="{{ a.onClick }}" disabled="{{ a.disabled }}" style="appearance:none;border:1px solid var(--ink);background:{{ a.bg }};color:{{ a.fg }};font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;height:30px;padding:0 10px;cursor:pointer;opacity:{{ a.op }}">{{ a.label }}</button></sc-for>
@@ -519,7 +519,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
               <span style="font-family:var(--mono);font-size:12px;color:{{ s.color }};white-space:nowrap">{{ s.mark }}</span>
             </button>
             <sc-if value="{{ s.open }}" hint-placeholder-val="{{ false }}">
-              <div style="padding:0 0 14px 32px;font-size:14px;line-height:1.5;color:{{ s.detailColor }};animation:bb-in .25s ease both">{{ s.detail }}<sc-if value="{{ s.hasTx }}" hint-placeholder-val="{{ false }}"> <a href="{{ s.txUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">tx {{ s.txShort }} ↗</a></sc-if></div>
+              <div style="padding:0 0 14px 32px;font-size:14px;line-height:1.5;color:{{ s.detailColor }};animation:bb-in .25s ease both">{{ s.detail }}<sc-if value="{{ s.hasLink }}" hint-placeholder-val="{{ false }}"> <a href="{{ s.linkUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">{{ s.linkLabel }} ↗</a></sc-if><sc-if value="{{ s.hasTx }}" hint-placeholder-val="{{ false }}"> <a href="{{ s.txUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">tx {{ s.txShort }} ↗</a></sc-if></div>
             </sc-if>
           </div>
         </sc-for>
@@ -543,8 +543,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
         <div style="padding:12px 20px;border-top:1px solid var(--rule-soft);font-size:14px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px">
           <span style="display:flex;align-items:center;gap:8px;color:{{ cartStatusColor }}"><span style="width:7px;height:7px;background:{{ cartStatusColor }}"></span>{{ cartStatus }}</span>
           <sc-if value="{{ cartPaid }}" hint-placeholder-val="{{ false }}">
-            <button onClick="{{ toggleAgReceipt }}" style="appearance:none;border:0;border-bottom:1px solid var(--ink);background:none;color:var(--ink);font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;padding:0 0 2px;cursor:pointer">{{ agReceiptLabel }}</button>
-            <sc-if value="{{ agReceiptOpen }}" hint-placeholder-val="{{ false }}"><a href="{{ cartTxUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px">tx {{ cartTxShort }} ↗</a></sc-if>
+            <a href="{{ cartTxUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px">tx {{ cartTxShort }} ↗</a>
           </sc-if>
         </div>
       </aside>
@@ -565,7 +564,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
             <span style="border:1px solid var(--ink);font-family:var(--mono);font-size:12px;padding:5px 9px">order {{ sv.orderId }}</span>
             <span style="border:1px solid var(--ink);font-family:var(--mono);font-size:12px;padding:5px 9px">{{ sv.amount }} usdc</span>
             <span style="background:var(--accent);color:var(--accent-ink);font-family:var(--mono);font-size:12px;padding:6px 10px">✓ {{ sv.badge }}</span>
-            <a href="{{ sv.txUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px">tx ↗</a>
+            <a href="{{ sv.txUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px">tx {{ sv.txShort }} ↗</a>
           </div>
         </sc-if>
         <sc-if value="{{ sv.none }}" hint-placeholder-val="{{ true }}"><p style="margin:14px 0 0;font-size:16px;color:var(--ink-3)">an order, an amount, one badge. after bob pays.</p></sc-if>
@@ -642,10 +641,10 @@ html,body{margin:0;padding:0;background:#EDEBE5}
           <sc-if value="{{ desk.success }}" hint-placeholder-val="{{ false }}">
             <div style="animation:bb-in .4s ease both">
               <div style="font-size:clamp(26px,2.6vw,36px);font-weight:500;letter-spacing:-.04em;line-height:1.05">guest {{ desk.leafIdx }} joined.</div>
-              <div style="display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:10px;font-family:var(--mono);font-size:12px;color:var(--ink-2)"><span>new root {{ desk.root }}</span><a href="{{ desk.txUrl }}" target="_blank" rel="noopener">tx ↗</a></div>
+              <div style="display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:10px;font-family:var(--mono);font-size:12px;color:var(--ink-2)"><button onClick="{{ desk.copyRoot }}" title="copy the full root" style="appearance:none;border:0;background:none;padding:0;color:var(--ink-2);font:inherit;cursor:copy">new root {{ desk.root }} ⧉</button><a href="{{ desk.txUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">tx {{ desk.txShort }} ↗</a></div>
             </div>
           </sc-if>
-          <sc-if value="{{ desk.notSuccess }}" hint-placeholder-val="{{ true }}"><div style="font-family:var(--mono);font-size:12px;color:var(--ink-3)">root {{ desk.root }}</div></sc-if>
+          <sc-if value="{{ desk.notSuccess }}" hint-placeholder-val="{{ true }}"><button onClick="{{ desk.copyRoot }}" title="copy the full root" style="appearance:none;border:0;background:none;padding:0;font-family:var(--mono);font-size:12px;color:var(--ink-3);cursor:copy">root {{ desk.root }} ⧉</button></sc-if>
         </div>
       </div>
     </div>
@@ -701,7 +700,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
           </span>
           <span style="flex:0 0 auto;font-size:14px;color:var(--ink-3)">identity: not shared</span>
           <span style="flex:0 0 110px;text-align:right;font-size:20px;letter-spacing:-.03em">{{ o.amount }}</span>
-          <a href="{{ o.txUrl }}" target="_blank" rel="noopener" style="flex:0 0 auto;font-family:var(--mono);font-size:12px">tx ↗</a>
+          <a href="{{ o.txUrl }}" target="_blank" rel="noopener" style="flex:0 0 auto;font-family:var(--mono);font-size:12px">tx {{ o.txShort }} ↗</a>
         </div>
       </sc-for>
     </div>
@@ -760,7 +759,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
               <sc-if value="{{ arbChecked }}" hint-placeholder-val="{{ false }}"><button onClick="{{ attest }}" style="appearance:none;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;height:50px;padding:0 22px;display:inline-flex;align-items:center;gap:28px;cursor:pointer" style-hover="background:var(--ink);border-color:var(--ink);color:var(--bg)">attest<span>→</span></button></sc-if>
               <sc-if value="{{ arbAttesting }}" hint-placeholder-val="{{ false }}"><span style="font-family:var(--mono);font-size:12px;display:inline-flex;align-items:center;gap:10px"><span style="width:8px;height:8px;background:var(--accent);animation:bb-blink 1s steps(1) infinite"></span>signing</span></sc-if>
               <sc-if value="{{ arbDone }}" hint-placeholder-val="{{ false }}">
-                <div style="animation:bb-in .4s ease both"><div style="font-size:clamp(26px,2.8vw,38px);font-weight:500;letter-spacing:-.04em;line-height:1.05">attested.</div><p style="margin:6px 0 0;font-size:15px;color:var(--ink-2)">the place sees "verified stay". never who.<sc-if value="{{ arbHasTx }}" hint-placeholder-val="{{ false }}"> <a href="{{ arbTxUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px">tx ↗</a></sc-if></p></div>
+                <div style="animation:bb-in .4s ease both"><div style="font-size:clamp(26px,2.8vw,38px);font-weight:500;letter-spacing:-.04em;line-height:1.05">attested.</div><p style="margin:6px 0 0;font-size:15px;color:var(--ink-2)">the place sees "verified stay". never who.<sc-if value="{{ arbHasTx }}" hint-placeholder-val="{{ false }}"> <a href="{{ arbTxUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px">tx {{ arbTxShort }} ↗</a></sc-if></p></div>
               </sc-if>
               <sc-if value="{{ arbError }}" hint-placeholder-val="{{ false }}"><div style="border:1px solid var(--warn);padding:12px 14px;flex:1 1 320px"><span style="color:var(--warn)">{{ arbErrHead }}</span> <span style="color:var(--ink-2)">{{ arbErrBody }}</span></div></sc-if>
             </div>
@@ -1306,7 +1305,7 @@ class Component extends DCLogic {
       for await (const ev of this.m.ucp.run({ reuse })) {
         if (ev.type === 'step') this.setState(s => {
           const ag = { ...s.ag, steps: s.ag.steps.map(x => ({ ...x })) }, st = ag.steps[ev.i];
-          st.status = ev.status; if (ev.detail) st.detail = ev.detail; if (ev.tx) st.tx = ev.tx; if (ev.error) ag.error = ev.error;
+          st.status = ev.status; if (ev.detail) st.detail = ev.detail; if (ev.tx) st.tx = ev.tx; if (ev.link) st.link = ev.link; if (ev.error) ag.error = ev.error;
           if (ev.status === 'failed') ag.open = { ...ag.open, [ev.i]: true };
           return { ag };
         });
@@ -1331,7 +1330,7 @@ class Component extends DCLogic {
         dotBg: x.status === 'running' ? 'var(--accent)' : x.status === 'failed' ? 'var(--warn)' : x.status === 'done' ? 'var(--ink)' : 'transparent',
         dotBd: x.status === 'running' ? 'var(--accent)' : x.status === 'failed' ? 'var(--warn)' : x.status === 'done' ? 'var(--ink)' : 'var(--rule-soft)',
         anim: x.status === 'running' ? 'bb-blink 1s steps(1) infinite' : 'none',
-        hasTx: open && !!txx, txUrl: txx ? txx.url : '', txShort: txx ? txx.short : '',
+        hasTx: open && !!txx, txUrl: txx ? txx.url : '', txShort: txx ? txx.short : '', hasLink: open && !!x.link, linkUrl: x.link ? x.link.url : '', linkLabel: x.link ? x.link.label : '',
         onToggle: () => { if (x.detail) this.setState(st => ({ ag: { ...st.ag, open: { ...st.ag.open, [i]: !(st.ag.open[i] ?? true) } } })); },
       };
     });
@@ -1358,7 +1357,7 @@ class Component extends DCLogic {
       agReceiptOpen: !!ag.receipt, agReceiptLabel: ag.receipt ? 'hide receipt' : 'receipt', toggleAgReceipt: () => this.setState(st => ({ ag: { ...st.ag, receipt: !st.ag.receipt } })),
       cartTxUrl: cart.tx ? this.tx(cart.tx).url : '', cartTxShort: cart.tx ? this.tx(cart.tx).short : '',
       agFailed: failed, agFailBody: ag.error && ag.error !== 'NullifierUsed' ? 'the proof did not check out, so the store took the 10% back. nothing was charged.' : 'this proof was already spent once, so stellar refused it and the store took the 10% back. nothing was charged.',
-      sv: sv0 ? { has: true, none: false, orderId: sv0.orderId, amount: this.money(sv0.amount), badge: sv0.badges[0], txUrl: this.tx(sv0.tx).url } : { has: false, none: true },
+      sv: sv0 ? { has: true, none: false, orderId: sv0.orderId, amount: this.money(sv0.amount), badge: sv0.badges[0], txUrl: this.tx(sv0.tx).url, txShort: this.tx(sv0.tx).short } : { has: false, none: true },
       openShopAdmin: () => { this.setState({ role: 'merchant', mPlace: 4 }); window.scrollTo(0, 0); },
     };
   }
@@ -1396,7 +1395,7 @@ class Component extends DCLogic {
         input: dk.input, scanning: dk.scanning, scanLabel: dk.scanning ? 'stop' : 'scan qr',
         canSubmit: dk.phase !== 'submitting', submitting: dk.phase === 'submitting', success: dk.phase === 'success', notSuccess: dk.phase !== 'success', error: dk.phase === 'error',
         errHead: dErr ? dErr.h : '', errBody: dErr ? dErr.b : '', leafIdx: newIdx >= 0 ? String(newIdx + 1) : '',
-        root: P0 ? this.short(P0.roots[P0.roots.length - 1], 8, 6) : '', txUrl: dTx ? dTx.url : '', treeLabel: P0 ? `${P0.group_size} of ${(this.m && this.m.TREE_CAP) || 32}` : '',
+        root: P0 ? this.short(P0.roots[P0.roots.length - 1], 8, 6) : '', copyRoot: () => { const r = P0 && P0.roots[P0.roots.length - 1]; if (r && navigator.clipboard) navigator.clipboard.writeText(r).catch(() => {}); }, txUrl: dTx ? dTx.url : '', txShort: dTx ? dTx.short : '', treeLabel: P0 ? `${P0.group_size} of ${(this.m && this.m.TREE_CAP) || 32}` : '',
       },
       leaves: Array.from({ length: 32 }, (_, i) => { const f = P0 && i < P0.group_size, nw = i === newIdx; return { bg: nw ? 'var(--accent)' : f ? 'var(--ink)' : 'transparent', bd: nw ? 'var(--accent)' : f ? 'var(--ink)' : 'var(--rule-soft)' }; }),
       onDeskInput: e => this.setDesk({ input: e.target.value, detected: false }), deskScan: this.deskScan,
@@ -1407,7 +1406,7 @@ class Component extends DCLogic {
         const d = s.disputes.find(x => x.reviewId === r.id);
         return { ...this.rv(r, P0), canDispute: !r.verified && !d && s.disputing !== r.id, disputing: s.disputing === r.id, hasDState: !!d && !r.verified, dState: d ? (d.status === 'awaiting' ? 'disputed · waiting on the guest' : 'disputed · with the arbiter') : '', onDispute: () => this.openDispute(r.id) };
       }),
-      orders: s.orders.map((o, i) => ({ id: o.id, item: o.item, amount: this.money(o.amount), hasBadge: o.badges.length > 0, noBadge: !o.badges.length, badge: o.badges[0] || '', txUrl: this.tx(o.tx).url, bg: i === 0 && o.badges.length ? 'var(--accent-soft)' : 'transparent' })),
+      orders: s.orders.map((o, i) => ({ id: o.id, item: o.item, amount: this.money(o.amount), hasBadge: o.badges.length > 0, noBadge: !o.badges.length, badge: o.badges[0] || '', txUrl: this.tx(o.tx).url, txShort: this.tx(o.tx).short, bg: i === 0 && o.badges.length ? 'var(--accent-soft)' : 'transparent' })),
       shopReviewsHead: shop && shop.review_count ? this.plural(shop.review_count, 'proven review') + '.' : 'no reviews yet.',
     };
   }
@@ -1450,7 +1449,7 @@ class Component extends DCLogic {
     return {
       queue, queueEmpty: s.ready && !queue.length, ad, adNone: !sd, checks, onReveal: () => this.setArb({ reveal: !ar.reveal }),
       arbCanRun: !!pk && !attested && (ar.phase === 'idle' || ar.phase === 'failed'), arbChecking: ar.phase === 'checking', arbChecked: !attested && ar.phase === 'checked', arbAttesting: ar.phase === 'attesting',
-      arbDone: attested, arbHasTx: !!aTx, arbTxUrl: aTx ? aTx.url : '', arbError: !!aErr, arbErrHead: aErr ? aErr.h : '', arbErrBody: aErr ? aErr.b : '',
+      arbDone: attested, arbHasTx: !!aTx, arbTxUrl: aTx ? aTx.url : '', arbTxShort: aTx ? aTx.short : '', arbError: !!aErr, arbErrHead: aErr ? aErr.h : '', arbErrBody: aErr ? aErr.b : '',
       runChecks: this.runChecks, attest: this.attest,
     };
   }
@@ -1478,7 +1477,13 @@ class Component extends DCLogic {
     try {
       for await (const ev of m.prover.prove(kind, ctx.placeId, { groups: ctx.groups || [] })) {
         if (!this.state.flow) return;
-        if (ev === 'download') { upd(f => { f.steps[0].label = 'fetching proving files'; f.steps[0].sub = '4.1 mb, only the first time.'; }); this.setField('scan'); }
+        if (ev !== 'download' && this.dlT) { clearInterval(this.dlT); this.dlT = null; }
+        if (ev === 'download') {
+          upd(f => { f.steps[0].label = 'fetching proving files'; f.steps[0].sub = 'only the first time.'; }); this.setField('scan');
+          clearInterval(this.dlT);
+          // real bytes received (bb: live progress)
+          this.dlT = setInterval(() => { const p = m.prover.progress ? m.prover.progress() : null; if (!p || !p.total || !this.state.flow) return; upd(f => { f.steps[0].sub = `${(p.loaded / 1e6).toFixed(1)} of ${(p.total / 1e6).toFixed(1)} mb, only the first time.`; }); if (p.loaded >= p.total) clearInterval(this.dlT); }, 200);
+        }
         else if (ev === 'proving') { advance('p' + pi); pi++; this.setField('churn'); }
         else if (ev === 'verifying') {
           advance('verifying'); this.setField('ring');
@@ -1637,7 +1642,7 @@ class Component extends DCLogic {
       srcBtnBg: connected ? 'transparent' : 'var(--ink)', srcBtnFg: connected ? 'var(--ink)' : 'var(--bg)',
       srcChips: list.map(r => ({ short: short[r.id] || r.id, dot: (dots[r.status] || dots.none)[0], dotBd: (dots[r.status] || dots.none)[1], title: r.label + ': ' + (word[r.status] || r.status) })),
       srcCta: connected ? '' : 'connect →',
-      srcRows: list.map((r, i) => ({ head: i === 1 ? 'add for more perks' : '', hasHead: i === 1, perk: r.perk || '', hasPerk: !!r.perk, hasTx: !!r.txHash, txUrl: r.txHash ? this.tx(r.txHash).url : '', txShort: r.txHash ? this.tx(r.txHash).short : '', label: r.label, proves: r.proves, detail: r.detail, status: word[r.status] || r.status, statusColor: r.status === 'connected' ? 'var(--accent)' : r.status === 'failed' ? 'var(--warn)' : 'var(--ink-3)', rule: i ? 'var(--rule-soft)' : 'transparent', bg: src.focus === r.id ? 'var(--accent-soft)' : 'transparent', actions: actions(r) })),
+      srcRows: list.map((r, i) => ({ hasAccount: !!r.accountUrl, accountUrl: r.accountUrl || '', head: i === 1 ? 'add for more perks' : '', hasHead: i === 1, perk: r.perk || '', hasPerk: !!r.perk, hasTx: !!r.txHash, txUrl: r.txHash ? this.tx(r.txHash).url : '', txShort: r.txHash ? this.tx(r.txHash).short : '', label: r.label, proves: r.proves, detail: r.detail, status: word[r.status] || r.status, statusColor: r.status === 'connected' ? 'var(--accent)' : r.status === 'failed' ? 'var(--warn)' : 'var(--ink-3)', rule: i ? 'var(--rule-soft)' : 'transparent', bg: src.focus === r.id ? 'var(--accent-soft)' : 'transparent', actions: actions(r) })),
     };
   }
 
