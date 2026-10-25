@@ -6,6 +6,7 @@ import { useAsync } from "../store"
 import { Empty, Loading } from "../ui"
 import { PlaceList } from "../views/places"
 import { Explainer } from "../views/explainer"
+import { PassConnectPanel } from "../views/PassConnect"
 
 const usdc = (p: Place) => Number(p.price) / 10 ** USDC_DECIMALS
 
@@ -25,10 +26,10 @@ export function PlacesScreen() {
   const maxPrice = max === null ? cap : Math.min(max, cap)
   const shown = ofKind.filter((p) => usdc(p) <= maxPrice)
 
-
   return (
     <>
       <h1>all places</h1>
+      <PassConnectPanel merchantId={data?.[0]?.id ?? 0} />
       {loading && !data && <Loading what="places from Stellar testnet" />}
       {error && <Empty title="could not reach Stellar testnet">refresh to retry.</Empty>}
       {data && data.length === 0 && <Empty title="no places yet" />}

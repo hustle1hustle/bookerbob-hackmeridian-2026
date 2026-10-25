@@ -59,7 +59,7 @@ export function PassConnectPanel({ merchantId = 0, season }: { merchantId?: numb
   }
 
   return (
-    <section className="card section pass-connect" aria-label="passkey and on-chain verify">
+    <section id="pass-connect" className="card pass-connect" aria-label="passkey and on-chain verify">
       <span className="label">pass_connect · verify_onchain_zk</span>
       <h2>connect with passkey</h2>
       <p className="muted">

@@ -129,7 +129,7 @@ declare global {
 export function Shell({ children }: { children: ReactNode }) {
   const { role, path } = useRoute()
   const address = useWallet()
-  const home = (path[0] ?? "") === ""
+  const home = (path[0] ?? "") === "" || path[0] === "ask"
 
   // myc.js boots on first paint; React mounts the hero canvas later — re-run once it exists.
   useEffect(() => {

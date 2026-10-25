@@ -6,15 +6,13 @@ export function Hero() {
     <div className="hero-copy">
       <span className="label hero-eb">proof of loyalty · everywhere you go</span>
       <h1 className="statement">
-        agents got smart. <em>they still don't know who really stayed.</em>
+        prove you stayed. <em>keep who you are private.</em>
       </h1>
-      <p className="hero-sub">
-        guests prove they were customers without revealing who they are. BookerBob ranks places by reviews nobody can buy, and unlocks a returning-guest discount with the same proof.
-      </p>
+      <p className="hero-sub">BookerBob ranks places by proven reviews only, then unlocks a returning-guest discount with the same ZK proof on Stellar.</p>
       <p className="hero-proof">
-        <span>live on Stellar testnet.</span>
-        <a className="u" href="https://stellarbob2026.xyz/">
-          stellarbob2026.xyz
+        <span>stellar testnet</span>
+        <a className="u" href="#pass-connect">
+          connect with passkey →
         </a>
       </p>
     </div>

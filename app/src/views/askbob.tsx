@@ -7,12 +7,19 @@ import { Stars, TxLink } from "../ui"
 
 export function AskHero() {
   return (
-    <header>
-      <h1>BookerBob.</h1>
-      <p>
-        <strong>Google for agentic commerce.</strong> Proof of loyalty, everywhere you go.
+    <div className="hero-copy">
+      <span className="label hero-eb">proof of loyalty · everywhere you go</span>
+      <h1 className="statement">
+        prove you stayed. <em>keep who you are private.</em>
+      </h1>
+      <p className="hero-sub">Ask Bob ranks places by proven reviews only. Connect a passkey to rate your wallet on-chain for loyalty discounts.</p>
+      <p className="hero-proof">
+        <span>stellar testnet</span>
+        <a className="u" href="#pass-connect">
+          connect with passkey →
+        </a>
       </p>
-    </header>
+    </div>
   )
 }
 
