@@ -385,24 +385,25 @@ export async function inspectWallet(address: string, opts: VerifyOptions = {}): 
   }
   const ops = await horizonGet(horizonUrl, `/accounts/${address}/operations?order=desc&limit=${limit}`, f)
   const records: any[] = ops?._embedded?.records ?? []
+  // Drop BookerBob loyalty-attest dust (1 stroop) so re-verify after /api/loyalty/attest does not inflate the score.
+  const scored = records.filter((op) => !isLoyaltyAttestDust(op))
   let paymentCount = 0
   let nativeVolumeStroops = 0n
-  for (const op of records) {
+  for (const op of scored) {
     if (op.type === "payment" || op.type === "path_payment_strict_send" || op.type === "path_payment_strict_receive") {
       paymentCount++
       if (op.asset_type === "native" && op.amount) {
-        // amount is string in XLM; convert roughly to stroops
         const xlm = Number(op.amount)
         if (Number.isFinite(xlm)) nativeVolumeStroops += BigInt(Math.round(xlm * 10_000_000))
       }
     }
   }
   const lastMod = account.last_modified_time ? Date.parse(account.last_modified_time) : Date.now()
-  // Horizon does not always expose created_at; use paging_token / last_modified as proxy floor
-  const createdGuess = account.id && records.length ? Date.parse(records[records.length - 1]?.created_at ?? "") : lastMod
+  // Prefer account birth from Horizon sequence paging; fall back to oldest scored op, then last_modified.
+  const createdGuess = account.id && scored.length ? Date.parse(scored[scored.length - 1]?.created_at ?? "") : lastMod
   const ageMs = Date.now() - (Number.isFinite(createdGuess) ? createdGuess : lastMod)
   const ageDays = Math.max(0, ageMs / 86_400_000)
-  const txCount = records.length
+  const txCount = scored.length
   // Optional Passport bonus (default on): never throws, no match / no key / API down → score 0.
   const passport =
     opts.passport === false
@@ -429,6 +430,13 @@ export async function inspectWallet(address: string, opts: VerifyOptions = {}): 
     inspectedAt: Date.now(),
     horizonUrl,
   }
+}
+
+/** True for the 1-stroop native payment used by Ops.attestLoyalty (memo.hash claim digest). */
+export function isLoyaltyAttestDust(op: { type?: string; asset_type?: string; amount?: string }): boolean {
+  if (op.type !== "payment" || op.asset_type !== "native" || !op.amount) return false
+  const xlm = Number(op.amount)
+  return Number.isFinite(xlm) && xlm > 0 && xlm <= 0.0000001
 }
 
 /** Build a claim other modules can pass around (no proof yet). */

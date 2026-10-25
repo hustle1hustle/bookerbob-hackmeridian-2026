@@ -181,6 +181,46 @@ main.app-main {
 .pass-connect .verdict {
   margin-top: 16px;
 }
+.pass-connect .verified-score {
+  margin-top: 22px;
+}
+.pass-connect .tier-ladder {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+.pass-connect .tier-ladder li {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  background: var(--paper, #f6f4ef);
+  color: var(--ink-2);
+  font-family: var(--mono, ui-monospace, Menlo, monospace);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  opacity: 0.45;
+}
+.pass-connect .tier-ladder li.reached {
+  opacity: 0.75;
+  border-color: color-mix(in srgb, var(--accent, #3b5bff) 35%, var(--rule));
+}
+.pass-connect .tier-ladder li.on {
+  opacity: 1;
+  color: #fff;
+  background: var(--accent, #3b5bff);
+  border-color: var(--accent, #3b5bff);
+  box-shadow: 0 8px 24px -12px color-mix(in srgb, var(--accent, #3b5bff) 80%, transparent);
+}
+.pass-connect .verified-score .band {
+  margin-top: 14px;
+}
 
 .site-foot {
   margin-top: auto;
