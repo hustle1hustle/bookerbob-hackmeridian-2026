@@ -5,7 +5,7 @@ import type { DisclosurePackage } from "@bookerbob/pos-sdk"
 
 export interface ReviewMeta { text: string; txHash: string; time: number; demoActivity?: boolean }
 export interface Dispute { id: number; merchant: number; pkg?: DisclosurePackage; openedAt: number; attestTx?: string; openedBy?: "merchant" | "guest" }
-interface Db { reviews: Record<string, ReviewMeta>; disputes: Dispute[]; checkouts?: Record<string, string> }
+interface Db { reviews: Record<string, ReviewMeta>; disputes: Dispute[]; checkouts?: Record<string, string>; bookingsUsed?: string[] }
 
 const empty = (): Db => ({ reviews: {}, disputes: [], checkouts: {} })
 const load = (path: string): Db => (existsSync(path) ? { ...empty(), ...JSON.parse(readFileSync(path, "utf8")) } : empty())
@@ -28,6 +28,13 @@ export class Store {
   }
   putReview(id: number, m: ReviewMeta) {
     this.live.reviews[id] = m
+    this.save()
+  }
+  bookingUsed(tx: string): boolean {
+    return (this.live.bookingsUsed ?? []).includes(tx)
+  }
+  useBooking(tx: string) {
+    this.live.bookingsUsed = [...(this.live.bookingsUsed ?? []), tx]
     this.save()
   }
   /** Checkout tx per (merchant, commitment), so a pass can link its transaction. */

@@ -136,6 +136,7 @@ export function createTestnetSdk(opts: TestnetOptions = {}): Sdk {
           return addr
         } catch (e) {
           if (e instanceof PassConnectException && e.code === "UserCancelled") throw new Error("UserRejected")
+          if (e instanceof PassConnectException && e.code === "NoPasskey") throw new Error("NoPasskey")
           if (e instanceof PassConnectException && e.code === "PasskeyUnsupported") throw new Error("passkey is not supported in this browser")
           throw e instanceof Error ? e : new Error("passkey connect failed")
         }
@@ -247,11 +248,19 @@ export function createTestnetSdk(opts: TestnetOptions = {}): Sdk {
     const m = await views.merchant(c, merchant)
     const groups = await views.groups(c)
     const mine = loadStays().map((s) => ({ s, id: identityOf(s) }))
+    // At a chain member, a chain claim shares the merchant's own discount nullifier, so it needs a different stay.
+    // the shared chain scope exists only on the upgraded contract; on the current one chain claims keep their own scope
+    const chain = views.sharedChainScope(c) ? (((await (c as any).merchant_chain({ merchant })).result ?? null) as number | null) : null
+    const shared = (g: d.GroupRef) => (g.kind === "merchant" && g.id === merchant) || (g.kind === "group" && chain != null && g.id === chain)
+    const used = new Set<bigint>()
     const items: Perk[] = []
     const claims: { group: d.GroupRef; identity: ReturnType<typeof identityOf>; leaves: bigint[] }[] = []
-    for (const it of pol.items) {
+    // own-tree item first, so the returning-guest perk keeps the stay made here
+    const ordered = [...pol.items].sort((a, b) => Number(b.group.kind === "merchant" && b.group.id === merchant) - Number(a.group.kind === "merchant" && a.group.id === merchant))
+    for (const it of ordered) {
       const leaves = it.group.kind === "merchant" ? await views.leaves(c, it.group.id) : await views.groupLeaves(c, it.group.id)
-      const hit = mine.find((x) => leaves.includes(x.id.commitment))
+      const hit = mine.find((x) => leaves.includes(x.id.commitment) && !(shared(it.group) && used.has(x.id.commitment)))
+      if (hit && shared(it.group)) used.add(hit.id.commitment)
       const label =
         it.group.kind === "merchant"
           ? it.group.id === merchant
@@ -262,7 +271,7 @@ export function createTestnetSdk(opts: TestnetOptions = {}): Sdk {
       if (hit) claims.push({ group: it.group, identity: hit.id, leaves })
     }
     const bps = Math.min(pol.maxBps, items.filter((i) => i.eligible).reduce((a, i) => a + i.bps, 0))
-    return { items, claims, maxBps: pol.maxBps, bps, price: m.price }
+    return { items, claims, maxBps: pol.maxBps, bps, price: m.price, chain }
   }
 
   // ---- prover ----
@@ -309,7 +318,7 @@ export function createTestnetSdk(opts: TestnetOptions = {}): Sdk {
         const msg = d.discountMessage(payer)
         const claims = []
         for (const cl of plan.claims) {
-          const mp = await proveMembership(cl.identity, cl.leaves, msg, d.ctxScope(req.merchant, cl.group, req.season), artifacts)
+          const mp = await proveMembership(cl.identity, cl.leaves, msg, d.ctxScope(req.merchant, cl.group, req.season, plan.chain), artifacts)
           claims.push({ group: groupArg(cl.group), proof: proofArg(mp.proof), root: mp.root, nullifier: mp.nullifier })
         }
         yield { stage: "verifying" }
@@ -406,9 +415,9 @@ export function createTestnetSdk(opts: TestnetOptions = {}): Sdk {
     },
     explorerTx: (h) => `https://stellar.expert/explorer/testnet/tx/${h}`,
     explorerContract: () => `https://stellar.expert/explorer/testnet/contract/${contractId}`,
-    async checkout(merchant, commitment) {
+    async checkout(merchant, commitment, bookingTx) {
       const conf = await cfg()
-      if (conf.demoMerchants.includes(merchant)) return asResult(await post("/api/checkout", { merchant, commitment }), (r) => ({ root: String(r.root) }))
+      if (conf.demoMerchants.includes(merchant)) return asResult(await post("/api/checkout", { merchant, commitment, bookingTx }), (r) => ({ root: String(r.root) }))
       const w = await writer()
       if (!w) return { error: "WalletNotConnected" }
       const r = await write<bigint>(w, "checkout", { merchant, id_commitment: BigInt(commitment) })
@@ -454,7 +463,11 @@ export function createTestnetSdk(opts: TestnetOptions = {}): Sdk {
         const s = new rpc.Server(c.rpcUrl)
         const issuer = c.usdcIssuer
         if (!issuer) return { error: "Unknown", message: "no issuer" }
-        const acct = await s.getAccount(address)
+        // a key that was never funded (a passkey generation, a local key whose friendbot call failed) has no account yet
+        const acct = await s.getAccount(address).catch(async () => {
+          await fetch(`https://friendbot.stellar.org/?addr=${address}`).catch(() => null)
+          return s.getAccount(address!)
+        })
         const tx = new TransactionBuilder(acct, { fee: BASE_FEE, networkPassphrase: c.networkPassphrase }).addOperation(Operation.changeTrust({ asset: new Asset("USDC", issuer) })).setTimeout(60).build()
         const signed = await signer.signTransaction(tx.toXDR(), { networkPassphrase: c.networkPassphrase })
         const sent = await s.sendTransaction(TransactionBuilder.fromXDR(signed.signedTxXdr, c.networkPassphrase))

@@ -40,7 +40,7 @@ export function WalletScoreHint({ merchantDiscountBps }: { merchantDiscountBps: 
   if (!claim) {
     return (
       <p className="small muted">
-        connect and score at <a href="#pass-connect">pass_connect</a> for a wallet loyalty hint.
+        connect and score at <a href="#pass-connect">wallet score</a> for a wallet loyalty hint.
       </p>
     )
   }

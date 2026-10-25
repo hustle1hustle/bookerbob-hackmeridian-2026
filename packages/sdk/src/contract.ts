@@ -47,6 +47,9 @@ const CONTRACT_ERRORS: Record<number, ContractError> = {
   20: "RepHolder",
   21: "RepNonce",
   22: "RepReplay",
+  23: "BadSeason",
+  24: "NotMember",
+  25: "BadPath",
 }
 
 export const parseContractError = (e: unknown): ContractError | null => {
@@ -129,6 +132,9 @@ export const views = {
       items: (p.items as Raw[]).map((it) => ({ group: { kind: it.group.tag === "Merchant" ? ("merchant" as const) : ("group" as const), id: Number(it.group.values[0]) }, bps: Number(it.bps) })),
     }
   },
+  /** True once the live contract has the audited tier upgrade (it exposes current_season): from then on a chain claim
+   *  at a member place shares that place's discount nullifier scope. Before it, chain claims use their own ctx scope. */
+  sharedChainScope: (c: contract.Client): boolean => typeof (c as any).current_season === "function",
   merchantChain: async (c: contract.Client, merchant: number): Promise<number | null> => {
     const v = await call(c, "merchant_chain", { merchant })
     return v === undefined || v === null ? null : Number(v)

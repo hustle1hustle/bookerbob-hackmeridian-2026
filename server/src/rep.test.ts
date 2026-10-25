@@ -2,6 +2,9 @@
 // rep-attest.fly.dev; the holder signs a key-binding JWT the way REP Bob does. Run: node --test server/src/rep.test.ts
 import { test, after } from "node:test"
 import assert from "node:assert/strict"
+import { mkdtempSync, writeFileSync, readFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { createServer, type Server } from "node:http"
 import { createHash, generateKeyPairSync, sign } from "node:crypto"
 import { deflateRawSync } from "node:zlib"
@@ -269,10 +272,11 @@ test("one REP presentation joins once, even re-attested with another holder key"
   h.close()
 })
 
-function moveHarness(groupRef = { id: 1 }) {
+function moveHarness(groupRef = { id: 1 }, tierMode = false) {
   const members = new Set<bigint>()
   let t = NOW * 1000
   const rep = createRep({
+    ...(tierMode ? { addMemberWithRep: async (c: bigint) => (members.add(c), "tier") } : {}),
     demoToken: DEMO, jwks: { keys: [JWK] }, now: () => t, groupId: async () => groupRef.id,
     addMember: async (c) => (members.add(c), "add"),
     replaceMember: async (o, n) => {
@@ -342,5 +346,54 @@ test("a wrong rebind signature, a missing old leaf and another group are refused
   const r = await h.present(sc, verdict({ attestation_hash: AH }))
   assert.equal(r.status, 400)
   assert.match((await h.call(`/result?sid=${sc.sid}`)).body.reason, /another group/)
+  h.close()
+})
+
+test("operator demo reset: lets the same presentation join again; 403 for others; non-operator joins survive", async () => {
+  await ready
+  const dir = mkdtempSync(join(tmpdir(), "rep-reset-"))
+  // a join recorded from a non-operator flow (future public path) must survive any reset
+  writeFileSync(join(dir, "rep-spent-proofs.txt"), "user-record-key user\n")
+  const added: bigint[] = []
+  const rep = createRep({ demoToken: DEMO, stateDir: dir, jwks: { keys: [JWK] }, now: () => NOW * 1000, addMember: async (c) => (added.push(c), "tx") })
+  const server = createServer((req, res) => rep.handle(req, res, new URL(req.url!, "http://x").pathname))
+  const base = await new Promise<string>((ok) => server.listen(0, "127.0.0.1", () => ok(`http://127.0.0.1:${(server.address() as any).port}/api/rep`)))
+  const call = async (path: string, body?: unknown, op = true) => {
+    const r = await fetch(`${base}${path}`, { method: "POST", headers: { "content-type": "application/json", ...(op ? { "x-bb-demo": DEMO } : {}) }, body: JSON.stringify(body ?? {}) })
+    return { status: r.status, body: (await r.json()) as any }
+  }
+  const pending = async () => (await (await fetch(`${base}/pending`)).json()) as any
+  const AH = "demo-reset-proof-" + "a".repeat(40)
+  const joinOnce = async (c: string) => {
+    await call("/session", { commitment: c })
+    const p = await pending()
+    const v = verdict({ attestation_hash: AH })
+    return call("/present", { sid: p.sid, attestations: [{ jws: v, kbJwt: kb(v, p.nonce) }] })
+  }
+  assert.equal((await joinOnce("501")).status, 200)
+  assert.equal((await joinOnce("502")).status, 400) // already joined
+  assert.equal((await call("/demo-reset", {}, false)).status, 403)
+  const r = await call("/demo-reset")
+  assert.equal(r.status, 200)
+  assert.equal(r.body.cleared, 1)
+  assert.equal((await joinOnce("503")).status, 200) // the same presentation joins again after the reset
+  assert.deepEqual(added, [501n, 503n])
+  assert.match(readFileSync(join(dir, "rep-spent-proofs.txt"), "utf8"), /user-record-key user/)
+  server.close()
+})
+
+test("in tier mode (REP_ONCHAIN=1) a move still goes through the operator's replace_member", async () => {
+  await ready
+  const h = moveHarness({ id: 1 }, true)
+  const AH = "tier-move-proof-" + "b".repeat(40)
+  const a = new Identity(), b = new Identity()
+  const sa = await h.session(a)
+  assert.equal((await h.present(sa, verdict({ attestation_hash: AH }))).status, 200)
+  const sb = await h.session(b)
+  assert.equal((await h.call("/rebind", { sid: sb.sid, rebind: signRebind(a, 1, b.commitment.toString(), sb.nonce) })).status, 200)
+  const r = await h.present(sb, verdict({ attestation_hash: AH }))
+  assert.equal(r.status, 200)
+  assert.equal(r.body.moved, true)
+  assert.deepEqual([...h.members], [b.commitment])
   h.close()
 })

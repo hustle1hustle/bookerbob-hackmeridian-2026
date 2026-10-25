@@ -13,7 +13,8 @@ const all = stays.map((s) => s.commitment)
 const artifacts = await loadArtifacts()
 const msg = d.discountMessage(GUEST)
 const claim = async (leaves: bigint[], group: d.GroupRef) => {
-  const p = await proveMembership(stays[2], leaves, msg, d.ctxScope(MERCHANT, group, SEASON), artifacts)
+  // merchant 0 is a member of chain group 0, so a chain claim there uses its discount scope (one nullifier per stay)
+  const p = await proveMembership(stays[2], leaves, msg, d.ctxScope(MERCHANT, group, SEASON, 0), artifacts)
   return { proof: p.proof, root: p.root.toString(), nullifier: p.nullifier.toString() }
 }
 const out = {
@@ -29,6 +30,10 @@ const out = {
     attested: await claim([all[2]], { kind: "group", id: 1 }),
   },
 }
+// a user who started over: stay 2's attested membership moved to a new identity (replace_member), group 1 = [moved]
+const moved = d.stayIdentity("fixture-master-secret-2", MERCHANT, 0)
+const mp = await proveMembership(moved, [moved.commitment], msg, d.ctxScope(MERCHANT, { kind: "group", id: 1 }, SEASON, 0), artifacts)
+;(out as any).moved = { commitment: moved.commitment.toString(), claim: { proof: mp.proof, root: mp.root.toString(), nullifier: mp.nullifier.toString() } }
 writeFileSync(new URL("../circuits/golden/depth10/fixtures-groups.json", import.meta.url), JSON.stringify(out, null, 2))
 console.log("group fixtures ok")
 process.exit(0)

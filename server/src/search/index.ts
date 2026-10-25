@@ -17,7 +17,8 @@ export function provenStats(reviews: Review[]): Map<number, ProvenStats> {
   return out
 }
 
-const noun = (kind: string, n: number) => (kind === "hotel" ? "proven stay" : kind === "shop" ? "proven purchase" : "proven visit") + (n === 1 ? "" : "s")
+// the count here is reviews; "proven stays" means checked-in leaves of the tree everywhere else
+const noun = (_kind: string, n: number) => (n === 1 ? "proven review" : "proven reviews")
 
 export async function federatedSearch(text: string, adapters: SearchAdapter[], merchants: Merchant[], reviews: Review[]): Promise<SearchResponse> {
   const q = parseQuery(text)

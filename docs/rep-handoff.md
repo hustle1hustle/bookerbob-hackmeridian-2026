@@ -64,59 +64,61 @@ Undo afterwards: clear the Issuer URL in DevTools.
 | 14:31:22 | Choly's phone (REP Bob, Oct 15 build) shared an Airbnb-based REP verdict; BookerBob verified it and added the browser's fresh identity to "REP verified traveler" (group 1). Web: "verified traveler. your perks now include it." | [`38bd6a7f38987c745624d363124c27f7a0e2bd8764b2051e3afdbe5474c34106`](https://stellar.expert/explorer/testnet/tx/38bd6a7f38987c745624d363124c27f7a0e2bd8764b2051e3afdbe5474c34106) |
 | 14:23:27 | The first attempt: the server verified and added the member, but the web card showed a failure because `/result` could not read the session id (fixed in d701dc6, deployed 14:30). | [`52f3b3c2…ffc358c`](https://stellar.expert/explorer/testnet/tx/52f3b3c26fc0397fe4da3c165b2d223834156ea09c507dd0a1fd9bd65ffc358c) |
 
-## On-chain check (branch choly/rep-onchain, flag OFF by default)
+## On-chain check: REP tier credential (`REP_ONCHAIN=1`; live contract upgraded, wasm `d66cd00f…`)
 
-`add_member_with_rep(group, id_commitment, verdict, kb)` lets anyone join group 1 with a REP verdict that the
-contract checks itself, so membership no longer depends on a trusted attester server. The attester path
-(`add_member` with the `rep-attester` key) stays as the default and the fallback.
+`add_member_with_tier(group, id_commitment, cred, sig)` lets anyone join group 1 with a credential the contract
+checks itself, so membership no longer depends on a trusted operator key, and nothing about the guest's REP
+verdict reaches the ledger. The attester path (`add_member` with the `rep-attester` key) stays as the default and
+the fallback.
 
-- Input: the compact verdict JWS and the phone's compact KB-JWT, exactly as presented. The contract decodes
-  base64url itself and verifies both ES256 signatures with the host's secp256r1 (`env.crypto().secp256r1_verify`,
-  SEC-1 key, sha256 digest, raw r||s). The host takes only low-S; JOSE signers emit either, so the contract maps
-  s to n - s first.
-- Checks: typ and alg; REP's key pinned per group by the contract admin (`set_rep_issuer`, rotation = the same
-  call); iss, rep_profile 1, nbf, exp, `max_age` since iat (default 7 days); a non-empty `lodging_spend_tier`;
-  `server_name` airbnb.com or booking.com; the KB header's `jwk` hashes (RFC 7638) to `cnf.jkt` and signed the
-  proof; aud `bookerbob`; `at_hash` over this exact verdict; KB iat within 300 s of the ledger clock; nonce
-  `pos:<id_commitment>:<rand>`, so a proof can only add the commitment it was made for.
-- Replay: one verdict adds one member. The spent key is sha256 of the verdict's signing input, which excludes the
-  signature, so an n - s copy of the same verdict is refused too.
-- Not on-chain: the issuer's revocation status list. `exp` and `max_age` bound the window; the server still
-  checks revocation before it submits.
-- Cost: about 6.5M CPU instructions (limit 100M) and 160 KB memory; the wasm is 59 KB.
-- Tests: `cargo test` in `contracts/proof_of_stay` (`test_rep.rs`: real-shape verdict, low and high S, forged
-  issuer, rotated key, wrong device key, wrong aud, at_hash for another verdict, nonce for another commitment,
-  expired, too old, stale holder proof, before nbf, no tier, not a lodging source, wrong iss, replay, S-flip
-  replay). Fixtures come from `fixtures/gen-rep.mjs`: the live verdict's shape signed with throwaway keys, with no
-  PII and synthetic hashes. They agree case by case with REP's own `verify-rep.mjs`.
+- Issuer: the backend sends the verdict and holder proof to the REP tier issuer (`REP_TIER_URL`, default
+  `https://rep-attest-tier.fly.dev`, code `tier-issuer.mjs` in r3pb0b/rep-context-mcp, branch `choly/rep-tier-issuer`). It runs the full check
+  off chain (REP's key, holder binding, nonce, revocation), spends that verdict once, and signs a 106-byte
+  credential with its own P-256 key:
+  `"REPTIER1" | kid u8 | sha256("<contract>:<group>") | tier u8 | commitment | iat u64 | exp u64 | jti 16B`.
+  The tier byte is 1 ("qualified at the policy minimum") unless the issuer runs with `REP_TIER_BANDS=1`.
+- Contract (`contracts/proof_of_stay/src/tier.rs`): magic; bytes [9..41) equal `tier_audience(group)` =
+  sha256("<contract strkey>:<group id>"), so a credential works in one group of one deployment and a pending join
+  cannot be front-run elsewhere; the minimum tier per group (`set_tier_policy`); the issuer key pinned per group
+  and kid (`set_tier_issuer`, rotation = pin a new kid, then remove the old one with `None`); the commitment
+  equals the `id_commitment` argument;
+  `iat - 60 <= now < exp` and `exp - iat <= 3600`; a single-use `jti`; one `secp256r1_verify` over sha256(cred)
+  (S normalized to low form, which the host requires).
+- On the ledger: the 106-byte credential and its signature. No spend, dates, source, verdict or device key.
+- Open: one REP presentation mints one credential, but a notarized session can yield several presentations, so
+  sybil resistance per account needs a stable account id from REP.
+- Cost on testnet: 7.1M CPU instructions declared for the whole join, credential check plus group insert (1.8% of
+  the 400M per-tx limit), tx [`43d46b5e…`](https://stellar.expert/explorer/testnet/tx/43d46b5e8ba297e61c3916b09c15fe45add4491418d49434c8dc813500dc2372) on a mirror of live; the wasm is 55 KB.
+- Tests: `cargo test` in `contracts/proof_of_stay` (`test_tier.rs`, credentials signed in the test with p256: valid,
+  high S, the issuer's own test vector (signature layout), forged signature, another commitment, another group or
+  deployment, bad magic, unknown kid, tier below policy, expired, not yet
+  valid, too long-lived, replay, replay with S flipped, key rotation and removal, unconfigured group). Testnet smoke on a throwaway instance (layout before the audience binding): valid join
+  [`bf1675f8…`](https://stellar.expert/explorer/testnet/tx/bf1675f8a5ff62ba432b4e94ececa15902ad83414d34941c6ed57ebd67e20504),
+  replay `#22`, forged `Error(Crypto)`.
+- An earlier version verified the full REP verdict (JWS + KB-JWT) in the contract; it worked, but would have
+  published the verdict's bands and the device key, so it was replaced by this credential before going live.
 
-**Privacy cost, why the flag is OFF.** The verdict and the holder proof become permanent, public tx arguments.
-A rep-attest verdict carries more than the tier: `lodging_spend_approx` (spend rounded to $5k), `city_footprint`,
-`server_name`, `evidence_time`, `attestation_hash`, the status index, and the device key (in the KB header, and
-as `cnf.jkt`). The device key is the same for every verifier, so all on-chain joins from one phone are linkable.
-The contract stores nothing beyond the replay key, but the arguments stay in the ledger. So this path is
-trustless but publishes band details. Production needs a tier-only issuer-signed verdict (SD-JWT or a
-tier-only JWS from rep-attest) and a pairwise holder key per verifier.
+Start over (a user generates a new passkey and a new identity): the membership MOVES, it is never duplicated.
+`replace_member(group, old, new, siblings)` (group operator) or `replace_member_with_tier(group, old, new, siblings,
+cred, sig)` with a 137-byte move credential from the tier issuer (`"REPMOVE1" | kid | audience | old | new | iat | exp
+| jti`, signed only after the old identity proved control). `siblings` are the old leaf's Merkle siblings from
+Semaphore's `group.generateMerkleProof(index).siblings`. The contract checks they hash to the current root, swaps
+the leaf in place (same index), and restarts the group's root history at the new root, so the old identity stops
+proving membership at once. Nullifiers the old identity spent stay spent. About 29M CPU at a full group (1024).
+Errors: 24 NotMember, 4 DuplicateLeaf, 3 BadLeaf, 25 BadPath (stale siblings: re-read the leaves and retry).
+Side effect: other members' in-flight proofs against older roots must be re-made. Testnet, on a mirror of live:
+[`71750161…`](https://stellar.expert/explorer/testnet/tx/717501613aa3a976692d18ac8721357d41154706ced8aa4baaff859cc4d341ab),
+the on-chain root equals Semaphore's `group.updateMember` root, one root left in the history, a second move of the
+old leaf refused with 24.
 
-### Tier credential (REP_ONCHAIN=1): the privacy-safe on-chain path
-
-`REP_ONCHAIN=1` no longer submits the raw verdict. The backend sends the verdict and holder proof to the REP tier
-issuer (`REP_TIER_URL`, default `https://rep-attest-tier.fly.dev`, code `tier-issuer.mjs` in REP-CORE/rep-context-mcp),
-which runs the same full verification off chain and signs a 106-byte credential with its own P-256 key:
-`"REPTIER1" | kid u8 | sha256("rep-verified-traveler") | tier u8 | commitment | iat | exp | jti`. The tier byte is 1
-("qualified at the policy minimum") unless the issuer runs with `REP_TIER_BANDS=1`. One REP presentation mints one credential; a notarized session can yield several presentations, so sybil resistance per account needs a stable id from REP (open).
-The relayer submits `add_member_with_tier(group, id_commitment, cred, sig)`; the contract checks the signature with
-secp256r1 against the pinned issuer key, the group hash, the commitment, `iat`/`exp` and a single-use `jti`. Nothing
-about spend, dates, source or the device key reaches the ledger. `REP_ONCHAIN=verdict` keeps the raw-verdict path below
-for tests.
-
-Turn on the raw-verdict path (testnet, after review):
+Turn it on (testnet, after review):
 
 ```
 scripts/rep-onchain.sh upgrade        # admin: new wasm through upgrade(), storage and contract ID stay
-scripts/rep-onchain.sh set-issuer     # admin: pins kid rep-attest-1 from the live JWKS for group 1
-fly secrets set --app <backend app> REP_ONCHAIN=verdict REP_RELAYER_SECRET="$(stellar keys show <any funded key>)" > /dev/null
+scripts/rep-onchain.sh set-tier       # admin: pins kid 1 from the live tier issuer and the group 1 policy, prints the audience
+fly secrets set --app <backend app> REP_ONCHAIN=1 REP_RELAYER_SECRET="$(stellar keys show <any funded key>)" > /dev/null
 ```
 
-The relayer only pays fees and holds no group rights. Leave `REP_ATTESTER_SECRET` set: unset `REP_ONCHAIN` and the
-attester path is back.
+Testnet rent is high today: a wasm upload cost about 9.4k XLM at 15:30 UTC (2.9k at 13:20), so fund the
+deployer first. The relayer only pays fees and holds no group rights. Leave `REP_ATTESTER_SECRET` set: unset
+`REP_ONCHAIN` and the attester path is back.

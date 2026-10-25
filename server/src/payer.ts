@@ -2,10 +2,14 @@
 // BookerBob sponsors its account reserve and USDC trustline, funds it, and fee-bumps its booking transaction,
 // so the guest never holds XLM and two bookings by one guest come from unrelated addresses.
 import { Asset, BASE_FEE, Keypair, Operation, TransactionBuilder, FeeBumpTransaction, Transaction, rpc, scValToNative } from "@stellar/stellar-sdk"
-import type { Ops } from "./core.ts"
+import { serial, type Ops } from "./core.ts"
 
 const BOOKING_FNS = new Set(["book", "book_with_discount", "book_with_context", "book_amount", "book_with_discount_amount"])
-const MAX_FEE_STROOPS = 100_000_000n // 10 XLM cap per sponsored transaction
+// Fee cap per sponsored transaction: a base plus a per-proof allowance (each Groth16 check + nullifier write and its
+// rent costs a few XLM on testnet), bounded overall. The refundable part comes back to the relayer.
+const BASE_FEE_CAP = 100_000_000n // 10 XLM
+const PER_PROOF_CAP = 60_000_000n // 6 XLM per proof
+const ABS_FEE_CAP = 400_000_000n // 40 XLM
 
 const wait = async (s: rpc.Server, hash: string) => {
   for (let i = 0; i < 40; i++) {
@@ -29,7 +33,44 @@ export class PayerService {
   }
 
   /** Step 1: unsigned envelope that creates `fresh` with a sponsored reserve and a USDC trustline. The fresh key signs it. */
+  // The open envelope carries the sponsor's sequence number, so nothing else may use the sponsor between open() and
+  // activate(): open takes the sponsor for up to 60 s and activate releases it.
+  private hold: { fresh: string; release: () => void; timer: ReturnType<typeof setTimeout> } | null = null
+  private take(fresh: string): Promise<void> {
+    return new Promise((ok) => {
+      void serial(this.sponsor.publicKey(), () => new Promise<void>((release) => {
+        const timer = setTimeout(() => this.free(fresh), 60_000)
+        this.hold = { fresh, release, timer }
+        ok()
+      }))
+    })
+  }
+  private free(fresh: string) {
+    if (this.hold?.fresh !== fresh) return
+    clearTimeout(this.hold.timer)
+    const r = this.hold.release
+    this.hold = null
+    r()
+  }
   async open(fresh: string): Promise<string> {
+    // bounded wait for the sponsor: a clear, retryable error instead of a proxy timeout
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const taking = this.take(fresh)
+    const got = await Promise.race([taking.then(() => true), new Promise<boolean>((r) => (timer = setTimeout(() => r(false), 25_000)))])
+    clearTimeout(timer)
+    if (!got) {
+      // our queued turn still comes later; give it straight back when it does
+      void taking.then(() => this.free(fresh))
+      throw new Error("Busy: another booking is being set up, retry in a few seconds")
+    }
+    try {
+      return await this.openNow(fresh)
+    } catch (e) {
+      this.free(fresh)
+      throw e
+    }
+  }
+  private async openNow(fresh: string): Promise<string> {
     const s = this.server()
     const { asset } = await this.ops.usdcAsset()
     const acct = await s.getAccount(this.sponsor.publicKey())
@@ -45,6 +86,15 @@ export class PayerService {
 
   /** Step 2: checks the signed envelope is exactly the open() shape, co-signs as sponsor, submits, then funds `amount` USDC. */
   async activate(signedXdr: string, amount: bigint): Promise<{ openTx: string; fundTx: string; payer: string }> {
+    const tx0 = TransactionBuilder.fromXDR(signedXdr, this.ops.net.networkPassphrase) as Transaction
+    const fresh0 = (tx0.operations[1] as any)?.destination as string
+    try {
+      return await this.activateNow(signedXdr, amount)
+    } finally {
+      this.free(fresh0)
+    }
+  }
+  private async activateNow(signedXdr: string, amount: bigint): Promise<{ openTx: string; fundTx: string; payer: string }> {
     const tx = TransactionBuilder.fromXDR(signedXdr, this.ops.net.networkPassphrase) as Transaction
     const ops = tx.operations
     const fresh = (ops[1] as any)?.destination as string
@@ -79,7 +129,10 @@ export class PayerService {
     // plain-object view works across XDR library versions
     const call = JSON.parse(JSON.stringify(op.func, (_, v) => (typeof v === "bigint" ? v.toString() : v)))?.invoke_contract
     if (!call || call.contract_address !== this.ops.net.contractId || !BOOKING_FNS.has(call.function_name)) throw new Error("BadParams")
-    if (BigInt(inner.fee) > MAX_FEE_STROOPS) throw new Error("BadParams")
+    // proofs in this call: book_with_context carries a vec of claims (arg 4); the discount calls carry one proof
+    const claims = call.function_name === "book_with_context" ? (Array.isArray(call.args?.[4]?.vec) ? call.args[4].vec.length : 1) : /discount/.test(call.function_name) ? 1 : 0
+    const cap = BASE_FEE_CAP + PER_PROOF_CAP * BigInt(claims)
+    if (BigInt(inner.fee) > (cap > ABS_FEE_CAP ? ABS_FEE_CAP : cap)) throw new Error(`FeeTooHigh ${inner.fee} > ${cap}`)
     const bump = TransactionBuilder.buildFeeBumpTransaction(this.sponsor, String(BigInt(inner.fee) * 2n), inner, this.ops.net.networkPassphrase)
     bump.sign(this.sponsor)
     const s = this.server()

@@ -32,6 +32,16 @@ export function keysFromEnv(env = process.env): Keys {
   return { relayer: kp("RELAYER_SECRET"), arbiter: kp("ARBITER_SECRET"), usdcIssuer: env.USDC_ISSUER_SECRET ? kp("USDC_ISSUER_SECRET") : undefined, merchantAdmins: admins }
 }
 
+/** One transaction at a time per source account: concurrent builds would reuse a sequence number and one of
+ *  them would never land ("tx timeout"). */
+const queues = new Map<string, Promise<unknown>>()
+export function serial<T>(account: string, fn: () => Promise<T>): Promise<T> {
+  const prev = queues.get(account) ?? Promise.resolve()
+  const run = prev.catch(() => null).then(fn)
+  queues.set(account, run.catch(() => null))
+  return run
+}
+
 export class Ops {
   readonly net: NetworkConfig
   readonly keys: Keys
@@ -60,7 +70,7 @@ export class Ops {
 
   /** Relayer: submits the review from a shared account, so the sender address does not link the author. */
   async postReview(p: { merchant: number; rating: number; text: string; disclosureCommit: string; proof: SorobanProofHex; root: bigint; nullifier: bigint }): Promise<WriteOutcome<number>> {
-    return write<number>(await this.as(this.keys.relayer), "post_review", {
+    return serial(this.keys.relayer.publicKey(), async () => write<number>(await this.as(this.keys.relayer), "post_review", {
       merchant: p.merchant,
       rating: p.rating,
       content_hash: bytes32Arg(contentHash(p.text)),
@@ -68,7 +78,7 @@ export class Ops {
       proof: proofArg(p.proof),
       root: p.root,
       nullifier: p.nullifier,
-    })
+    }))
   }
 
   async attest(reviewId: number): Promise<WriteOutcome<null>> {
@@ -117,6 +127,9 @@ export class Ops {
    * Creates a clickable testnet tx linked to the guest account. Classic payment — not a Soroban invoke.
    */
   async attestLoyalty(address: string, digestHex: string): Promise<string> {
+    return serial(this.keys.relayer.publicKey(), () => this.attestLoyaltyNow(address, digestHex))
+  }
+  private async attestLoyaltyNow(address: string, digestHex: string): Promise<string> {
     const hex = digestHex.replace(/^0x/, "").toLowerCase()
     if (!/^[0-9a-f]{64}$/.test(hex)) throw new Error("digest must be 32-byte hex")
     if (!/^[GC][A-Z2-7]{55}$/.test(address)) throw new Error("bad address")
@@ -143,6 +156,9 @@ export class Ops {
 
   /** Faucet: issuer mints test USDC to `to` (G-address needs a trustline first; C-address does not). */
   async mintUsdc(to: string, amount: bigint): Promise<string> {
+    return serial(this.keys.usdcIssuer!.publicKey(), () => this.mintUsdcNow(to, amount))
+  }
+  async mintUsdcNow(to: string, amount: bigint): Promise<string> {
     const { sac } = await this.usdcAsset()
     const s = this.server()
     const issuer = this.keys.usdcIssuer!

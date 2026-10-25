@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How BookerBob works</title>
+<meta name="description" content="How the BookerBob engine works and where Stellar does the work: proofs, groups, perks, attesters.">
+<link rel="stylesheet" href="/bookerbob-tokens.css">
+<style>
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+  a { color: var(--ink); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .wrap { max-width: 1360px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 48px); }
+  /* header: same look as the app */
+  .site-head { position: sticky; top: 0; z-index: 30; background: var(--bg); border-bottom: 1px solid var(--rule); }
+  .site-head .wrap { min-height: 64px; display: flex; align-items: center; flex-wrap: wrap; gap: 12px 20px; padding-top: 10px; padding-bottom: 10px; }
+  .brand { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; }
+  .brand b { width: 24px; height: 24px; background: var(--ink); color: var(--bg); display: grid; place-items: center; font-family: var(--mono); font-size: 13px; font-weight: 600; }
+  .brand span { font-size: 19px; font-weight: 600; letter-spacing: -.035em; }
+  .badge { border: 1px solid var(--rule-soft); color: var(--ink-3); font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; padding: 3px 7px; }
+  .connect { margin-left: auto; appearance: none; border: 1px solid var(--ink); background: var(--ink); color: var(--bg); font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; height: 36px; padding: 0 14px; display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
+  .connect:hover { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .tabs { border-bottom: 1px solid var(--rule-soft); }
+  .tabs .wrap { display: flex; gap: 28px; height: 46px; overflow-x: auto; }
+  .tabs a { display: flex; align-items: center; font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--ink); text-decoration: none; border-bottom: 2px solid transparent; white-space: nowrap; }
+  .tabs a[aria-current="page"] { border-bottom-color: var(--ink); }
+  /* type scale */
+  .lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+  section { padding: clamp(48px, 7vw, 96px) 0; border-bottom: 1px solid var(--rule); }
+  h1 { font-size: clamp(48px, 7.6vw, 124px); font-weight: 500; letter-spacing: -.06em; line-height: .9; margin: 18px 0 0; max-width: 16ch; text-wrap: balance; }
+  h2 { font-size: clamp(36px, 5.2vw, 76px); font-weight: 500; letter-spacing: -.055em; line-height: .92; margin: 14px 0 0; max-width: 18ch; text-wrap: balance; }
+  h3 { font-size: clamp(22px, 2.2vw, 28px); font-weight: 500; letter-spacing: -.035em; margin: 0 0 8px; }
+  p { font-size: clamp(17px, 1.5vw, 20px); line-height: 1.5; color: var(--ink-2); max-width: 60ch; text-wrap: pretty; }
+  .mono { font-family: var(--mono); }
+  /* grids and cards */
+  .grid { display: grid; gap: 0; border-top: 1px solid var(--rule); margin-top: 40px; }
+  .g2 { grid-template-columns: repeat(2, 1fr); } .g4 { grid-template-columns: repeat(4, 1fr); } .g3 { grid-template-columns: repeat(3, 1fr); }
+  .cell { padding: 24px 24px 24px 0; border-bottom: 1px solid var(--rule-soft); }
+  .cell + .cell { padding-left: 24px; border-left: 1px solid var(--rule-soft); }
+  .g3 .cell:nth-child(3n+1), .g2 .cell:nth-child(2n+1) { padding-left: 0; border-left: 0; }
+  .cell p { font-size: 16px; margin: 0; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 16px; margin-top: 40px; }
+  .card { background: var(--surface); border: 1px solid var(--rule); padding: 22px; }
+  .card p { font-size: 15px; margin: 0; }
+  .tag { display: inline-block; font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; padding: 4px 8px; margin-bottom: 14px; background: var(--deal); color: var(--deal-ink); font-weight: 600; }
+  .tag.next { background: transparent; border: 1px dashed var(--rule); color: var(--ink-3); font-weight: 500; }
+  /* the nine steps */
+  .steps { margin-top: 40px; border-top: 1px solid var(--rule); }
+  .step { display: grid; grid-template-columns: 44px 48px minmax(0, 1fr) minmax(0, 1fr) auto; gap: 18px; align-items: center; padding: 18px 0; border-bottom: 1px solid var(--rule-soft); }
+  .step .n { font-family: var(--mono); color: var(--ink-3); font-size: 13px; }
+  .step .what { font-size: clamp(18px, 2vw, 22px); letter-spacing: -.02em; }
+  .step .how { font-size: 15px; color: var(--ink-2); }
+  /* tx links: same style as the app */
+  a.tx { font-family: var(--mono); font-size: 12px; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
+  a.tx:hover { color: var(--accent); }
+  .who { margin-top: 40px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border-top: 1px solid var(--rule); }
+  .who div { padding: 20px 20px 20px 0; border-bottom: 1px solid var(--rule-soft); font-size: clamp(17px, 1.8vw, 22px); letter-spacing: -.02em; }
+  .who span { display: block; font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 6px; }
+  .who .nobody { background: var(--ink); color: var(--bg); padding: 20px; }
+  .links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 32px; }
+  .links a { border: 1px solid var(--ink); height: 48px; padding: 0 18px; display: inline-flex; align-items: center; color: var(--ink); text-decoration: none; font-family: var(--mono); font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: .08em; }
+  .links a:hover { background: var(--ink); color: var(--bg); }
+  .links a.primary { background: var(--ink); color: var(--bg); }
+  svg { width: 100%; height: auto; display: block; }
+  .step svg { width: 40px; height: 40px; }
+  svg text { font-family: var(--sans); }
+  .svg-ink { stroke: var(--ink); } .fill-ink { fill: var(--ink); } .fill-bg { fill: var(--bg); } .fill-surface { fill: var(--surface); } .fill-deal { fill: var(--deal); } .fill-ink2 { fill: var(--ink-2); }
+  /* footer: same as the app */
+  .site-foot { border-top: 1px solid var(--ink); }
+  .site-foot .wrap { padding-top: 22px; padding-bottom: 32px; display: flex; flex-wrap: wrap; gap: 8px 22px; align-items: baseline; font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+  .site-foot .wrap > :first-child { color: var(--ink); }
+  .site-foot a { color: var(--ink); }
+  .site-foot .push { margin-left: auto; }
+  @media (max-width: 760px) {
+    .g4, .g3, .g2, .who { grid-template-columns: 1fr; }
+    .cell + .cell { padding-left: 0; border-left: 0; }
+    .step { grid-template-columns: 28px 36px minmax(0, 1fr); row-gap: 4px; }
+    .step .how, .step a.tx { grid-column: 3; }
+    .site-foot .push { margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+<header class="site-head"><div class="wrap">
+  <a class="brand" href="/" aria-label="bookerbob, home"><b>b</b><span>BookerBob</span></a>
+  <span class="badge" title="demo data on stellar testnet. every proof and payment is real.">testnet</span>
+  <a class="connect" href="/?connect=1">connect<span>→</span></a>
+</div></header>
+<nav class="tabs" aria-label="site"><div class="wrap">
+  <a href="/">explore</a><a href="/?view=agent">bob shops</a><a href="/?view=passes">my passes</a><a href="/how" aria-current="page">how it works</a>
+</div></nav>
+
+<main>
+<section><div class="wrap">
+  <div class="lbl">How it works</div>
+  <h1>Agents rank on proofs nobody can fake, and add new ones every time they buy.</h1>
+  <p style="margin-top:28px">BookerBob is Google for agentic commerce. Places, stores and travelers carry proven context; an agent ranks on it, buys with it, and every purchase becomes a new proof. Nobody learns who you are.</p>
+</div></section>
+
+<section><div class="wrap">
+  <div class="lbl">The core loop</div>
+  <h2>Every purchase makes the next ranking better.</h2>
+  <svg viewBox="0 0 900 620" role="img" aria-label="flywheel: agent ranks on proofs, agent buys, a new proof joins the groups, better ranking for everyone" style="margin-top:32px;max-width:760px">
+    <defs><marker id="fw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="fill-ink"/></marker></defs>
+    <g fill="none" class="svg-ink" stroke-width="3">
+      <path d="M520 98 A250 250 0 0 1 690 268" marker-end="url(#fw)"/><path d="M690 352 A250 250 0 0 1 520 522" marker-end="url(#fw)"/>
+      <path d="M380 522 A250 250 0 0 1 210 352" marker-end="url(#fw)"/><path d="M210 268 A250 250 0 0 1 380 98" marker-end="url(#fw)"/></g>
+    <rect x="290" y="20" width="320" height="110" class="fill-ink"/><text x="450" y="70" font-size="32" text-anchor="middle" class="fill-bg">agent ranks</text><text x="450" y="106" font-size="22" text-anchor="middle" fill="#8C897F">on proofs</text>
+    <rect x="590" y="255" width="300" height="110" class="fill-surface svg-ink" stroke-width="1.5"/><text x="740" y="305" font-size="32" text-anchor="middle" class="fill-ink">agent buys</text><text x="740" y="341" font-size="22" text-anchor="middle" class="fill-ink2">stays, shops</text>
+    <rect x="290" y="490" width="320" height="110" class="fill-deal svg-ink" stroke-width="1.5"/><text x="450" y="540" font-size="32" text-anchor="middle" fill="#121211">a new proof</text><text x="450" y="576" font-size="22" text-anchor="middle" fill="#121211">joins the groups</text>
+    <rect x="10" y="255" width="300" height="110" class="fill-surface svg-ink" stroke-width="1.5"/><text x="160" y="305" font-size="32" text-anchor="middle" class="fill-ink">better ranking</text><text x="160" y="341" font-size="22" text-anchor="middle" class="fill-ink2">for everyone</text>
+  </svg>
+</div></section>
+
+<section><div class="wrap">
+  <div class="lbl">The engine</div>
+  <h2>Four primitives.</h2>
+  <div class="grid g4">
+    <div class="cell"><h3>Groups</h3><p>Who proved what: a place's customers, a network, verified travelers, wallet tiers. Only anonymous commitments.</p></div>
+    <div class="cell"><h3>Proofs</h3><p>A zero-knowledge proof that you are in a group, checked by Stellar. Which member stays secret.</p></div>
+    <div class="cell"><h3>Perks</h3><p>Each place sets what each group earns, with a cap. Perks stack and settle in one payment.</p></div>
+    <div class="cell"><h3>Attesters</h3><p>Anyone who can vouch adds a group: REP, Stellar wallet tier, the BookerBob network, and more.</p></div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="lbl">Where Stellar does the work</div>
+  <h2>One journey, nine steps, each a real transaction.</h2>
+  <div class="steps">
+    <div class="step"><span class="n">01</span><svg viewBox="0 0 60 60" width="40" height="40" aria-hidden="true"><g fill="none" stroke="var(--ink)" stroke-width="4"><circle cx="30" cy="10" r="7"/><circle cx="12" cy="44" r="7"/><circle cx="48" cy="44" r="7"/><path d="M26 16 L15 38 M34 16 L45 38"/></g></svg><span class="what">join a place's customers</span><span class="how">Poseidon tree insert</span><a class="tx" href="https://stellar.expert/explorer/testnet/tx/4d6f751b2bea3406bddd5d09e8501ae4e7f240eeb6c08b16139298b8470b4580" target="_blank" rel="noopener">tx 4d6f75…4580 ↗</a></div>
+    <div class="step"><span class="n">02</span><svg viewBox="0 0 60 60" width="40" height="40" aria-hidden="true"><g fill="none" stroke="var(--ink)" stroke-width="4"><circle cx="18" cy="22" r="10"/><circle cx="42" cy="22" r="10"/><path d="M2 54 a16 14 0 0 1 32 0 M26 54 a16 14 0 0 1 32 0"/></g></svg><span class="what">context from an attester</span><span class="how">member of a group</span><a class="tx" href="https://stellar.expert/explorer/testnet/tx/38bd6a7f38987c745624d363124c27f7a0e2bd8764b2051e3afdbe5474c34106" target="_blank" rel="noopener">tx 38bd6a…4106 ↗</a></div>
+    <div class="step"><span class="n">03</span><svg viewBox="0 0 60 60" width="40" height="40" aria-hidden="true"><g fill="none" stroke="var(--ink)" stroke-width="4"><circle cx="18" cy="30" r="12"/><path d="M30 30 h26 M48 30 v10 M56 30 v8"/></g></svg><span class="what">REP credential check</span><span class="how">P-256, under 2% of a tx · built, tested</span><a class="tx" href="https://stellar.expert/explorer/testnet/tx/43d46b5e8ba297e61c3916b09c15fe45add4491418d49434c8dc813500dc2372" target="_blank" rel="noopener">tx 43d46b…2372 ↗</a></div>
+    <div class="step"><span class="n">04</span><svg viewBox="0 0 60 60" width="40" height="40" aria-hidden="true"><g fill="none" stroke="var(--ink)" stroke-width="4"><path d="M30 4 l22 8 v18 c0 14 -10 20 -22 24 c-12 -4 -22 -10 -22 -24 v-18 z"/><path d="M19 30 l8 8 14 -16" stroke="var(--accent)"/></g></svg><span class="what">discount proof verified</span><span class="how">BN254 Groth16, 7.8% of a tx</span><a class="tx" href="https://stellar.expert/explorer/testnet/tx/7ad074395e8e73bc7131abe01779e188c768862196c505d471505a697efd9762" target="_blank" rel="noopener">tx 7ad074…9762 ↗</a></div>
+    <div class="step"><span class="n">05</span><svg viewBox="0 0 60 60" width="40" height="40" aria-hidden="true"><g fill="none" stroke="var(--ink)" stroke-width="4"><circle cx="30" cy="30" r="24"/><path d="M13 47 L47 13"/></g></svg><span class="what">no reuse</span><span class="how">nullifier stored, a replay is refused</span><a class="tx" href="https://stellar.expert/explorer/testnet/tx/7ad074395e8e73bc7131abe01779e188c768862196c505d471505a697efd9762" target="_blank" rel="noopener">tx 7ad074…9762 ↗</a></div>
+    <div class="step"><span class="n">06</span><svg viewBox="0 0 60 60" width="40" height="40" aria-hidden="true"><g fill="none" stroke="var(--ink)" stroke-width="4"><circle cx="30" cy="30" r="24" fill="var(--deal)"/><path d="M30 16 v28 M37 22 c-4 -4 -14 -3 -14 3 c0 7 15 4 15 11 c0 6 -11 7 -15 3"/></g></svg><span class="what">pay in the same transaction</span><span class="how">USDC via the asset contract</span><a class="tx" href="https://stellar.expert/explorer/testnet/tx/7ad074395e8e73bc7131abe01779e188c768862196c505d471505a697efd9762" target="_blank" rel="noopener">tx 7ad074…9762 ↗</a></div>
+    <div class="step"><span class="n">07</span><svg viewBox="0 0 60 60" width="40" height="40" aria-hidden="true"><g fill="none" stroke="var(--ink)" stroke-width="4"><rect x="8" y="24" width="44" height="30"/><path d="M4 24 h52 M30 24 v30 M30 24 c-10 -18 -22 -6 0 0 c10 -18 22 -6 0 0"/></g></svg><span class="what">no fees for the guest</span><span class="how">fresh payer, fee-bumped by BookerBob</span><a class="tx" href="https://stellar.expert/explorer/testnet/tx/2cad0d43d72c15623be6c383175885a0ceb69e3749872d68cc238c297230d3d5" target="_blank" rel="noopener">tx 2cad0d…d3d5 ↗</a></div>
+    <div class="step"><span class="n">08</span><svg viewBox="0 0 60 60" width="40" height="40" aria-hidden="true"><g fill="none" stroke="var(--ink)" stroke-width="4"><path d="M4 8 h10 l8 32 h28 l6 -22 h-38"/><circle cx="24" cy="50" r="4"/><circle cx="46" cy="50" r="4"/></g></svg><span class="what">agent checkout over UCP</span><span class="how">the Shopify order carries the tx</span><a class="tx" href="https://stellar.expert/explorer/testnet/tx/19254e2f16af0c6b4282d9d3403d9cb7cab129647552490af533b6e0e15a9a09" target="_blank" rel="noopener">tx 19254e…9a09 ↗</a></div>
+    <div class="step"><span class="n">09</span><svg viewBox="0 0 60 60" width="40" height="40" aria-hidden="true"><g fill="none" stroke="var(--ink)" stroke-width="4"><path d="M30 4 l8 16 18 3 -13 12 3 18 -16 -8 -16 8 3 -18 -13 -12 18 -3z"/></g></svg><span class="what">one stay, one review</span><span class="how">proof verified, nullifier spent</span><a class="tx" href="https://stellar.expert/explorer/testnet/tx/86c01995cc6e8d084ff55d17e5ac750160d295a3dc8ec83221587a16e01129b8" target="_blank" rel="noopener">tx 86c019…29b8 ↗</a></div>
+  </div>
+  <p style="margin-top:24px;font-size:15px">Stellar testnet. Step 03 runs on an upgraded mirror of the live contract today and goes live with the next contract upgrade.</p>
+</div></section>
+
+<section><div class="wrap">
+  <div class="lbl">What the engine powers</div>
+  <h2>One primitive, many places.</h2>
+  <div class="cards">
+    <div class="card"><span class="tag">live</span><h3>Hotels</h3><p>Proven reviews and returning-guest rates, without a loyalty account.</p></div>
+    <div class="card"><span class="tag">live</span><h3>Shops over UCP</h3><p>An agent checks out at a real Shopify store and claims your perks.</p></div>
+    <div class="card"><span class="tag">live</span><h3>Cafés and restaurants</h3><p>Regulars get recognised without being known.</p></div>
+    <div class="card"><span class="tag">live</span><h3>Cross-merchant networks</h3><p>A guest of one place is a known guest at all of them.</p></div>
+    <div class="card"><span class="tag">live</span><h3>Verified travelers</h3><p>REP proves past stays from your own Airbnb or Booking account. BookerBob learns only yes.</p></div>
+    <div class="card"><span class="tag">live</span><h3>Stellar wallet tiers</h3><p>Your wallet's history earns a tier. Places see the tier, never the wallet.</p></div>
+    <div class="card"><span class="tag">live</span><h3>Disputes</h3><p>A guest can disclose one stay to an arbiter only, and the review gets a verified mark.</p></div>
+    <div class="card"><span class="tag next">next</span><h3>More attesters</h3><p>World ID, more zkTLS sources, imports of existing merchant loyalty programs.</p></div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="lbl">The stack</div>
+  <h2>From a browser to a Stellar contract.</h2>
+  <svg viewBox="0 0 900 470" role="img" aria-label="browser to BookerBob to Stellar; Shopify, JMPR and attesters around them" style="margin-top:32px">
+    <defs><marker id="sb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="fill-ink"/></marker></defs>
+    <rect x="0" y="40" width="250" height="190" class="fill-surface svg-ink" stroke-width="1.5"/><text x="20" y="100" font-size="30" class="fill-ink">Browser</text><text x="20" y="145" font-size="19" class="fill-ink2">proves, holds the secret</text><text x="20" y="175" font-size="19" class="fill-ink2">fresh payer each time</text>
+    <rect x="325" y="40" width="250" height="190" class="fill-surface svg-ink" stroke-width="1.5"/><text x="345" y="100" font-size="30" class="fill-ink">BookerBob</text><text x="345" y="145" font-size="19" class="fill-ink2">relays, co-signs</text><text x="345" y="175" font-size="19" class="fill-ink2">Ask Bob search</text>
+    <rect x="650" y="40" width="250" height="190" class="fill-ink"/><text x="670" y="100" font-size="30" class="fill-bg">Stellar</text><text x="670" y="145" font-size="19" fill="#B4B1A8">verifies, keeps groups</text><text x="670" y="175" font-size="19" fill="#B4B1A8">perks and USDC</text>
+    <rect x="170" y="330" width="210" height="110" fill="none" class="svg-ink" stroke-width="1.5" stroke-dasharray="6 6"/><text x="190" y="392" font-size="22" class="fill-ink">Shopify · UCP</text>
+    <rect x="400" y="330" width="175" height="110" fill="none" class="svg-ink" stroke-width="1.5" stroke-dasharray="6 6"/><text x="420" y="392" font-size="22" class="fill-ink">JMPR hotels</text>
+    <rect x="650" y="330" width="250" height="110" fill="none" class="svg-ink" stroke-width="1.5" stroke-dasharray="6 6"/><text x="670" y="392" font-size="22" class="fill-ink">Attesters</text>
+    <g class="svg-ink" stroke-width="2.5"><line x1="250" y1="135" x2="320" y2="135" marker-end="url(#sb)"/><line x1="575" y1="135" x2="645" y2="135" marker-end="url(#sb)"/>
+      <line x1="320" y1="328" x2="400" y2="236" marker-end="url(#sb)"/><line x1="487" y1="328" x2="470" y2="236" marker-end="url(#sb)"/><line x1="775" y1="328" x2="775" y2="236" marker-end="url(#sb)"/></g>
+  </svg>
+</div></section>
+
+<section><div class="wrap">
+  <div class="lbl">Who sees what</div>
+  <h2>Private by default. Accountable when needed.</h2>
+  <div class="who">
+    <div><span>the place</span>an order and a proven badge, not who</div>
+    <div><span>the public</span>proofs and reviews, never names or wallets</div>
+    <div><span>BookerBob</span>"verified: yes", never your trips or spend</div>
+    <div><span>an attester</span>its own check, once, at join time</div>
+    <div><span>the arbiter</span>one stay, only if you disclose it</div>
+    <div class="nobody"><span style="color:#8C897F">nobody</span>your secret. It never leaves your device.</div>
+  </div>
+</div></section>
+
+<section style="border-bottom:0"><div class="wrap">
+  <div class="lbl">Try it, read it</div>
+  <h2>Everything is open.</h2>
+  <div class="links">
+    <a class="primary" href="/">live app</a>
+    <a href="https://github.com/hustle1hustle/bookerbob-hackmeridian-2026" target="_blank" rel="noopener">repo ↗</a>
+    <a href="https://stellar.expert/explorer/testnet/contract/CBEGVNZFDZMOBKYVP27D5Q6Y7OHKWC2P3DAKQNC3MGTO5OW5JHAL5EBY" target="_blank" rel="noopener">contract on stellar.expert ↗</a>
+    <a href="https://github.com/hustle1hustle/bookerbob-hackmeridian-2026/blob/main/docs/deck/bookerbob-deck.pdf" target="_blank" rel="noopener">deck (PDF) ↗</a>
+  </div>
+</div></section>
+</main>
+
+<footer class="site-foot"><div class="wrap">
+  <span>BookerBob · proof of loyalty</span><span>stellar testnet · proofs made on your device</span><a href="/how">how it works</a><span class="push">hackmeridian 2026</span>
+</div></footer>
+</body>
+</html>

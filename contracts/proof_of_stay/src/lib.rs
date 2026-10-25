@@ -7,11 +7,11 @@ use soroban_sdk::{
     token, xdr::ToXdr, Address, Symbol, Bytes, BytesN, Env, String, Vec, U256,
 };
 
-pub mod rep;
+pub mod tier;
 pub mod tree;
 pub mod verifier;
 
-use rep::RepIssuer;
+use tier::TierPolicy;
 use tree::LeanImt;
 use verifier::{Proof, VerificationKey};
 
@@ -49,6 +49,9 @@ pub enum Error {
     RepHolder = 20,
     RepNonce = 21,
     RepReplay = 22,
+    BadSeason = 23,
+    NotMember = 24,
+    BadPath = 25,
 }
 
 #[derive(Clone)]
@@ -107,8 +110,10 @@ enum Key {
     GroupLeaves(u32),
     Policy(u32),
     MerchantChain(u32),
-    RepIssuer(u32),
-    RepUsed(BytesN<32>),
+    TierKey(u32, u32),
+    TierPolicy(u32),
+    TierUsed(BytesN<16>),
+    Season,
 }
 
 /// A context group: a tree of commitments that a merchant's discount policy can reward.
@@ -227,11 +232,94 @@ pub fn ctx_scope(env: &Env, merchant: u32, group: &GroupRef, season: u32) -> U25
     keccak_u256(env, &b)
 }
 
+/// Seasons are fixed windows of ledger time: season 1 starts at `epoch`, each lasts `len` seconds.
+/// The contract computes the season; a caller-chosen value would give a fresh nullifier per call.
+#[derive(Clone)]
+#[contracttype]
+pub struct SeasonCfg {
+    pub epoch: u64,
+    pub len: u64,
+}
+
+/// 2026-10-01T00:00:00Z, 91 days: season 1 runs to 2026-12-31, the value every client used so far.
+pub const SEASON_EPOCH: u64 = 1_790_812_800;
+pub const SEASON_LEN: u64 = 91 * 86_400;
+
+fn season_cfg(env: &Env) -> SeasonCfg {
+    env.storage().instance().get(&Key::Season).unwrap_or(SeasonCfg { epoch: SEASON_EPOCH, len: SEASON_LEN })
+}
+
+/// 1 + whole seasons since the epoch (season 1 before it, so a fresh test ledger at time 0 is in season 1).
+pub fn season_at(cfg: &SeasonCfg, now: u64) -> u32 {
+    (1 + now.saturating_sub(cfg.epoch) / cfg.len) as u32
+}
+
+fn require_season(env: &Env, season: u32) {
+    if season != season_at(&season_cfg(env), env.ledger().timestamp()) {
+        panic_with_error!(env, Error::BadSeason);
+    }
+}
+
+/// A chain claim at a member merchant shares that merchant's own discount scope, so one stay is one discount
+/// per merchant per season whether it is claimed as a returning guest or as a network member.
+fn claim_scope(env: &Env, merchant: u32, group: &GroupRef, season: u32) -> U256 {
+    match group {
+        GroupRef::Merchant(m) if *m == merchant => discount_scope(env, merchant, season),
+        GroupRef::Group(g) if env.storage().persistent().get::<_, u32>(&Key::MerchantChain(merchant)) == Some(*g) => {
+            discount_scope(env, merchant, season)
+        }
+        _ => ctx_scope(env, merchant, group, season),
+    }
+}
+
 fn load_group(env: &Env, id: u32) -> Group {
     env.storage()
         .persistent()
         .get(&Key::Group(id))
         .unwrap_or_else(|| panic_with_error!(env, Error::GroupNotFound))
+}
+
+/// Moves a member to a new commitment in place (same index), for a user who starts over with a new identity.
+/// The root history restarts at the new root, so the old identity stops proving membership at once. Nullifiers
+/// the old identity spent stay spent. Returns the new root.
+fn move_leaf(env: &Env, gid: u32, old: &U256, new: &U256, siblings: &Vec<U256>) -> U256 {
+    if *new == U256::from_u32(env, 0) {
+        panic_with_error!(env, Error::BadLeaf);
+    }
+    require_canonical(env, new);
+    let ok = Key::GroupLeaf(gid, old.clone());
+    let index: u32 = env.storage().persistent().get(&ok).unwrap_or_else(|| panic_with_error!(env, Error::NotMember));
+    let nk = Key::GroupLeaf(gid, new.clone());
+    if env.storage().persistent().has(&nk) {
+        panic_with_error!(env, Error::DuplicateLeaf);
+    }
+    let lsk = Key::GroupLeaves(gid);
+    let mut leaves: Vec<U256> = env.storage().persistent().get(&lsk).unwrap_or(Vec::new(env));
+    leaves.set(index, new.clone());
+    let mut g = load_group(env, gid);
+    let root = g.tree.update(env, index, old, new, siblings).unwrap_or_else(|| panic_with_error!(env, Error::BadPath));
+    g.roots = Vec::from_array(env, [root.clone()]);
+    let gk = Key::Group(gid);
+    env.storage().persistent().set(&gk, &g);
+    bump_persistent(env, &gk);
+    env.storage().persistent().set(&lsk, &leaves);
+    bump_persistent(env, &lsk);
+    env.storage().persistent().remove(&ok);
+    env.storage().persistent().set(&nk, &index);
+    bump_persistent(env, &nk);
+    env.events().publish((soroban_sdk::symbol_short!("moved"), gid), (index, root.clone()));
+    root
+}
+
+/// Chain enrollment at checkout never blocks the checkout itself: a full chain group or a leaf already in it
+/// is skipped with an event.
+fn enroll_in_chain(env: &Env, gid: u32, commitment: &U256) {
+    let full = load_group(env, gid).tree.size >= MAX_LEAVES;
+    if full || env.storage().persistent().has(&Key::GroupLeaf(gid, commitment.clone())) {
+        env.events().publish((soroban_sdk::symbol_short!("chainskip"), gid), (commitment.clone(), full));
+        return;
+    }
+    insert_group_leaf(env, gid, commitment);
 }
 
 fn insert_group_leaf(env: &Env, gid: u32, commitment: &U256) {
@@ -396,7 +484,7 @@ impl ProofOfStay {
         bump_persistent(&env, &lsk);
         // A merchant in a chain also enrolls the stay in the chain group ("guest anywhere in the network").
         if let Some(gid) = env.storage().persistent().get::<_, u32>(&Key::MerchantChain(merchant)) {
-            insert_group_leaf(&env, gid, &id_commitment);
+            enroll_in_chain(&env, gid, &id_commitment);
         }
         bump_instance(&env);
         env.events().publish((soroban_sdk::symbol_short!("checkout"), merchant), (id_commitment, index, root.clone()));
@@ -418,6 +506,7 @@ impl ProofOfStay {
     /// The proof message binds the paying guest, so a proof cannot be front-run by another payer.
     pub fn book_with_discount(env: Env, merchant: u32, guest: Address, season: u32, proof: Proof, root: U256, nullifier: U256) -> i128 {
         guest.require_auth();
+        require_season(&env, season);
         let h = load_merchant(&env, merchant);
         let scope = discount_scope(&env, merchant, season);
         let message = discount_message(&env, &guest);
@@ -461,6 +550,7 @@ impl ProofOfStay {
         nullifier: U256,
     ) -> i128 {
         guest.require_auth();
+        require_season(&env, season);
         let h = load_merchant(&env, merchant);
         h.admin.require_auth();
         if amount <= 0 {
@@ -480,6 +570,7 @@ impl ProofOfStay {
     /// Spends the discount nullifier without moving USDC (the order is paid on another rail, e.g. a card).
     /// Only the merchant admin (its checkout bridge) may call it. The proof still binds the guest address.
     pub fn redeem(env: Env, merchant: u32, guest: Address, season: u32, order_ref: BytesN<32>, proof: Proof, root: U256, nullifier: U256) {
+        require_season(&env, season);
         let h = load_merchant(&env, merchant);
         h.admin.require_auth();
         let scope = discount_scope(&env, merchant, season);
@@ -524,52 +615,127 @@ impl ProofOfStay {
         load_group(&env, group).tree.root(&env)
     }
 
-    /// Contract admin pins the REP issuer for an attested group: its P-256 key (from the JWKS), iss, aud,
-    /// max verdict age and accepted sources. Rotating the REP key is another call here.
-    pub fn set_rep_issuer(env: Env, group: u32, issuer: RepIssuer) {
+    /// Contract admin pins a tier issuer key for an attested group under `kid` (the credential's byte 8).
+    /// Rotation: pin the new kid, then remove the old one with `None`.
+    pub fn set_tier_issuer(env: Env, group: u32, kid: u32, pubkey: Option<BytesN<65>>) {
         let cadmin: Address = env.storage().instance().get(&Key::Admin).unwrap();
         cadmin.require_auth();
-        if load_group(&env, group).kind != Symbol::new(&env, "attested") || issuer.hosts.is_empty() || issuer.max_age == 0 {
+        if load_group(&env, group).kind != Symbol::new(&env, "attested") || kid > 255 {
             panic_with_error!(&env, Error::BadParams);
         }
-        let k = Key::RepIssuer(group);
-        env.storage().persistent().set(&k, &issuer);
+        let k = Key::TierKey(group, kid);
+        match pubkey {
+            Some(pk) => {
+                env.storage().persistent().set(&k, &pk);
+                bump_persistent(&env, &k);
+            }
+            None => env.storage().persistent().remove(&k),
+        }
+    }
+
+    /// Contract admin sets the lowest tier an attested group admits. Credentials must name this contract and group.
+    pub fn set_tier_policy(env: Env, group: u32, policy: TierPolicy) {
+        let cadmin: Address = env.storage().instance().get(&Key::Admin).unwrap();
+        cadmin.require_auth();
+        if load_group(&env, group).kind != Symbol::new(&env, "attested") || policy.min_tier == 0 || policy.min_tier > 255 {
+            panic_with_error!(&env, Error::BadParams);
+        }
+        let k = Key::TierPolicy(group);
+        env.storage().persistent().set(&k, &policy);
         bump_persistent(&env, &k);
     }
 
-    pub fn get_rep_issuer(env: Env, group: u32) -> Option<RepIssuer> {
-        env.storage().persistent().get(&Key::RepIssuer(group))
+    pub fn get_tier_issuer(env: Env, group: u32, kid: u32) -> Option<BytesN<65>> {
+        env.storage().persistent().get(&Key::TierKey(group, kid))
     }
 
-    /// Anyone may submit: joins an attested group on a REP verdict checked here, not by an attester server.
-    /// `verdict` is the compact JWS from REP, `kb` the phone's compact KB-JWT whose nonce is
-    /// `pos:<id_commitment>:<rand>`. One verdict adds one member (its signing-input hash is spent).
-    /// The operator's `add_member` stays as the fallback path.
-    pub fn add_member_with_rep(env: Env, group: u32, id_commitment: U256, verdict: Bytes, kb: Bytes) -> U256 {
-        let issuer: RepIssuer = env
+    /// What a tier credential for `group` must carry in bytes [9..41): sha256("<contract strkey>:<group>").
+    pub fn tier_audience(env: Env, group: u32) -> BytesN<32> {
+        BytesN::from_array(&env, &tier::audience(&env, group))
+    }
+
+    pub fn get_tier_policy(env: Env, group: u32) -> Option<TierPolicy> {
+        env.storage().persistent().get(&Key::TierPolicy(group))
+    }
+
+    /// Anyone may submit: joins an attested group on a tier credential (see `tier.rs`) signed by a pinned issuer
+    /// key, for exactly this commitment. Each credential (jti) adds one member. The ledger sees the credential
+    /// only: no REP verdict, device key, spend or source. The operator's `add_member` stays as the fallback.
+    pub fn add_member_with_tier(env: Env, group: u32, id_commitment: U256, cred: BytesN<106>, sig: BytesN<64>) -> U256 {
+        let policy: TierPolicy = env
             .storage()
             .persistent()
-            .get(&Key::RepIssuer(group))
+            .get(&Key::TierPolicy(group))
             .unwrap_or_else(|| panic_with_error!(&env, Error::RepNotConfigured));
         if id_commitment == U256::from_u32(&env, 0) {
             panic_with_error!(&env, Error::BadLeaf);
         }
         require_canonical(&env, &id_commitment);
-        let checked = rep::check(&env, &issuer, &id_commitment, &verdict, &kb);
-        let uk = Key::RepUsed(checked.verdict_id.clone());
+        let c = tier::check(&env, group, &policy, &id_commitment, &cred);
+        let key: BytesN<65> = env
+            .storage()
+            .persistent()
+            .get(&Key::TierKey(group, c.kid))
+            .unwrap_or_else(|| panic_with_error!(&env, Error::RepIssuer));
+        let uk = Key::TierUsed(c.jti.clone());
         if env.storage().persistent().has(&uk) {
             panic_with_error!(&env, Error::RepReplay);
         }
+        tier::verify(&env, &key, &cred, &sig);
         env.storage().persistent().set(&uk, &true);
         bump_persistent(&env, &uk);
         insert_group_leaf(&env, group, &id_commitment);
         bump_instance(&env);
-        env.events().publish((soroban_sdk::symbol_short!("rep"), group), checked.verdict_id);
+        env.events().publish((soroban_sdk::symbol_short!("tier"), group), c.jti);
         load_group(&env, group).tree.root(&env)
     }
 
-    pub fn is_rep_used(env: Env, verdict_id: BytesN<32>) -> bool {
-        env.storage().persistent().has(&Key::RepUsed(verdict_id))
+    pub fn is_tier_used(env: Env, jti: BytesN<16>) -> bool {
+        env.storage().persistent().has(&Key::TierUsed(jti))
+    }
+
+    /// Group operator moves a member to a new commitment (a user who started over proved control of the old
+    /// identity to the operator off chain). Same index, new root, the old identity no longer proves membership.
+    /// `siblings`: the Merkle siblings of the old leaf in the current tree (Semaphore `generateMerkleProof`).
+    pub fn replace_member(env: Env, group: u32, old_commitment: U256, new_commitment: U256, siblings: Vec<U256>) -> U256 {
+        load_group(&env, group).admin.require_auth();
+        let root = move_leaf(&env, group, &old_commitment, &new_commitment, &siblings);
+        bump_instance(&env);
+        root
+    }
+
+    /// The same move without operator rights, on a move credential from the pinned tier issuer (see `tier.rs`):
+    /// it names both the old and the new commitment, so nobody can evict a leaf they did not prove control of.
+    pub fn replace_member_with_tier(
+        env: Env,
+        group: u32,
+        old_commitment: U256,
+        new_commitment: U256,
+        siblings: Vec<U256>,
+        cred: BytesN<137>,
+        sig: BytesN<64>,
+    ) -> U256 {
+        let _: TierPolicy = env
+            .storage()
+            .persistent()
+            .get(&Key::TierPolicy(group))
+            .unwrap_or_else(|| panic_with_error!(&env, Error::RepNotConfigured));
+        let c = tier::check_move(&env, group, &old_commitment, &new_commitment, &cred);
+        let key: BytesN<65> = env
+            .storage()
+            .persistent()
+            .get(&Key::TierKey(group, c.kid))
+            .unwrap_or_else(|| panic_with_error!(&env, Error::RepIssuer));
+        let uk = Key::TierUsed(c.jti.clone());
+        if env.storage().persistent().has(&uk) {
+            panic_with_error!(&env, Error::RepReplay);
+        }
+        tier::verify_bytes(&env, &key, &Bytes::from(cred), &sig);
+        env.storage().persistent().set(&uk, &true);
+        bump_persistent(&env, &uk);
+        let root = move_leaf(&env, group, &old_commitment, &new_commitment, &siblings);
+        bump_instance(&env);
+        root
     }
 
     /// A merchant joins a chain group; its future checkouts are enrolled there too. Both admins sign.
@@ -583,6 +749,26 @@ impl ProofOfStay {
         let k = Key::MerchantChain(merchant);
         env.storage().persistent().set(&k, &group);
         bump_persistent(&env, &k);
+    }
+
+    /// The season the contract accepts right now (see `SeasonCfg`).
+    pub fn current_season(env: Env) -> u32 {
+        season_at(&season_cfg(&env), env.ledger().timestamp())
+    }
+
+    pub fn season_config(env: Env) -> SeasonCfg {
+        season_cfg(&env)
+    }
+
+    /// Contract admin moves the season clock. Nullifiers already spent stay spent under their old season.
+    pub fn set_season(env: Env, cfg: SeasonCfg) {
+        let cadmin: Address = env.storage().instance().get(&Key::Admin).unwrap();
+        cadmin.require_auth();
+        if cfg.len == 0 {
+            panic_with_error!(&env, Error::BadParams);
+        }
+        env.storage().instance().set(&Key::Season, &cfg);
+        bump_instance(&env);
     }
 
     /// Merchant admin sets which groups earn what discount, capped at `max_bps`.
@@ -609,6 +795,7 @@ impl ProofOfStay {
     /// Some(amount) is a merchant-quoted amount the merchant admin co-signs.
     pub fn book_with_context(env: Env, merchant: u32, guest: Address, season: u32, amount: Option<i128>, claims: Vec<Claim>) -> i128 {
         guest.require_auth();
+        require_season(&env, season);
         let h = load_merchant(&env, merchant);
         let base = match amount {
             Some(a) => {
@@ -643,14 +830,11 @@ impl ProofOfStay {
                 .find(|it| it.group == c.group)
                 .map(|it| it.bps)
                 .unwrap_or_else(|| panic_with_error!(&env, Error::NotInPolicy));
-            let (roots, scope) = match c.group {
-                GroupRef::Merchant(m) => {
-                    let mm = if m == merchant { h.clone() } else { load_merchant(&env, m) };
-                    let sc = if m == merchant { discount_scope(&env, merchant, season) } else { ctx_scope(&env, merchant, &c.group, season) };
-                    (mm.roots, sc)
-                }
-                GroupRef::Group(g) => (load_group(&env, g).roots, ctx_scope(&env, merchant, &c.group, season)),
+            let roots = match c.group {
+                GroupRef::Merchant(m) => (if m == merchant { h.clone() } else { load_merchant(&env, m) }).roots,
+                GroupRef::Group(g) => load_group(&env, g).roots,
             };
+            let scope = claim_scope(&env, merchant, &c.group, season);
             spend(&env, &roots, &c.root, &c.nullifier, &message, &scope, &c.proof);
             total += bps;
         }
@@ -835,4 +1019,4 @@ impl ProofOfStay {
 #[cfg(test)]
 mod test;
 #[cfg(test)]
-mod test_rep;
+mod test_tier;

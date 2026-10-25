@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="./support.js"></script>
+<!-- bb: start the data request and the data module download before the design runtime mounts -->
+<script>window.__polState = fetch("/api/state").then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });</script>
+<link rel="modulepreload" href="./pol-real.js">
 </head>
 <body>
 <script src="/ops.js"></script>
@@ -29,6 +32,8 @@ html,body{margin:0;padding:0;background:#EDEBE5}
 @keyframes bb-scan{0%{top:8%}50%{top:88%}100%{top:8%}}
 @keyframes bb-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 @keyframes bb-fade{from{opacity:0}to{opacity:1}}
+@keyframes bb-pulse{0%,100%{opacity:.55}50%{opacity:1}}
+@media (max-width:600px){.bb-src{position:fixed!important;inset:0!important;width:auto!important;max-height:none!important;border:0!important;box-shadow:none!important}}
 @media (prefers-reduced-motion: reduce){[data-theme] *{animation:none!important;transition:none!important}}
 </style>
 </helmet>
@@ -48,6 +53,14 @@ html,body{margin:0;padding:0;background:#EDEBE5}
       </sc-for>
     </nav>
     <button onClick="{{ toggleTheme }}" aria-label="{{ themeAria }}" style="appearance:none;border:1px solid var(--rule);background:transparent;color:var(--ink);width:36px;height:36px;display:grid;place-items:center;cursor:pointer;font-size:15px;line-height:1" style-hover="background:var(--ink);color:var(--bg)">◐</button>
+    <!-- bb:operator-demo (only for the demo operator: pol-real demo.isOperator()) -->
+    <sc-if value="{{ opShow }}" hint-placeholder-val="{{ false }}">
+      <div role="group" aria-label="operator demo" style="display:flex;align-items:center;gap:6px">
+        <sc-if value="{{ opActive }}" hint-placeholder-val="{{ false }}"><span title="{{ opNs }}" style="display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;background:var(--deal);color:var(--deal-ink);font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase"><span style="width:6px;height:6px;background:var(--deal-ink)"></span>fresh demo</span></sc-if>
+        <button onClick="{{ opReset }}" style="appearance:none;border:1px solid var(--rule);background:transparent;color:var(--ink);font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;height:30px;padding:0 10px;cursor:pointer" style-hover="background:var(--ink);color:var(--bg)">{{ opResetLabel }}</button>
+        <sc-if value="{{ opActive }}" hint-placeholder-val="{{ false }}"><button onClick="{{ opExit }}" style="appearance:none;border:1px solid var(--rule);background:transparent;color:var(--ink);font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;height:30px;padding:0 10px;cursor:pointer" style-hover="background:var(--ink);color:var(--bg)">back to my passkey</button></sc-if>
+      </div>
+    </sc-if>
     <!-- bb:connect-control (pol-real sources(); swappable for a Claude Design version) -->
     <div style="position:relative">
       <button onClick="{{ srcToggle }}" aria-expanded="{{ srcOpen }}" aria-haspopup="dialog" aria-label="connections" style="appearance:none;border:1px solid var(--ink);background:{{ srcBtnBg }};color:{{ srcBtnFg }};height:36px;padding:0 10px 0 12px;display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;transition:background .15s,color .15s">
@@ -56,7 +69,8 @@ html,body{margin:0;padding:0;background:#EDEBE5}
       </button>
       <sc-if value="{{ srcOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ srcToggle }}" style="position:fixed;inset:0;z-index:39"></div>
-        <div role="dialog" aria-label="connections" style="position:absolute;right:0;top:calc(100% + 8px);width:min(420px,92vw);max-height:calc(100vh - 96px);overflow:auto;background:var(--surface);color:var(--ink);border:1px solid var(--ink);box-shadow:var(--shadow-hard);z-index:40">
+        <div role="dialog" aria-modal="true" aria-label="connections" class="bb-src" style="position:absolute;right:0;top:calc(100% + 8px);width:min(420px,92vw);max-height:calc(100vh - 96px);overflow:auto;background:var(--surface);color:var(--ink);border:1px solid var(--ink);box-shadow:var(--shadow-hard);z-index:40">
+          <div style="position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 10px 10px 18px;background:var(--surface);border-bottom:1px solid var(--rule)"><span style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)">connections</span><button onClick="{{ srcClose }}" aria-label="close connections" style="appearance:none;border:1px solid var(--ink);background:transparent;color:var(--ink);width:36px;height:36px;display:grid;place-items:center;cursor:pointer;font-size:18px;line-height:1" style-hover="background:var(--ink);color:var(--bg)">×</button></div>
           <sc-if value="{{ srcHasReason }}" hint-placeholder-val="{{ false }}"><div style="padding:16px 18px 4px;font-size:20px;font-weight:500;letter-spacing:-.03em">{{ srcReason }}</div></sc-if>
           <sc-for list="{{ srcRows }}" as="r" hint-placeholder-count="4">
             <sc-if value="{{ r.hasHead }}" hint-placeholder-val="{{ false }}"><div style="padding:14px 18px 2px;border-top:1px solid var(--rule);font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)">{{ r.head }}</div></sc-if>
@@ -65,6 +79,28 @@ html,body{margin:0;padding:0;background:#EDEBE5}
               <sc-if value="{{ r.hasPerk }}" hint-placeholder-val="{{ false }}"><div style="margin-top:4px;font-family:var(--mono);font-size:11px;font-weight:600;color:var(--deal-ink);background:var(--deal);display:inline-block;padding:2px 6px">{{ r.perk }}</div></sc-if>
               <p style="margin:4px 0 0;font-size:13px;line-height:1.45;color:var(--ink-2)">{{ r.proves }}</p>
               <p style="margin:2px 0 0;font-size:13px;line-height:1.45;color:var(--ink-3)">{{ r.detail }}<sc-if value="{{ r.hasAccount }}" hint-placeholder-val="{{ false }}"> · <a href="{{ r.accountUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">account ↗</a></sc-if></p>
+              <!-- Always visible for a connected wallet — never hide behind sc-if / display:none (Freighter was painting account-only). -->
+              <sc-if value="{{ r.showScoreRow }}" hint-placeholder-val="{{ false }}">
+                <p style="margin:6px 0 0;font-size:12px;line-height:1.5;color:var(--ink)">{{ r.scoreLine }}<sc-if value="{{ r.hasScoreProof }}" hint-placeholder-val="{{ false }}"> · <a href="{{ r.scoreUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">proof tx {{ r.scoreTxShort }} ↗</a></sc-if></p>
+              </sc-if>
+              <!-- bb:stellar-tier: the wallet's tier joins a group places can reward; the score line above stays -->
+              <sc-if value="{{ r.showTier }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--rule-soft)">
+                  <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px"><span style="font-size:14px">Stellar wallet tier</span><sc-if value="{{ r.tierHasPerk }}" hint-placeholder-val="{{ false }}"><span style="font-family:var(--mono);font-size:11px;font-weight:600;color:var(--deal-ink);background:var(--deal);padding:2px 6px">{{ r.tierPerk }}</span></sc-if></div>
+                  <p style="margin:4px 0 0;font-size:13px;line-height:1.45;color:var(--ink-2)">{{ r.tierExplainer }}</p>
+                  <sc-if value="{{ r.tierHeld }}" hint-placeholder-val="{{ false }}"><p style="margin:4px 0 0;font-size:12px;color:var(--ink)">{{ r.tierLabel }}<sc-if value="{{ r.tierHasTx }}" hint-placeholder-val="{{ false }}"> · <a href="{{ r.tierTxUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">tx {{ r.tierTxShort }} ↗</a></sc-if></p></sc-if>
+                  <sc-if value="{{ r.tierHasReason }}" hint-placeholder-val="{{ false }}"><p role="status" style="margin:4px 0 0;font-size:13px;line-height:1.45;color:var(--ink-3)">{{ r.tierReason }}</p></sc-if>
+                  <sc-if value="{{ r.tierShowBtn }}" hint-placeholder-val="{{ false }}"><div style="margin-top:8px"><button onClick="{{ r.onTierJoin }}" disabled="{{ r.tierBtnDisabled }}" style="appearance:none;border:1px solid var(--ink);background:{{ r.tierBtnBg }};color:{{ r.tierBtnFg }};font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;height:30px;padding:0 10px;cursor:pointer;opacity:{{ r.tierBtnOp }}">{{ r.tierBtnLabel }}</button></div></sc-if>
+                </div>
+              </sc-if>
+              <sc-if value="{{ r.hasGens }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--rule-soft)">
+                  <button onClick="{{ r.onStartOver }}" style="appearance:none;border:1px solid var(--ink);background:transparent;color:var(--ink);font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;height:30px;padding:0 10px;cursor:pointer">{{ r.startLabel }}</button>
+                  <p style="margin:6px 0 0;font-size:12px;line-height:1.45;color:var(--ink-3)">{{ r.genNote }}</p>
+                  <sc-if value="{{ r.hasSwitch }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px"><span style="font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)">switch generation</span><sc-for list="{{ r.gens }}" as="g" hint-placeholder-count="2"><button onClick="{{ g.onClick }}" aria-pressed="{{ g.on }}" style="appearance:none;border:1px solid var(--rule);background:{{ g.bg }};color:{{ g.fg }};font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;height:26px;padding:0 8px;cursor:pointer">{{ g.label }}</button></sc-for></div></sc-if>
+                </div>
+              </sc-if>
+              <sc-if value="{{ r.hasNote }}" hint-placeholder-val="{{ false }}"><p role="status" style="margin:6px 0 0;font-size:13px;line-height:1.45;color:var(--ink-2)">{{ r.note }}</p></sc-if>
               <sc-if value="{{ r.hasTx }}" hint-placeholder-val="{{ false }}"><p style="margin:4px 0 0;font-size:12px;color:var(--ink-2)">joined · <a href="{{ r.txUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">tx {{ r.txShort }} ↗</a></p></sc-if>
               <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
                 <sc-for list="{{ r.actions }}" as="a" hint-placeholder-count="1"><button onClick="{{ a.onClick }}" disabled="{{ a.disabled }}" style="appearance:none;border:1px solid var(--ink);background:{{ a.bg }};color:{{ a.fg }};font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;height:30px;padding:0 10px;cursor:pointer;opacity:{{ a.op }}">{{ a.label }}</button></sc-for>
@@ -89,21 +125,25 @@ html,body{margin:0;padding:0;background:#EDEBE5}
 
 <sc-if value="{{ vHome }}" hint-placeholder-val="{{ true }}">
 <section data-screen-label="01 Home" style="border-bottom:1px solid var(--rule)">
-  <div style="max-width:1360px;margin:0 auto;padding:clamp(44px,7vw,104px) clamp(16px,4vw,48px) clamp(40px,5vw,72px);display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,480px),1fr));gap:clamp(36px,5vw,80px);align-items:center">
+  <div style="max-width:1360px;margin:0 auto;padding:clamp(32px,5vw,72px) clamp(16px,4vw,48px) clamp(40px,5vw,72px);display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,480px),1fr));gap:clamp(28px,4vw,64px);align-items:center">
     <div style="animation:bb-in .7s cubic-bezier(.2,.7,0,1) both">
-      <h1 style="margin:0;font-size:clamp(56px,8.2vw,136px);font-weight:500;letter-spacing:-.06em;line-height:.84">BookerBob.</h1>
-      <p style="margin:16px 0 0;font-size:clamp(34px,4.4vw,72px);font-weight:500;letter-spacing:-.055em;line-height:.92;color:var(--ink-3);max-width:14ch">Google for agentic commerce.</p>
-      <p style="margin:30px 0 0;font-size:clamp(22px,2.2vw,32px);letter-spacing:-.03em;line-height:1.1">Proof of loyalty, everywhere you go.</p>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:22px">
-        <sc-for list="{{ heroKinds }}" as="k" hint-placeholder-count="3">
-          <button onClick="{{ k.onClick }}" style="appearance:none;border:1px solid var(--ink);background:transparent;color:var(--ink);font-size:15px;letter-spacing:-.01em;height:38px;padding:0 14px;display:inline-flex;align-items:center;gap:10px;cursor:pointer;transition:background .15s,color .15s" style-hover="background:var(--ink);color:var(--bg)">{{ k.label }}<span style="font-family:var(--mono);font-size:11px;opacity:.6">{{ k.count }}</span></button>
-        </sc-for>
-        <span style="border:1px dashed var(--rule-soft);color:var(--ink-3);font-size:15px;height:38px;padding:0 14px;display:inline-flex;align-items:center">restaurants next</span>
+      <h1 style="margin:0;font-size:clamp(48px,6.4vw,104px);font-weight:500;letter-spacing:-.06em;line-height:.84">BookerBob.</h1>
+      <p style="margin:12px 0 0;font-size:clamp(28px,3.4vw,52px);font-weight:500;letter-spacing:-.055em;line-height:.92;color:var(--ink-3);max-width:16ch">Google for agentic commerce.</p>
+      <p style="margin:18px 0 0;font-size:clamp(19px,1.7vw,24px);letter-spacing:-.03em;line-height:1.15">Proof of loyalty, everywhere you go.</p>
+      <!-- bb:composer: Ask Bob as the hero, a person prompts an agent -->
+      <div style="margin-top:28px;border:1px solid var(--ink);background:var(--surface);box-shadow:var(--shadow-hard)">
+        <label for="bb-ask" style="display:flex;align-items:center;gap:10px;padding:14px 18px 0;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)"><span style="width:22px;height:22px;background:var(--ink);color:var(--bg);display:grid;place-items:center;font-size:11px;font-weight:600;letter-spacing:0">b</span>ask bob</label>
+        <textarea id="bb-ask" ref="{{ composerRef }}" rows="3" value="{{ rankInput }}" onInput="{{ onRankInput }}" onKeyDown="{{ onRankKey }}" onFocus="{{ onComposerFocus }}" onBlur="{{ onComposerBlur }}" placeholder="{{ composerPh }}" aria-label="ask bob" spellcheck="false" style="display:block;width:100%;min-height:calc(3 * 1.25em + 24px);resize:none;border:0;background:transparent;color:var(--ink);font-family:var(--sans);font-size:clamp(22px,2.3vw,32px);font-weight:500;letter-spacing:-.03em;line-height:1.25;padding:10px 18px 14px;outline:none"></textarea>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;padding:0 12px 12px 18px">
+          <span style="font-size:13px;color:var(--ink-3)">bob ranks by proven reviews only. enter to send.</span>
+          <button onClick="{{ askBob }}" disabled="{{ rankBusy }}" aria-label="send to bob" style="appearance:none;border:1px solid var(--ink);background:var(--ink);color:var(--bg);font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;font-size:12px;font-weight:500;height:46px;padding:0 20px;display:inline-flex;align-items:center;gap:22px;cursor:pointer;opacity:{{ rankBtnOp }}">{{ rankBtn }}<span>→</span></button>
+        </div>
       </div>
-      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:36px">
-        <button onClick="{{ scrollToRank }}" style="appearance:none;border:1px solid var(--ink);background:var(--ink);color:var(--bg);font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;height:50px;padding:0 22px;display:inline-flex;align-items:center;gap:28px;cursor:pointer;transition:background .15s,border-color .15s,color .15s" style-hover="background:var(--accent);border-color:var(--accent);color:var(--accent-ink)">see the ranking<span>↓</span></button>
-        <button onClick="{{ goAgent }}" style="appearance:none;border:1px solid var(--ink);background:transparent;color:var(--ink);font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;height:50px;padding:0 22px;display:inline-flex;align-items:center;gap:28px;cursor:pointer;transition:background .15s,color .15s" style-hover="background:var(--ink);color:var(--bg)">watch bob shop<span>→</span></button>
+      <div style="display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;margin-top:12px">
+        <span style="font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)">try</span>
+        <sc-for list="{{ rankTries }}" as="q" hint-placeholder-count="4"><button onClick="{{ q.onClick }}" style="appearance:none;border:1px solid var(--rule-soft);background:transparent;color:var(--ink-2);font-family:var(--mono);font-size:11.5px;height:30px;padding:0 10px;cursor:pointer" style-hover="border-color:var(--ink);color:var(--ink)">{{ q.label }}</button></sc-for>
       </div>
+      <p style="margin:16px 0 0;font-size:14px;color:var(--ink-2)">or <button onClick="{{ goAgent }}" style="appearance:none;border:0;border-bottom:1px solid var(--ink);background:none;color:var(--ink);font:inherit;padding:0;cursor:pointer">watch bob shop at a real store →</button></p>
     </div>
     <figure style="margin:0;animation:bb-fade 1.2s .2s ease both">
       <div style="border:1px solid var(--rule);background:var(--surface);display:flex;justify-content:center;overflow:hidden;padding:clamp(20px,3vw,40px) 8px">
@@ -111,12 +151,36 @@ html,body{margin:0;padding:0;background:#EDEBE5}
       </div>
       <figcaption style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 20px;margin-top:12px;font-family:var(--mono);font-size:11px;color:var(--ink-3)"><span>{{ hero.caption }}</span><span><span style="color:var(--accent)">@</span> is you. nobody knows which.</span></figcaption>
     </figure>
+    <sc-if value="{{ convo.has }}" hint-placeholder-val="{{ false }}">
+      <div ref="{{ convoRef }}" aria-live="polite" style="grid-column:1/-1;display:flex;flex-direction:column;gap:14px;scroll-margin-top:80px">
+        <div style="align-self:flex-end;max-width:min(640px,88%);background:var(--ink);color:var(--bg);padding:14px 18px;font-size:clamp(18px,1.7vw,22px);letter-spacing:-.02em;line-height:1.3;animation:bb-in .3s ease both">{{ convo.q }}</div>
+        <div style="align-self:flex-start;max-width:min(760px,94%);display:grid;grid-template-columns:32px minmax(0,1fr);gap:12px;align-items:start;animation:bb-in .3s ease both">
+          <span style="width:32px;height:32px;background:var(--ink);color:var(--bg);display:grid;place-items:center;font-family:var(--mono);font-size:14px;font-weight:600">b</span>
+          <div style="border:1px solid var(--rule);background:var(--surface);padding:14px 18px;font-size:clamp(18px,1.7vw,22px);letter-spacing:-.02em;line-height:1.35">{{ convo.reply }}<sc-if value="{{ convo.thinking }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;width:9px;height:18px;margin-left:4px;background:var(--ink);vertical-align:-3px;animation:bb-blink 1s steps(1) infinite"></span></sc-if></div>
+        </div>
+        <sc-if value="{{ convo.hasCards }}" hint-placeholder-val="{{ false }}">
+          <ol style="list-style:none;margin:0 0 0 44px;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:12px">
+            <sc-for list="{{ convo.cards }}" as="c" hint-placeholder-count="3">
+              <li style="animation:bb-in .45s cubic-bezier(.2,.7,0,1) both;animation-delay:{{ c.delay }}">
+                <button onClick="{{ c.onOpen }}" style="appearance:none;width:100%;height:100%;text-align:left;border:1px solid var(--ink);background:var(--bg);color:var(--ink);padding:16px;display:flex;flex-direction:column;gap:10px;cursor:pointer" style-hover="background:var(--surface)">
+                  <span style="display:flex;justify-content:space-between;align-items:baseline;gap:10px"><span style="font-family:var(--mono);font-size:12px;color:{{ c.rankColor }}">{{ c.rank }}</span><span style="font-size:34px;letter-spacing:-.05em;line-height:.9">{{ c.score }}<span style="font-family:var(--mono);font-size:11px;color:var(--ink-3);letter-spacing:0">/10</span></span></span>
+                  <span style="font-size:22px;font-weight:500;letter-spacing:-.035em;line-height:1.05">{{ c.name }}</span>
+                  <span style="font-size:13px;line-height:1.4;color:var(--ink-2)">{{ c.meta }}</span>
+                  <sc-if value="{{ c.deal }}" hint-placeholder-val="{{ true }}"><span style="align-self:flex-start;background:var(--deal);color:var(--deal-ink);font-family:var(--mono);font-size:12px;font-weight:600;padding:5px 9px">{{ c.deal }}</span></sc-if>
+                </button>
+              </li>
+            </sc-for>
+          </ol>
+          <p style="margin:0 0 0 44px;font-size:14px;color:var(--ink-2)">{{ convo.more }} <button onClick="{{ scrollToRank }}" style="appearance:none;border:0;border-bottom:1px solid var(--ink);background:none;color:var(--ink);font:inherit;padding:0;cursor:pointer">see the full ranking ↓</button></p>
+        </sc-if>
+      </div>
+    </sc-if>
   </div>
 </section>
 
 <section ref="{{ rankRef }}" data-screen-label="02 Ranking" style="border-bottom:1px solid var(--rule)">
   <div style="max-width:1360px;margin:0 auto;padding:clamp(44px,6vw,96px) clamp(16px,4vw,48px)">
-    <h2 style="margin:0;font-size:clamp(46px,6.6vw,108px);font-weight:500;letter-spacing:-.06em;line-height:.86;max-width:11ch">reviews nobody can buy.</h2>
+    <h2 style="margin:0;font-size:clamp(30px,3.6vw,56px);font-weight:500;letter-spacing:-.05em;line-height:.95;max-width:16ch">reviews nobody can buy.</h2>
 
     <div role="tablist" aria-label="kind of place" style="display:flex;gap:clamp(20px,3vw,40px);margin-top:clamp(28px,4vw,48px);border-bottom:1px solid var(--rule);overflow-x:auto">
       <sc-for list="{{ cats }}" as="c" hint-placeholder-count="3">
@@ -124,20 +188,18 @@ html,body{margin:0;padding:0;background:#EDEBE5}
       </sc-for>
     </div>
 
-    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px 18px;margin-top:20px;padding:14px 16px;border:1px solid var(--rule);background:var(--surface)">
-      <span style="width:32px;height:32px;flex:none;background:var(--ink);color:var(--bg);display:grid;place-items:center;font-family:var(--mono);font-size:14px;font-weight:600">b</span>
-      <span style="flex:1 1 260px;min-width:0;font-family:var(--mono);font-size:14px">{{ rankQuery }}</span>
-      <button onClick="{{ askBob }}" disabled="{{ rankBusy }}" style="appearance:none;border:1px solid var(--ink);background:var(--ink);color:var(--bg);font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;height:38px;padding:0 16px;display:inline-flex;align-items:center;gap:16px;cursor:pointer;transition:background .15s,border-color .15s,color .15s" style-hover="background:var(--accent);border-color:var(--accent);color:var(--accent-ink)">{{ rankBtn }}<span>→</span></button>
-    </div>
-    <sc-if value="{{ rankHasLines }}" hint-placeholder-val="{{ false }}">
-      <ol style="list-style:none;margin:0;padding:10px 16px 4px 66px;font-family:var(--mono);font-size:12.5px;line-height:1.5">
-        <sc-for list="{{ rankLines }}" as="l" hint-placeholder-count="0"><li style="padding:4px 0;color:{{ l.color }};animation:bb-in .35s ease both">{{ l.t }}</li></sc-for>
-        <sc-if value="{{ rankBusy }}" hint-placeholder-val="{{ false }}"><li style="padding:4px 0"><span style="display:inline-block;width:8px;height:14px;background:var(--ink);vertical-align:-2px;animation:bb-blink 1s steps(1) infinite"></span></li></sc-if>
-      </ol>
-    </sc-if>
 
     <sc-if value="{{ rankShow }}" hint-placeholder-val="{{ true }}">
       <ol style="list-style:none;margin:clamp(20px,3vw,32px) 0 0;padding:0;border-bottom:1px solid var(--rule)">
+        <sc-for list="{{ rankSkeleton }}" as="k" hint-placeholder-count="0">
+          <li aria-hidden="true" style="border-top:1px solid var(--rule);padding:clamp(18px,2.4vw,28px) 0;display:grid;grid-template-columns:clamp(64px,9vw,140px) minmax(0,1fr);gap:0 clamp(12px,2vw,28px);align-items:center">
+            <span style="display:block;width:70%;height:clamp(44px,6vw,96px);background:var(--rule-soft);animation:{{ skAnim }}"></span>
+            <span style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px 32px">
+              <span style="display:block;flex:1 1 260px"><span style="display:block;width:{{ k.w }};height:clamp(26px,3vw,44px);background:var(--rule-soft);animation:{{ skAnim }}"></span><span style="display:block;width:45%;height:14px;margin-top:12px;background:var(--rule-soft);animation:{{ skAnim }}"></span></span>
+              <span style="display:flex;align-items:center;gap:20px"><span style="display:block;width:72px;height:clamp(40px,4.6vw,64px);background:var(--rule-soft);animation:{{ skAnim }}"></span><span style="display:block;width:78px;height:26px;background:var(--rule-soft);animation:{{ skAnim }}"></span></span>
+            </span>
+          </li>
+        </sc-for>
         <sc-for list="{{ ranked }}" as="r" hint-placeholder-count="3">
           <li style="animation:bb-in .55s cubic-bezier(.2,.7,0,1) both;animation-delay:{{ r.delay }}">
             <button onClick="{{ r.onOpen }}" style="appearance:none;width:100%;text-align:left;background:transparent;color:var(--ink);border:0;border-top:1px solid var(--rule);padding:clamp(18px,2.4vw,28px) 0;display:grid;grid-template-columns:clamp(64px,9vw,140px) minmax(0,1fr);gap:0 clamp(12px,2vw,28px);align-items:center;cursor:pointer;transition:background .15s" style-hover="background:var(--surface)">
@@ -149,7 +211,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
                 </span>
                 <span style="display:flex;align-items:center;gap:20px 28px;flex-wrap:wrap">
                   <span style="font-size:clamp(44px,5vw,72px);letter-spacing:-.065em;line-height:.85">{{ r.score }}</span>
-                  <span style="background:var(--deal);color:var(--deal-ink);font-family:var(--mono);font-size:12px;font-weight:600;padding:6px 10px">{{ r.deal }}</span>
+                  <sc-if value="{{ r.deal }}" hint-placeholder-val="{{ true }}"><span style="background:var(--deal);color:var(--deal-ink);font-family:var(--mono);font-size:12px;font-weight:600;padding:6px 10px">{{ r.deal }}</span></sc-if>
                   <span style="font-family:var(--mono);font-size:16px">→</span>
                 </span>
               </span>
@@ -159,7 +221,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
         <sc-for list="{{ unranked }}" as="u" hint-placeholder-count="0">
           <li>
             <button onClick="{{ u.onOpen }}" style="appearance:none;width:100%;text-align:left;background:transparent;color:var(--ink);border:0;border-top:1px solid var(--rule);padding:clamp(18px,2.4vw,28px) 0;display:grid;grid-template-columns:clamp(64px,9vw,140px) minmax(0,1fr);gap:0 clamp(12px,2vw,28px);align-items:center;cursor:pointer;transition:background .15s" style-hover="background:var(--surface)">
-              <span style="font-size:clamp(54px,8vw,124px);font-weight:300;letter-spacing:-.075em;line-height:.8;color:var(--ink-3)">new</span>
+              <span style="font-size:clamp(54px,8vw,124px);font-weight:300;letter-spacing:-.075em;line-height:.8;color:var(--ink-3)">{{ u.tag }}</span>
               <span style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px 32px;min-width:0">
                 <span style="display:block;min-width:0;flex:1 1 260px">
                   <span style="display:block;font-size:clamp(28px,3.2vw,48px);font-weight:500;letter-spacing:-.045em;line-height:1">{{ u.name }}</span>
@@ -167,7 +229,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
                 </span>
                 <span style="display:flex;align-items:center;gap:20px 28px;flex-wrap:wrap">
                   <span style="font-size:15px;color:var(--ink-3)">not ranked yet</span>
-                  <span style="background:var(--deal);color:var(--deal-ink);font-family:var(--mono);font-size:12px;font-weight:600;padding:6px 10px">{{ u.deal }}</span>
+                  <sc-if value="{{ u.deal }}" hint-placeholder-val="{{ true }}"><span style="background:var(--deal);color:var(--deal-ink);font-family:var(--mono);font-size:12px;font-weight:600;padding:6px 10px">{{ u.deal }}</span></sc-if>
                   <span style="font-family:var(--mono);font-size:16px">→</span>
                 </span>
               </span>
@@ -175,7 +237,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
           </li>
         </sc-for>
       </ol>
-      <p style="margin:16px 0 0;font-size:14px;color:var(--ink-2)"><s style="color:var(--ink-3)">9.1 from 2,000 reviews</s> elsewhere. none of them proven, so bob counts none of them.</p>
+      <p style="margin:16px 0 0;font-size:14px;color:var(--ink-2)"><span style="font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)">illustrative comparison</span> a typical <s style="color:var(--ink-3)">9.1 from 2,000 reviews</s> elsewhere. none of them proven, so bob would count none of them.</p>
     </sc-if>
   </div>
 </section>
@@ -188,9 +250,10 @@ html,body{margin:0;padding:0;background:#EDEBE5}
       <button onClick="{{ goAgent }}" style="appearance:none;margin-top:30px;border:1px solid var(--bg);background:var(--bg);color:var(--ink);font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;height:50px;padding:0 22px;display:inline-flex;align-items:center;gap:28px;cursor:pointer;transition:background .15s,border-color .15s,color .15s" style-hover="background:var(--deal);border-color:var(--deal);color:var(--deal-ink)">watch bob buy a t-shirt<span>→</span></button>
     </div>
     <div style="border:1px solid var(--bg)">
-      <div style="display:flex;justify-content:space-between;padding:18px;font-size:17px"><span>rep tee, black</span><span style="font-family:var(--mono);font-size:14px">40.80</span></div>
-      <div style="display:flex;justify-content:space-between;padding:12px 18px;margin:0 18px;background:var(--deal);color:var(--deal-ink);font-family:var(--mono);font-size:13px;font-weight:600"><span>returning customer · proven</span><span>−4.08</span></div>
-      <div style="display:flex;justify-content:flex-end;align-items:baseline;gap:8px;padding:22px 18px 18px"><span style="font-size:52px;font-weight:600;letter-spacing:-.06em;line-height:.9">36.72</span><span style="font-family:var(--mono);font-size:12px;opacity:.7">usdc</span></div>
+      <div style="display:flex;justify-content:space-between;padding:18px;font-size:17px"><span>{{ bsTitle }}</span><span style="font-family:var(--mono);font-size:14px">{{ bsPrice }}</span></div>
+      <sc-if value="{{ bsReturning }}" hint-placeholder-val="{{ true }}"><div style="display:flex;justify-content:space-between;padding:12px 18px;margin:0 18px;background:var(--deal);color:var(--deal-ink);font-family:var(--mono);font-size:13px;font-weight:600"><span>returning customer · proven</span><span>{{ bsOff }}</span></div></sc-if>
+      <sc-if value="{{ bsNew }}" hint-placeholder-val="{{ false }}"><div style="padding:12px 18px;margin:0 18px;border:1px dashed var(--bg);font-family:var(--mono);font-size:12px;opacity:.8">your price: full. after your first purchase, −{{ bsPct }}% as a returning customer.</div></sc-if>
+      <div style="display:flex;justify-content:flex-end;align-items:baseline;gap:8px;padding:22px 18px 18px"><span style="font-size:52px;font-weight:600;letter-spacing:-.06em;line-height:.9">{{ bsTotal }}</span><span style="font-family:var(--mono);font-size:12px;opacity:.7">usdc</span></div>
     </div>
   </div>
 </section>
@@ -256,7 +319,6 @@ html,body{margin:0;padding:0;background:#EDEBE5}
           </sc-if>
           <sc-if value="{{ pp.isShop }}" hint-placeholder-val="{{ false }}">
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));border:1px solid var(--rule);margin-top:14px">
-              <div style="min-height:260px;background:repeating-linear-gradient(135deg,var(--surface) 0 10px,var(--bg) 10px 20px);border-right:1px solid var(--rule-soft);display:grid;place-items:center;font-family:var(--mono);font-size:10.5px;color:var(--ink-3);letter-spacing:.08em;text-transform:uppercase">product photo</div>
               <div style="padding:22px;display:flex;flex-direction:column;gap:18px">
                 <div><div style="font-size:26px;font-weight:500;letter-spacing:-.035em">{{ product.title }}</div><div style="font-size:30px;letter-spacing:-.045em;margin-top:8px">{{ product.price }}<span style="font-family:var(--mono);font-size:11px;color:var(--ink-3);margin-left:6px">usdc</span></div></div>
                 <div role="radiogroup" aria-label="size" style="display:flex;gap:6px">
@@ -338,11 +400,11 @@ html,body{margin:0;padding:0;background:#EDEBE5}
               </div>
               <div style="min-width:0">
                 <sc-if value="{{ r.hasText }}" hint-placeholder-val="{{ true }}"><p style="margin:0;font-size:18px;line-height:1.42;letter-spacing:-.012em;text-wrap:pretty;max-width:52ch">{{ r.text }}</p></sc-if>
-                <sc-if value="{{ r.noText }}" hint-placeholder-val="{{ false }}"><p style="margin:0;font-size:18px;line-height:1.42;color:var(--ink-3)">text unavailable</p></sc-if>
+                <sc-if value="{{ r.noText }}" hint-placeholder-val="{{ false }}"><p style="margin:0;font-size:18px;line-height:1.42;color:var(--ink-3)">rating only, no text</p></sc-if>
                 <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;align-items:center">
                   <sc-if value="{{ r.hasTx }}" hint-placeholder-val="{{ true }}"><a href="{{ r.txUrl }}" target="_blank" rel="noopener" title="the proof, on stellar.expert" style="display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 9px;border:1px solid var(--rule-soft);font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;color:var(--ink)" style-hover="border-color:var(--ink)"><span style="width:6px;height:6px;background:var(--ink)"></span>{{ r.proofLabel }}</a></sc-if>
                   <sc-if value="{{ r.noTx }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 9px;border:1px solid var(--rule-soft);font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink)"><span style="width:6px;height:6px;background:var(--ink)"></span>{{ r.proofPlain }}</span></sc-if>
-                  <sc-if value="{{ r.verified }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;height:26px;padding:0 9px;background:var(--accent);color:var(--accent-ink);font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase">{{ r.verifiedLabel }}</span></sc-if>
+                  <sc-if value="{{ r.verified }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;height:26px;padding:0 9px;background:var(--accent);color:var(--accent-ink);font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase">{{ r.verifiedLabel }}</span></sc-if><sc-if value="{{ r.demo }}" hint-placeholder-val="{{ false }}"><span title="posted by the BookerBob demo script on testnet, not by an organic guest" style="display:inline-flex;align-items:center;height:26px;padding:0 9px;border:1px dashed var(--ink-3);color:var(--ink-2);font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase">testnet demo activity</span></sc-if>
                 </div>
               </div>
             </article>
@@ -444,7 +506,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
       <sc-if value="{{ hasNetworkPass }}" hint-placeholder-val="{{ false }}">
         <article style="border:1px solid var(--ink);background:var(--ink);color:var(--bg);display:flex;flex-direction:column;animation:bb-in .45s ease both">
           <div style="padding:20px 22px 18px">
-            <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;opacity:.65">network pass</div>
+            <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;opacity:.65">pass</div>
             <div style="font-size:32px;font-weight:500;letter-spacing:-.045em;line-height:1;margin-top:30px">BookerBob regular</div>
             <div style="font-size:14px;opacity:.75;margin-top:8px">{{ networkLine }}</div>
             <div style="font-size:13px;opacity:.75;margin-top:10px;line-height:1.45">every place in the network can give you a regular's perk without knowing where you've been. you got this from your {{ netFrom.what }} at {{ netFrom.place }}<sc-if value="{{ netFrom.hasTx }}" hint-placeholder-val="{{ false }}"> · <a href="{{ netFrom.url }}" target="_blank" rel="noopener" style="color:var(--bg);font-family:var(--mono);font-size:12px">tx {{ netFrom.short }} ↗</a></sc-if>.</div>
@@ -463,6 +525,18 @@ html,body{margin:0;padding:0;background:#EDEBE5}
           </div>
           <div style="border-top:1px dashed var(--bg);margin:0 22px;opacity:.5"></div>
           <div style="padding:16px 22px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:60px"><span style="background:var(--deal);color:var(--deal-ink);font-family:var(--mono);font-size:11.5px;font-weight:600;padding:4px 8px">{{ travPerk }}</span></div>
+        </article>
+      </sc-if>
+      <!-- bb:stellar-tier pass -->
+      <sc-if value="{{ hasTierPass }}" hint-placeholder-val="{{ false }}">
+        <article style="border:1px solid var(--ink);background:var(--ink);color:var(--bg);display:flex;flex-direction:column;animation:bb-in .45s ease both">
+          <div style="padding:20px 22px 18px">
+            <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;opacity:.65">attested pass</div>
+            <div style="font-size:32px;font-weight:500;letter-spacing:-.045em;line-height:1;margin-top:30px">{{ tierPass.label }}</div>
+            <div style="font-size:13px;opacity:.75;margin-top:10px;line-height:1.45">your Stellar wallet history earns a tier. places see the tier, never the wallet.<sc-if value="{{ tierPass.hasTx }}" hint-placeholder-val="{{ false }}"> <a href="{{ tierPass.url }}" target="_blank" rel="noopener" style="color:var(--bg);font-family:var(--mono);font-size:12px">tx {{ tierPass.short }} ↗</a></sc-if></div>
+          </div>
+          <div style="border-top:1px dashed var(--bg);margin:0 22px;opacity:.5"></div>
+          <div style="padding:16px 22px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:60px"><span style="background:var(--deal);color:var(--deal-ink);font-family:var(--mono);font-size:11.5px;font-weight:600;padding:4px 8px">{{ tierPass.perk }}</span></div>
         </article>
       </sc-if>
     </div>
@@ -509,6 +583,23 @@ html,body{margin:0;padding:0;background:#EDEBE5}
       <span style="font-family:var(--mono);font-size:12px;opacity:.75">{{ ag.progress }}</span>
     </div>
 
+    <sc-if value="{{ shopIdle }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="REP Store products" style="margin-top:20px;border:1px solid var(--rule);padding:16px 20px">
+        <div style="display:flex;justify-content:space-between;gap:12px;align-items:baseline"><span style="font-size:20px;font-weight:500;letter-spacing:-.03em">pick what bob buys</span><span style="font-family:var(--mono);font-size:11px;color:var(--ink-3)">REP Store · on Shopify, over UCP</span></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:10px;margin-top:12px">
+          <sc-for list="{{ shopProducts }}" as="P" hint-placeholder-count="6">
+            <div style="border:1px solid {{ P.bd }};padding:10px;display:grid;gap:8px">
+              <a href="{{ P.url }}" target="_blank" rel="noopener" style="display:grid;grid-template-columns:64px minmax(0,1fr);gap:12px;align-items:center;text-decoration:none;color:var(--ink)">
+            <span style="width:64px;height:64px;border:1px solid var(--rule-soft);background:var(--surface) center/cover no-repeat;background-image:{{ P.bgImage }};display:grid;place-items:center;font-family:var(--mono);font-size:9px;color:var(--ink-3)">{{ P.noPhoto }}</span>
+            <span style="min-width:0"><span style="display:block;font-size:15px;line-height:1.25">{{ P.title }}</span><span style="display:block;font-family:var(--mono);font-size:12px;margin-top:4px">{{ P.price }} usdc <span style="color:var(--ink-3)">{{ P.store }}</span></span><span style="display:block;font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin-top:4px">REP Store · on Shopify ↗</span></span>
+          </a>
+              <button onClick="{{ P.onPick }}" aria-pressed="{{ P.on }}" style="appearance:none;border:1px solid var(--ink);background:transparent;color:var(--ink);font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;height:28px;cursor:pointer">bob buys this</button>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
     <div style="display:flex;flex-wrap:wrap;gap:20px;margin-top:20px;align-items:flex-start">
       <div style="flex:1.5 1 520px;min-width:0;border:1px solid var(--rule);padding:0 20px">
         <sc-for list="{{ agSteps }}" as="s" hint-placeholder-count="10">
@@ -529,6 +620,10 @@ html,body{margin:0;padding:0;background:#EDEBE5}
         <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--rule-soft)"><span style="font-size:20px;font-weight:500;letter-spacing:-.03em">cart · rep store</span><span style="font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)">ucp</span></div>
         <div style="padding:16px 20px;min-height:72px">
           <sc-for list="{{ cartItems }}" as="i" hint-placeholder-count="0"><div style="display:flex;justify-content:space-between;gap:16px;font-size:16px;animation:bb-in .3s ease both"><span>{{ i.title }}</span><span style="font-family:var(--mono);font-size:13px">{{ i.price }}</span></div></sc-for>
+          <sc-for list="{{ cartCards }}" as="P" hint-placeholder-count="0"><div style="margin-top:10px"><a href="{{ P.url }}" target="_blank" rel="noopener" style="display:grid;grid-template-columns:64px minmax(0,1fr);gap:12px;align-items:center;text-decoration:none;color:var(--ink)">
+            <span style="width:64px;height:64px;border:1px solid var(--rule-soft);background:var(--surface) center/cover no-repeat;background-image:{{ P.bgImage }};display:grid;place-items:center;font-family:var(--mono);font-size:9px;color:var(--ink-3)">{{ P.noPhoto }}</span>
+            <span style="min-width:0"><span style="display:block;font-size:15px;line-height:1.25">{{ P.title }}</span><span style="display:block;font-family:var(--mono);font-size:12px;margin-top:4px">{{ P.price }} usdc <span style="color:var(--ink-3)">{{ P.store }}</span></span><span style="display:block;font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin-top:4px">REP Store · on Shopify ↗</span></span>
+          </a></div></sc-for>
           <sc-if value="{{ cartEmpty }}" hint-placeholder-val="{{ true }}"><div style="font-size:15px;color:var(--ink-3)">empty</div></sc-if>
           <sc-for list="{{ cartDiscounts }}" as="d" hint-placeholder-count="0">
             <div style="display:flex;justify-content:space-between;gap:12px;margin-top:12px;padding:10px 12px;border:1px {{ d.bdStyle }} {{ d.bd }};background:{{ d.bg }};color:{{ d.fg }};font-family:var(--mono);font-size:12.5px;font-weight:600;animation:bb-in .3s ease both;transition:background .3s,color .3s">
@@ -552,6 +647,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
     <sc-if value="{{ agFailed }}" hint-placeholder-val="{{ false }}">
       <div data-screen-label="Agent failed path" style="margin-top:20px;border:1px solid var(--rule);display:flex;flex-wrap:wrap;gap:16px 40px;align-items:center;justify-content:space-between;padding:clamp(20px,3vw,28px);animation:bb-in .4s ease both">
         <div style="max-width:52ch"><div style="font-size:clamp(26px,2.8vw,40px);font-weight:500;letter-spacing:-.045em;line-height:1">the claim did not hold.</div><p style="margin:10px 0 0;font-size:16px;line-height:1.45;color:var(--ink-2)">{{ agFailBody }}</p></div>
+        <sc-if value="{{ agCanPayFull }}" hint-placeholder-val="{{ false }}"><button onClick="{{ payFullPrice }}" style="appearance:none;border:1px solid var(--ink);background:transparent;color:var(--ink);font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;height:48px;padding:0 20px;cursor:pointer">pay full price</button></sc-if>
         <button onClick="{{ resetAgent }}" style="appearance:none;border:1px solid var(--ink);background:var(--ink);color:var(--bg);font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;height:48px;padding:0 20px;display:inline-flex;align-items:center;gap:24px;cursor:pointer" style-hover="background:var(--accent);border-color:var(--accent);color:var(--accent-ink)">reset the demo<span>→</span></button>
       </div>
     </sc-if>
@@ -593,6 +689,20 @@ html,body{margin:0;padding:0;background:#EDEBE5}
     </sc-for>
   </div>
 </div>
+<!-- bb:guide: what this role does, three steps, the current one from real state -->
+<div style="border-bottom:1px solid var(--rule-soft);background:var(--surface)">
+  <div style="max-width:1360px;margin:0 auto;padding:18px clamp(16px,4vw,48px)">
+    <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)">{{ mGuide.kicker }}</div>
+    <ol style="list-style:none;margin:10px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:10px 28px">
+      <sc-for list="{{ mGuide.steps }}" as="g" hint-placeholder-count="3">
+        <li style="display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;align-items:start;opacity:{{ g.op }}">
+          <span style="width:24px;height:24px;display:grid;place-items:center;border:1px solid var(--ink);background:{{ g.bg }};color:{{ g.fg }};font-family:var(--mono);font-size:11px">{{ g.mark }}</span>
+          <span style="min-width:0"><span style="display:block;font-size:16px;letter-spacing:-.02em">{{ g.label }}</span><span style="display:block;margin-top:2px;font-size:13px;line-height:1.45;color:var(--ink-2)">{{ g.sub }}</span></span>
+        </li>
+      </sc-for>
+    </ol>
+  </div>
+</div>
 
 <sc-if value="{{ mHotel }}" hint-placeholder-val="{{ true }}">
 <section data-screen-label="Merchant · checkout desk">
@@ -610,7 +720,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
             <span style="position:absolute;bottom:14px;left:14px;width:28px;height:28px;border-bottom:2px solid var(--ink);border-left:2px solid var(--ink)"></span>
             <span style="position:absolute;bottom:14px;right:14px;width:28px;height:28px;border-bottom:2px solid var(--ink);border-right:2px solid var(--ink)"></span>
             <span style="position:absolute;left:10%;right:10%;height:2px;background:var(--accent);animation:bb-scan 1.6s ease-in-out infinite"></span>
-            <span style="font-size:15px;color:var(--ink-2)">show the guest's qr</span>
+            <span style="font-size:15px;color:var(--ink-2)">simulated scan: fills a sample commitment</span>
           </div>
         </sc-if>
         <label for="bb-commit" style="font-size:17px">guest commitment</label>
@@ -624,6 +734,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
           <sc-if value="{{ desk.canSubmit }}" hint-placeholder-val="{{ true }}">
             <button onClick="{{ deskConfirm }}" style="appearance:none;width:100%;border:1px solid var(--ink);background:var(--ink);color:var(--bg);font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;height:52px;padding:0 20px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;transition:background .15s,border-color .15s,color .15s" style-hover="background:var(--accent);border-color:var(--accent);color:var(--accent-ink)">check out, add to group<span>→</span></button>
           </sc-if>
+          <sc-if value="{{ desk.deskClosed }}" hint-placeholder-val="{{ false }}"><p style="margin:0;font-size:15px;line-height:1.45;color:var(--ink-2)">the place itself checks guests in; book to get a pass.</p></sc-if>
           <sc-if value="{{ desk.submitting }}" hint-placeholder-val="{{ false }}">
             <div style="height:52px;border:1px solid var(--ink);display:flex;align-items:center;gap:12px;padding:0 20px;font-family:var(--mono);font-size:12px"><span style="width:8px;height:8px;background:var(--accent);animation:bb-blink 1s steps(1) infinite"></span>signing on stellar</div>
           </sc-if>
@@ -665,9 +776,10 @@ html,body{margin:0;padding:0;background:#EDEBE5}
           </div>
           <div style="min-width:0">
             <sc-if value="{{ r.hasText }}" hint-placeholder-val="{{ true }}"><p style="margin:0;font-size:17px;line-height:1.45;max-width:60ch;text-wrap:pretty">{{ r.text }}</p></sc-if>
-            <sc-if value="{{ r.noText }}" hint-placeholder-val="{{ false }}"><p style="margin:0;font-size:17px;color:var(--ink-3)">text unavailable</p></sc-if>
+            <sc-if value="{{ r.noText }}" hint-placeholder-val="{{ false }}"><p style="margin:0;font-size:17px;color:var(--ink-3)">rating only, no text</p></sc-if>
             <div style="display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:8px;font-size:13px;color:var(--ink-3)">
               <sc-if value="{{ r.verified }}" hint-placeholder-val="{{ false }}"><span style="color:var(--accent)">✓ verified stay</span></sc-if>
+              <sc-if value="{{ r.demo }}" hint-placeholder-val="{{ false }}"><span style="color:var(--ink-2)">testnet demo activity</span></sc-if>
               <sc-if value="{{ r.hasDState }}" hint-placeholder-val="{{ false }}"><span style="color:var(--ink)">{{ r.dState }}</span></sc-if>
             </div>
           </div>
@@ -715,6 +827,20 @@ html,body{margin:0;padding:0;background:#EDEBE5}
 </sc-if>
 
 <sc-if value="{{ isArbiter }}" hint-placeholder-val="{{ false }}">
+<!-- bb:guide: what this role does, three steps, the current one from real state -->
+<div style="border-bottom:1px solid var(--rule-soft);background:var(--surface)">
+  <div style="max-width:1360px;margin:0 auto;padding:18px clamp(16px,4vw,48px)">
+    <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)">{{ aGuide.kicker }}</div>
+    <ol style="list-style:none;margin:10px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:10px 28px">
+      <sc-for list="{{ aGuide.steps }}" as="g" hint-placeholder-count="3">
+        <li style="display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;align-items:start;opacity:{{ g.op }}">
+          <span style="width:24px;height:24px;display:grid;place-items:center;border:1px solid var(--ink);background:{{ g.bg }};color:{{ g.fg }};font-family:var(--mono);font-size:11px">{{ g.mark }}</span>
+          <span style="min-width:0"><span style="display:block;font-size:16px;letter-spacing:-.02em">{{ g.label }}</span><span style="display:block;margin-top:2px;font-size:13px;line-height:1.45;color:var(--ink-2)">{{ g.sub }}</span></span>
+        </li>
+      </sc-for>
+    </ol>
+  </div>
+</div>
 <section data-screen-label="Dispute queue">
   <div style="max-width:1360px;margin:0 auto;padding:clamp(40px,6vw,88px) clamp(16px,4vw,48px) clamp(48px,6vw,96px)">
     <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:16px 48px">
@@ -742,8 +868,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
           </sc-if>
           <sc-if value="{{ ad.hasPkg }}" hint-placeholder-val="{{ false }}">
             <div style="padding:20px 24px;border-bottom:1px solid var(--rule-soft);display:flex;flex-wrap:wrap;gap:8px 24px;align-items:center;font-family:var(--mono);font-size:12px">
-              <span>secret {{ ad.secret }}</span><span>leaf {{ ad.leaf }}</span><span>signature {{ ad.sig }}</span>
-              <button onClick="{{ onReveal }}" style="appearance:none;border:0;border-bottom:1px solid var(--ink);background:none;color:var(--ink);font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;padding:0 0 2px;cursor:pointer">{{ ad.revealLabel }}</button>
+              <span>{{ ad.pkgLine }}</span>
             </div>
             <div style="padding:4px 24px 0">
               <sc-for list="{{ checks }}" as="c" hint-placeholder-count="3">
@@ -777,6 +902,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
     <span style="color:var(--ink)">BookerBob · proof of loyalty</span>
     <span>stellar testnet · proofs made on your device</span>
     <span style="flex:1 1 0"></span>
+    <a href="/how" style="color:var(--ink)">how it works</a>
     <span>hackmeridian 2026</span>
   </div>
 </footer>
@@ -789,7 +915,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
         <span style="font-size:16px;letter-spacing:-.02em">{{ flowTitle }}</span>
         <span style="flex:1 1 0"></span>
         <span aria-live="polite" style="font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)">{{ flowStatus }}</span>
-        <button onClick="{{ closeFlow }}" disabled="{{ flowRunning }}" aria-label="close" style="appearance:none;border:1px solid var(--rule);background:transparent;color:var(--ink);font-family:var(--mono);font-size:14px;width:36px;height:36px;cursor:pointer;opacity:{{ closeOpacity }}" style-hover="background:var(--ink);color:var(--bg)">×</button>
+        <button onClick="{{ closeFlow }}" aria-label="close" style="appearance:none;border:1px solid var(--rule);background:transparent;color:var(--ink);font-family:var(--mono);font-size:14px;width:36px;height:36px;cursor:pointer;opacity:{{ closeOpacity }}" style-hover="background:var(--ink);color:var(--bg)">×</button>
       </div>
     </div>
     <div style="max-width:1360px;margin:0 auto;padding:clamp(24px,4vw,56px) clamp(16px,4vw,48px) clamp(40px,5vw,72px)">
@@ -818,7 +944,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
                   <a href="{{ res.txUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">tx {{ res.txShort }} ↗</a>
                 </div>
                 <div style="display:grid;gap:4px;margin-top:10px;font-size:13px;color:var(--ink-2)">
-                  <sc-for list="{{ res.proofTxs }}" as="q" hint-placeholder-count="0"><div>✓ {{ q.label }} · <sc-if value="{{ q.hasTx }}" hint-placeholder-val="{{ false }}"><a href="{{ q.url }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">tx {{ q.short }} ↗</a></sc-if><sc-if value="{{ q.noTx }}" hint-placeholder-val="{{ false }}">joined earlier</sc-if></div></sc-for>
+                  <sc-for list="{{ res.proofTxs }}" as="q" hint-placeholder-count="0"><sc-if value="{{ q.isDropped }}" hint-placeholder-val="{{ false }}"><div style="color:var(--ink-3)">○ {{ q.label }} · {{ q.why }}, not counted</div></sc-if><sc-if value="{{ q.ok }}" hint-placeholder-val="{{ false }}"><div>✓ {{ q.label }} · <sc-if value="{{ q.hasTx }}" hint-placeholder-val="{{ false }}"><a href="{{ q.url }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">tx {{ q.short }} ↗</a></sc-if><sc-if value="{{ q.noTx }}" hint-placeholder-val="{{ false }}">joined earlier</sc-if></div></sc-if></sc-for>
                   <sc-if value="{{ res.hasPass }}" hint-placeholder-val="{{ false }}"><div>new pass: {{ res.passLabel }} · <a href="{{ res.passUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">tx {{ res.passShort }} ↗</a></div></sc-if>
                 </div>
               </sc-if>
@@ -857,6 +983,8 @@ html,body{margin:0;padding:0;background:#EDEBE5}
         <p style="margin:10px 0 22px;font-size:15px;line-height:1.45;color:var(--ink-2)">no fees, no xlm. your proofs stay in this browser.</p>
         <button onClick="{{ connectPasskey }}" disabled="{{ connectBusy }}" style="appearance:none;width:100%;border:1px solid var(--ink);background:var(--ink);color:var(--bg);text-align:left;height:60px;padding:0 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;cursor:pointer;font-size:18px;letter-spacing:-.02em;transition:background .15s,border-color .15s,color .15s" style-hover="background:var(--accent);border-color:var(--accent);color:var(--accent-ink)">{{ passkeyLabel }}<span style="font-family:var(--mono)">→</span></button>
         <button onClick="{{ connectFreighter }}" disabled="{{ connectBusy }}" style="appearance:none;width:100%;margin-top:10px;border:1px solid var(--ink);background:transparent;color:var(--ink);text-align:left;height:52px;padding:0 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;cursor:pointer;font-size:16px;letter-spacing:-.02em;transition:background .15s,color .15s" style-hover="background:var(--ink);color:var(--bg)">{{ freighterLabel }}<span style="font-family:var(--mono)">→</span></button>
+        <sc-if value="{{ connectHasErr }}" hint-placeholder-val="{{ false }}"><p style="margin:14px 0 0;font-size:14px;line-height:1.45;color:var(--ink-2)">{{ connectErr }}</p></sc-if>
+        <sc-if value="{{ connectCanCreate }}" hint-placeholder-val="{{ false }}"><button onClick="{{ connectCreate }}" disabled="{{ connectBusy }}" style="appearance:none;width:100%;margin-top:10px;border:1px solid var(--ink);background:transparent;color:var(--ink);text-align:left;height:52px;padding:0 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;cursor:pointer;font-size:16px;letter-spacing:-.02em">{{ connectCreateLabel }}<span style="font-family:var(--mono)">→</span></button></sc-if>
       </div>
     </div>
   </div>
@@ -867,7 +995,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
 class Component extends DCLogic {
   state = {
     ready: false, src: { open: false, focus: null, list: [], busy: null }, theme: null, role: 'guest', view: 'home', placeId: 0, kind: 'hotel',
-    wallet: null, connect: null, rank: 'idle', rankStep: 0,
+    wallet: null, connect: null, rank: 'idle', rankStep: 0, rankQ: '', rankRes: null, rankLog: [],
     places: [], policies: {}, reviews: {}, texts: {}, elig: {}, disputes: [], memberships: [], credentials: [], orders: [],
     draft: { mId: null, rating: 0, text: '' },
     sel: { room: 0, nights: 2, size: 'm', qty: 1, menu: { 0: 1, 2: 1 } }, picks: {},
@@ -877,8 +1005,9 @@ class Component extends DCLogic {
     ag: null,
   };
   mx = 0;
-  AGL = ['find the store', 'add the t-shirt', 'claim returning customer', 'store offers 10% off, pending', 'make the proof, locally', 'stellar checks the proof, once', 'discount confirmed', 'pay in usdc', 'order paid in the shopify admin', 'join the customer group'];
+  AGL = ['find the store', 'add it to the cart', 'claim returning customer', 'store offers 10% off, pending', 'make the proof, locally', 'stellar checks the proof, once', 'discount confirmed', 'pay in usdc', 'order paid in the shopify admin', 'join the customer group'];
   ERR = {
+    Timeout: { h: 'stellar did not answer in 60 s.', b: 'it may still land. check my passes before you retry, so nothing is paid twice.', r: 'retry', k: 'retry' },
     HotelNotFound: { h: 'this place is not listed.', b: 'nothing was posted, nothing was charged.', r: 'back to explore', k: 'home' },
     UnknownRoot: { h: 'the place moved on.', b: 'this proof is for an older state of the place. refresh and retry.', r: 'refresh and retry', k: 'retry' },
     NonCanonical: { h: 'the proof did not check out.', b: 'nothing was posted, nothing was charged.', r: 'retry', k: 'retry' },
@@ -894,6 +1023,21 @@ class Component extends DCLogic {
   heroRef = el => { this.heroEl = el; if (el) el.innerHTML = this.renderTree(2.2); };
   proofRef = el => { this.proofEl = el; if (el) el.textContent = this.renderField(performance.now() / 1000); };
   rankRef = el => { this.rankEl = el; };
+  composerRef = el => { this.composerEl = el; };
+  convoRef = el => { this.convoEl = el; };
+  // bring the conversation into view below the sticky header (taller on phones)
+  scrollConvo = () => { const el = this.convoEl; if (!el) return; const h = (document.querySelector('header') || {}).offsetHeight || 64; window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - h - 16, behavior: this.reduced ? 'auto' : 'smooth' }); };
+  // the composer's placeholder types itself, with a blinking caret (static under reduced motion, or once focused)
+  PH = 'a quiet room in lisbon under 120, best proven rating';
+  typePh(ts) {
+    const el = this.composerEl; if (!el || !el.isConnected) return;
+    const full = this.state.rankRes ? 'ask bob something else' : this.PH;
+    if (this.reduced || this.phFocus || el.value) { if (el.placeholder !== full) el.placeholder = full; return; }
+    if (this.phStart == null || this.phFor !== full) { this.phStart = ts; this.phFor = full; }
+    const n = Math.min(full.length, Math.floor((ts - this.phStart) / 45)), caret = Math.floor(ts / 530) % 2 ? '▍' : ' ';
+    const v = full.slice(0, n) + caret;
+    if (el.placeholder !== v) el.placeholder = v;
+  }
   dialogRef = el => { this.dialogEl = el; };
 
   componentDidMount() {
@@ -901,8 +1045,9 @@ class Component extends DCLogic {
     this.raf = requestAnimationFrame(this.loop);
     this.onKey = e => {
       if (e.key !== 'Escape') return;
+      if (this.state.src && this.state.src.open) { this.pending = null; this.setState(st => ({ src: { ...st.src, open: false, focus: null, reason: null } })); return; }
       if (this.state.connect) this.closeConnect();
-      else if (this.state.flow && this.state.flow.phase !== 'running') this.closeFlow();
+      else if (this.state.flow) this.closeFlow();
     };
     this.onMove = e => { this.mx = e.clientX / window.innerWidth - 0.5; };
     window.addEventListener('keydown', this.onKey);
@@ -921,8 +1066,13 @@ class Component extends DCLogic {
     this.m.reset({ sparse: !!this.props.sparseData });
     this.syncConfig();
     if (this.props.walletConnected) { const w = await this.m.wallet.connect('passkey', true); this.setState({ wallet: w }); }
+    // bb:connect-control: a wallet connected by pol-real after load (fresh demo) shows up without a reload
+    window.addEventListener('pol:wallet', () => { this.loadSources(); this.reload(); });
+    window.addEventListener('pol:data', () => this.reload());
     await this.reload();
     this.setState({ ready: true, ag: this.agBlank() });
+    // links from /how: ?view=agent|passes opens that view, ?connect=1 opens Connect
+    { const q = new URLSearchParams(location.search); const v = q.get('view'); if (v === 'agent') this.goAgent(); else if (v === 'passes') this.goPasses(); if (q.get('connect') === '1') this.openSources(); }
     this.selectFirstDispute();
     if (this.props.startView && this.props.startView !== 'none') this.jump(this.props.startView);
   }
@@ -974,6 +1124,7 @@ class Component extends DCLogic {
     this.last = ts;
     if (this.heroEl && this.heroEl.isConnected) this.heroEl.innerHTML = this.renderTree(this.reduced ? 2.2 : ts / 1000);
     if (this.proofEl && this.proofEl.isConnected) this.proofEl.textContent = this.renderField(ts / 1000);
+    this.typePh(ts);
   };
   buildTree() {
     const N = [{ x: 0, y: -1, z: 0, l: 0 }], E = [], o = [0, 0.82, 0.62, 0.42, 0.3, 0.2];
@@ -1071,14 +1222,14 @@ class Component extends DCLogic {
   stars(n) { return [1, 2, 3, 4, 5].map(i => ({ bg: i <= n ? 'var(--ink)' : 'transparent' })); }
   rv(r, P) {
     const t = this.state.texts[r.content_hash], x = this.tx(r.txHash), hotel = this.isHotel(P);
-    return { id: r.id, stars: this.stars(r.rating), aria: r.rating + ' of 5', hasText: !!t, noText: !t, text: t || '', txUrl: x.url, txShort: x.short, verified: r.verified, age: this.age(r.ledger), proofLabel: hotel ? 'proven stay ↗' : 'proven customer ↗', hasTx: !!r.txHash, noTx: !r.txHash, proofPlain: hotel ? 'proven stay' : 'proven customer', verifiedLabel: hotel ? '✓ verified stay' : '✓ verified purchase' };
+    return { id: r.id, stars: this.stars(r.rating), aria: r.rating + ' of 5', hasText: !!t, noText: !t, text: t || '', txUrl: x.url, txShort: x.short, verified: r.verified, demo: !!r.demoActivity, age: this.age(r.ledger), proofLabel: hotel ? 'proven stay ↗' : 'proven customer ↗', hasTx: !!r.txHash, noTx: !r.txHash, proofPlain: hotel ? 'proven stay' : 'proven customer', verifiedLabel: hotel ? '✓ verified stay' : '✓ verified purchase' };
   }
   byId(id) { return this.state.places.find(p => p.id === id); }
 
   go(view, extra = {}) { this.setState({ view, role: 'guest', ...extra }); window.scrollTo(0, 0); }
   goHome = () => this.go('home');
   goPasses = () => this.go('passes', { disclose: null });
-  goAgent = () => this.go('agent');
+  goAgent = () => { this.go('agent'); this.loadShop(); };
   openPlace = id => this.go('place', { placeId: id, picks: {}, sel: { room: 0, nights: 2, size: 'm', qty: 1, menu: { 0: 1, 2: 1 } } });
   setRole = role => { this.setState({ role }); window.scrollTo(0, 0); if (role === 'arbiter') this.selectFirstDispute(); };
   requireWallet(reason, fn) {
@@ -1098,8 +1249,12 @@ class Component extends DCLogic {
   doConnect = async method => {
     if (!this.m || (this.state.connect && this.state.connect.pending)) return;
     this.setState({ connect: { ...this.state.connect, pending: method } });
-    const w = await this.m.wallet.connect(method);
+    let w = null;
+    try { w = await this.m.wallet.connect(method); } catch (e) { console.warn('connect failed', e); this.setState({ connect: { ...this.state.connect, pending: null, error: method === 'passkey' ? String((e && e.message) || 'this passkey could not sign in here.') : null, noPasskey: !!(e && e.noPasskey) } }); return; }
+    if (!w) { this.setState({ connect: { ...this.state.connect, pending: null } }); return; }
     this.setState({ wallet: w, connect: null });
+    if (this.m.loyalty) void this.m.loyalty.ensure(w.address).then(() => this.loadSources());
+    this.loadSources();
     const fn = this.pending; this.pending = null;
     if (fn) fn();
   };
@@ -1110,20 +1265,32 @@ class Component extends DCLogic {
     const all = s.places.filter(p => p.kind === k);
     return { ranked: all.filter(p => p.review_count > 0).sort((a, b) => b.rating - a.rating || b.review_count - a.review_count), unranked: all.filter(p => !p.review_count) };
   }
-  askBob = () => {
-    if (this.state.rank === 'thinking') return;
-    clearTimeout(this.rankT);
-    this.setState({ rank: 'thinking', rankStep: 0 });
-    let i = 0;
-    const tick = () => { i++; if (i < 3) { this.setState({ rankStep: i }); this.rankT = setTimeout(tick, 560); } else this.setState({ rank: 'done', rankStep: 3 }); };
-    this.rankT = setTimeout(tick, 380);
+  RANK_Q = { hotel: 'a quiet room in lisbon, best proven rating', 'café': 'coffee nearby', shop: 't-shirt under 50 usdc', restaurant: 'restaurant dinner' };
+  askBob = async (q0) => {
+    if (this.state.rank === 'thinking' || !this.m || !this.m.search) return;
+    const q = (typeof q0 === 'string' ? q0 : ((this.composerEl && this.composerEl.value) || this.state.rankQ)).trim() || this.PH;
+    const seq = (this.rankSeq = (this.rankSeq || 0) + 1);
+    this.setState({ rank: 'thinking', rankQ: '', rankAsked: q, rankLog: [`searching proven reviews for "${q}"`] });
+    if (this.composerEl) this.composerEl.value = '';
+    requestAnimationFrame(this.scrollConvo);
+    let res = null;
+    try { res = await this.m.search(q); } catch (e) { console.error(e); }
+    if (seq !== this.rankSeq) return;
+    if (!res) { this.setState({ rank: 'done', rankRes: null, rankLog: [`searching proven reviews for "${q}"`, 'the search did not answer. try again.'] }); return; }
+    const proven = res.results.filter(r => r.provenRating != null), top = proven[0];
+    const kind = res.kind && ['hotel', 'café', 'shop', 'restaurant'].includes(res.kind) ? res.kind : this.state.kind;
+    const log = [`searching proven reviews for "${q}"`,
+      `${this.plural(res.results.length, 'result')}, ${proven.length} with proven reviews. only those are ranked: by proven rating, weighted by how many reviews back it.`,
+      top ? `top: ${top.title.toLowerCase()}, ${(top.provenRating * 2).toFixed(1)}` : 'nothing proven here yet. no rank without proof.'];
+    this.setState({ rank: 'done', kind, rankRes: res, rankLog: log });
+    requestAnimationFrame(this.scrollConvo);
   };
-  setKind(kind) { clearTimeout(this.rankT); this.setState({ kind, rank: 'idle', rankStep: 0 }); }
+  setKind(kind) { clearTimeout(this.rankT); this.rankSeq = (this.rankSeq || 0) + 1; this.setState({ kind, rank: 'idle', rankStep: 0, rankRes: null, rankLog: [] }); }
   scrollToRank = () => { if (this.rankEl) window.scrollTo({ top: this.rankEl.getBoundingClientRect().top + window.scrollY - 64, behavior: this.reduced ? 'auto' : 'smooth' }); };
 
   vShell() {
     const s = this.state, p = this.props, theme = s.theme || p.theme || 'light', role = s.role, connected = !!s.wallet;
-    const tabDefs = [['explore', ['home', 'place'], this.goHome, ''], ['bob shops', ['agent'], this.goAgent, ''], ['my passes', ['passes', 'review'], this.goPasses, s.ready ? String(s.memberships.length + (s.memberships.length ? 1 : 0) + (s.credentials.some(c => c.group === 'traveler' && c.held) ? 1 : 0)) : '']];
+    const tabDefs = [['explore', ['home', 'place'], this.goHome, ''], ['bob shops', ['agent'], this.goAgent, ''], ['my passes', ['passes', 'review'], this.goPasses, s.ready ? String(s.memberships.length + (s.memberships.length ? 1 : 0) + s.credentials.filter(c => (c.group === 'traveler' || c.group === 'tier') && c.held).length) : ''], ['how it works', ['how'], () => { location.href = '/how'; }, '']];
     return {
       theme, themeAria: theme === 'dark' ? 'switch to light' : 'switch to dark', toggleTheme: () => this.setState({ theme: theme === 'dark' ? 'light' : 'dark' }),
       roles: [['guest', 'guest'], ['merchant', 'merchant'], ['arbiter', 'arbiter']].map(([k, label]) => ({ label, active: role === k, bg: role === k ? 'var(--ink)' : 'transparent', fg: role === k ? 'var(--bg)' : 'var(--ink)', onClick: () => this.setRole(k) })),
@@ -1137,35 +1304,73 @@ class Component extends DCLogic {
       stop: e => e.stopPropagation(),
     };
   }
+  vBobCard() {
+    if (!this.state.shopItems && !this.shopLoading && this.m) { this.shopLoading = true; setTimeout(this.loadShop, 0); }
+    const items = this.state.shopItems || [], it = items.find(x => /tee|t-shirt/i.test(x.title || '')) || items[0];
+    if (!it) return { bsTitle: 'rep tee', bsPrice: '', bsReturning: false, bsNew: false, bsOff: '', bsPct: '', bsTotal: '' };
+    const price = Number(it.price), bps = Number(it.returningDiscountBps || (this.m && this.m.ucp.discountBps ? this.m.ucp.discountBps() : 0)), ret = !!(this.m && this.m.ucp.returning && this.m.ucp.returning()) && bps > 0;
+    const off = Math.round(price * bps / 100) / 100;
+    return { bsTitle: (it.title || '').toLowerCase(), bsPrice: this.money(price), bsReturning: ret, bsNew: !ret && bps > 0, bsOff: '−' + this.money(off), bsPct: String(bps / 100), bsTotal: this.money(ret ? price - off : price) };
+  }
   vHome() {
     const s = this.state, P0 = this.byId(0), mine = s.memberships.find(x => x.place === 0);
     this.treeFilled = P0 ? P0.group_size : 14;
     this.yourLeaf = mine ? mine.leaf : -1;
-    const kinds = [['hotel', 'stays'], ['café', 'cafés'], ['shop', 'shops']];
+    const kinds = [['hotel', 'stays'], ['café', 'cafés'], ['shop', 'shops'], ['restaurant', 'restaurants']];
     const count = k => s.places.filter(p => p.kind === k).length;
     const { ranked, unranked } = this.rankedList(), top = ranked[0];
-    const queries = { hotel: 'a quiet room in lisbon, best proven rating', 'café': 'coffee in graça, proven reviews only', shop: 'a t-shirt from a store people really bought from' };
-    const lines = [
-      'dropped every rating without a proof',
-      `${this.plural(ranked.length, 'place')} left with proven reviews`,
-      top ? `top: ${top.name.toLowerCase()}, ${this.score(top)}` : 'nothing proven here yet. no rank without proof.',
-    ];
-    const shown = s.rank === 'done' ? 3 : s.rank === 'thinking' ? s.rankStep : 0;
+    const queries = this.RANK_Q;
+    const lines = s.rankLog || [];
+    const shown = lines.length;
+    const res = s.rankRes;
+    const placeMeta = P => `${P.area.toLowerCase()} · ${this.priceLine(P)} · ${P.group_size} ${this.groupWord(P, P.group_size)} · ${this.plural(P.review_count, 'proven review')}`;
+    const ucpRow = (r, i) => ({ rank: String(i + 1).padStart(2, '0'), rankColor: i === 0 ? 'var(--accent)' : 'var(--ink)', isTop: false, name: r.title,
+      meta: `REP Store on Shopify · ${this.money(r.price)} usdc · ${this.plural(r.reviewCount, 'proven review')}`, score: r.provenRating != null ? (r.provenRating * 2).toFixed(1) : '', deal: '', delay: this.reduced ? '0ms' : i * 90 + 'ms',
+      onOpen: () => { if (r.variantId && this.m.store && this.m.store.choose) this.m.store.choose(r.variantId); this.goAgent(); } });
+    const convo = (() => {
+      const q = s.rankAsked; if (!q) return { has: false, q: '', reply: '', thinking: false, hasCards: false, cards: [], more: '' };
+      if (s.rank === 'thinking') return { has: true, q, reply: 'reading proven reviews', thinking: true, hasCards: false, cards: [], more: '' };
+      if (!res) return { has: true, q, reply: 'the search did not answer. ask me again.', thinking: false, hasCards: false, cards: [], more: '' };
+      const rows = res.results.filter(r => r.provenRating != null), ext = res.results.filter(r => r.source !== 'places' && r.source !== 'ucp');
+      const kinds = [...new Set(rows.map(r => r.kind))], n = rows.length;
+      const noun = kinds.length === 1 ? ({ hotel: ['stay', 'stays'], 'café': ['café', 'cafés'], restaurant: ['restaurant', 'restaurants'], shop: ['shop or product', 'shops and products'] }[kinds[0]] || ['place', 'places']) : ['result', 'results'];
+      const top = Math.min(3, n);
+      const reply = !n ? 'nothing here has a proven review yet, so I won\'t rank any of it.'
+        : `I ranked ${n} ${n === 1 ? noun[0] : noun[1]} by proven reviews only.${ext.length ? ` ${ext.length} more from ${ext[0].source} have no proven reviews, so I left them out.` : ''} ${n === 1 ? 'here it is' : n <= 3 ? 'here they are, best first' : `here are the top ${top}`}, with your perks.`;
+      return { has: true, q, reply, thinking: false, hasCards: n > 0, cards: [], more: n > top ? `${n - top} more ranked below.` : '' };
+    })();
+    const fromRes = res ? (() => {
+      const rows = res.results.filter(r => r.provenRating != null), un = res.results.filter(r => r.provenRating == null && r.source === 'places');
+      return {
+        ranked: rows.map((r, i) => { const P = r.source === 'places' ? this.byId(r.placeId) : null; if (!P) return ucpRow(r, i);
+          return { rank: String(i + 1).padStart(2, '0'), rankColor: i === 0 ? 'var(--accent)' : 'var(--ink)', isTop: i === 0 && rows.length > 1, name: P.name, meta: placeMeta(P), score: (r.provenRating * 2).toFixed(1), deal: this.dealLabel(P.id), delay: this.reduced ? '0ms' : i * 90 + 'ms', onOpen: () => this.openPlace(P.id) }; }),
+        unranked: un.map(r => this.byId(r.placeId)).filter(Boolean).map(P => ({ tag: 'new', name: P.name, meta: `${P.area.toLowerCase()} · ${this.priceLine(P)}`, deal: this.dealLabel(P.id), onOpen: () => this.openPlace(P.id) }))
+          // federated results from outside BookerBob (JMPR hotels): listed, never ranked, because nothing there is proven
+          .concat(res.results.filter(r => r.source !== 'places' && r.source !== 'ucp').map(r => ({ tag: '—', name: r.title, meta: `${r.source.toLowerCase()} · from ${this.money(r.price)} usdc${r.kind === 'hotel' ? ' a night' : ''} · no proven reviews, so not ranked`, deal: '', onOpen: () => {} }))),
+      };
+    })() : null;
     const pickKind = k => { this.setKind(k); this.scrollToRank(); };
     return {
-      hero: { caption: P0 ? `${P0.name.toLowerCase()} · ${P0.group_size} proven guests` : '' },
+      hero: { caption: P0 ? `${P0.name.toLowerCase()} · ${P0.group_size} ${this.groupWord(P0, P0.group_size)}` : '' },
       heroKinds: kinds.map(([k, label]) => ({ label, count: s.ready ? String(count(k)) : '', onClick: () => pickKind(k) })),
       scrollToRank: this.scrollToRank,
       cats: kinds.map(([k, label]) => ({ label, count: s.ready ? String(count(k)) : '', on: s.kind === k, line: s.kind === k ? 'var(--ink)' : 'transparent', fg: s.kind === k ? 'var(--ink)' : 'var(--ink-3)', onClick: () => this.setKind(k) })),
-      rankQuery: queries[s.kind] || '', askBob: this.askBob, rankBusy: s.rank === 'thinking', rankBtn: s.rank === 'thinking' ? 'ranking' : s.rank === 'done' ? 'again' : 'ask bob',
-      rankHasLines: !s.ready || shown > 0 || s.rank === 'thinking', rankLines: !s.ready ? [{ t: 'reading the proven reviews', color: 'var(--ink-3)' }] : lines.slice(0, shown).map((t, i) => ({ t, color: s.rank === 'done' && i === 2 ? 'var(--accent)' : 'var(--ink-2)' })),
+      rankQuery: queries[s.kind] || '', rankInput: s.rankQ, onRankInput: e => this.setState({ rankQ: e.target.value }), onRankKey: e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.askBob(e.target.value); } },
+      composerRef: this.composerRef, convoRef: this.convoRef, composerPh: this.PH, onComposerFocus: () => { this.phFocus = true; }, onComposerBlur: () => { this.phFocus = false; this.phStart = null; },
+      rankBtnOp: s.rank === 'thinking' ? 0.45 : 1,
+      rankTries: ['hotel in lisbon under 120', 'best hotel', 'coffee nearby', 'restaurant dinner', 't-shirt under 50 usdc', 'hoodie'].map(q => ({ label: q, onClick: () => this.askBob(q) })),
+      askBob: () => this.askBob(), rankBusy: s.rank === 'thinking', rankBtn: s.rank === 'thinking' ? 'bob is reading' : 'ask bob',
+      rankSkeleton: s.ready ? [] : [{ w: '62%' }, { w: '48%' }, { w: '55%' }], skAnim: this.reduced ? 'none' : 'bb-pulse 1.6s ease-in-out infinite',
+      rankHasLines: !s.ready || shown > 0 || s.rank === 'thinking', rankLines: !s.ready ? [{ t: 'reading the proven reviews', color: 'var(--ink-3)' }] : lines.map((t, i) => ({ t, color: s.rank === 'done' && i === 2 ? 'var(--accent)' : 'var(--ink-2)' })),
       rankShow: s.rank !== 'thinking',
-      ranked: ranked.map((P, i) => ({
+      convo: { ...convo, cards: convo.hasCards && fromRes ? fromRes.ranked.slice(0, 3).map(r => ({ ...r, deal: r.deal || '' })) : [] },
+      ...(fromRes || {}),
+      ...(fromRes ? {} : { ranked: ranked.map((P, i) => ({
         rank: String(i + 1).padStart(2, '0'), rankColor: i === 0 ? 'var(--accent)' : 'var(--ink)', isTop: i === 0 && ranked.length > 1, name: P.name,
-        meta: `${P.area.toLowerCase()} · ${this.priceLine(P)} · ${P.review_count} ${this.groupWord(P, P.review_count)}`,
+        meta: placeMeta(P),
         score: this.score(P), deal: this.dealLabel(P.id), delay: s.rank === 'done' ? i * 90 + 'ms' : '0ms', onOpen: () => this.openPlace(P.id),
       })),
-      unranked: unranked.map(P => ({ name: P.name, meta: P.real ? `${P.area.toLowerCase()} · ${this.priceLine(P)} · real store, real purchases only` : `${P.area.toLowerCase()} · ${this.priceLine(P)}`, deal: this.dealLabel(P.id), onOpen: () => this.openPlace(P.id) })),
+      unranked: unranked.map(P => ({ tag: 'new', name: P.name, meta: P.real ? `${P.area.toLowerCase()} · ${this.priceLine(P)} · real store, real purchases only` : `${P.area.toLowerCase()} · ${this.priceLine(P)}`, deal: this.dealLabel(P.id), onOpen: () => this.openPlace(P.id) })) }),
     };
   }
   setSel(patch) { this.setState(s => ({ sel: { ...s.sel, ...patch } })); }
@@ -1183,9 +1388,15 @@ class Component extends DCLogic {
     const bd = this.m ? this.m.breakdown(subtotal, pol.policy, pol.max_bps, chosen) : { rows: [], saved: 0, total: subtotal };
     return { pol, el, cart, subtotal, chosen, bd, proven: bd.rows.filter(r => r.applied > 0).map(r => r.group) };
   }
+  netWhere(P) {
+    const ms = this.state.memberships || [], other = ms.find(x => x.place !== P.id), O = other ? this.byId(other.place) : null;
+    if (O) return `from your ${this.isHotel(O) ? 'stay' : 'visit'} at ${O.name}`;
+    return this.isHotel(P) ? 'from your stay here' : 'from your visit here';
+  }
   shortReason(e, P, atCap) {
     if (atCap) return 'at the cap';
-    if (e.eligible) return { returning: this.isHotel(P) ? 'stayed here' : 'bought here', network: 'proven elsewhere', traveler: 'attested' }[e.group] || '';
+    if (e.eligible) return { returning: this.isHotel(P) ? 'stayed here' : 'bought here', network: this.netWhere(P), traveler: 'attested', tier: 'tier joined' }[e.group] || '';
+    if (e.group === 'tier' && !e.held) return (this.m && this.m.stellarTier && this.m.stellarTier.reason()) || 'join with your wallet in connect';
     if (/used/.test(e.reason)) return 'used this season';
     return { returning: this.isHotel(P) ? 'no stay here yet' : 'no purchase here yet', network: 'no visit yet', traveler: 'not attested' }[e.group] || '';
   }
@@ -1218,9 +1429,8 @@ class Component extends DCLogic {
         needsRep: !e.eligible && !e.held && e.group === 'traveler' && !this.repLine(), repLink: 'connect REP for +' + e.bps / 100 + '%', openRep: () => { const rp = ((this.state.src && this.state.src.list) || []).find(x => x.id === 'rep'); if (rp && rp.link) window.open(rp.link, '_blank', 'noopener'); else this.openSources('rep'); },
       };
     });
-    const passportRow = ((s.src && s.src.list) || []).find(x => x.id === 'passport');
     const paRows = c.el.map(e => ({ label: e.label, proves: e.explain || e.reason, pct: '−' + e.bps / 100 + '%', state: e.eligible ? (c.proven.includes(e.group) ? 'counted' : 'held, over the cap') : e.held ? 'used this season' : 'not held', stateColor: e.eligible ? 'var(--accent)' : 'var(--ink-3)', op: 1 }))
-      .concat([{ label: 'Stellar Passport', proves: passportRow && passportRow.status === 'connected' ? 'coming: ' + passportRow.detail + '. not a perk at any place yet, so it is not counted.' : 'coming. not a perk at any place yet, so it is not counted.', pct: '—', state: 'not active', stateColor: 'var(--ink-3)', op: 0.55 }]);
+;
     const heldSum = c.el.filter(e => e.eligible).reduce((a, e) => a + e.bps, 0);
     const pa = { sum: '−' + heldSum / 100 + '%', cap: '−' + c.pol.max_bps / 100 + '% max', final: this.money(c.bd.total) };
     return {
@@ -1263,6 +1473,7 @@ class Component extends DCLogic {
       netFrom: { what: first ? first.what : 'stay', place: fp ? fp.name : '', hasTx: ft.has, url: ft.url, short: ft.short },
       netPerk: (net && net.perk) || 'a regular\'s perk where places offer it',
       travPerk: (rep && rep.perk) || 'a perk where places offer it', travTx: t(rep && rep.txHash),
+      tierPass: (() => { const w = list.find(x => x.id === 'wallet'), st = w && w.stellarTier, tt = t(st && st.tx); return { label: 'Stellar wallet tier' + (st && st.tier != null ? ' ' + st.tier : ''), hasTx: tt.has, url: tt.url, short: tt.short, perk: (st && st.perk) || 'a perk where places offer it' }; })(),
     };
   }
   vPasses() {
@@ -1288,8 +1499,9 @@ class Component extends DCLogic {
     const rm = ms.find(x => x.id === s.draft.mId), rp = rm ? this.byId(rm.place) : null, rating = s.draft.rating;
     return {
       ...this.passExtras(ms, placeIds),
-      passes, passesEmpty: s.ready && !ms.length && !s.credentials.some(c => c.group === 'traveler' && c.held),
-      passesOnlyGroups: s.ready && !ms.length && s.credentials.some(c => c.group === 'traveler' && c.held),
+      passes, passesEmpty: s.ready && !ms.length && !s.credentials.some(c => (c.group === 'traveler' || c.group === 'tier') && c.held),
+      passesOnlyGroups: s.ready && !ms.length && s.credentials.some(c => (c.group === 'traveler' || c.group === 'tier') && c.held),
+      hasTierPass: s.credentials.some(c => c.group === 'tier' && c.held),
       hasNetworkPass: placeIds.length > 0, networkLine: `proven in ${this.plural(placeIds.length, 'place')}`,
       hasTravelerPass: s.credentials.some(c => c.group === 'traveler' && c.held),
       rf: { placeName: rp ? rp.name : 'it', text: s.draft.text, placeholder: this.isHotel(rp) ? 'the room, the people, the street at night.' : 'what you got, and how it was.' },
@@ -1298,11 +1510,12 @@ class Component extends DCLogic {
       submitReview: this.submitReview, submitDisabled: !rating, submitOpacity: rating ? 1 : 0.35,
     };
   }
-  runAgent(reuse) {
+  runAgent(reuse, noClaim = false) {
     this.requireWallet('to let bob pay', async () => {
       if (!this.m || (this.state.ag && this.state.ag.phase === 'running')) return;
-      this.setState({ ag: { ...this.agBlank(), phase: 'running' } });
-      for await (const ev of this.m.ucp.run({ reuse })) {
+      this.setState({ ag: { ...this.agBlank(), phase: 'running', reused: !!reuse } });
+      try {
+      for await (const ev of this.m.ucp.run({ reuse, noClaim })) {
         if (ev.type === 'step') this.setState(s => {
           const ag = { ...s.ag, steps: s.ag.steps.map(x => ({ ...x })) }, st = ag.steps[ev.i];
           st.status = ev.status; if (ev.detail) st.detail = ev.detail; if (ev.tx) st.tx = ev.tx; if (ev.link) st.link = ev.link; if (ev.error) ag.error = ev.error;
@@ -1311,13 +1524,33 @@ class Component extends DCLogic {
         });
         else if (ev.type === 'cart') this.setState(s => ({ ag: { ...s.ag, cart: ev.cart } }));
         else if (ev.type === 'store') this.setState(s => ({ ag: { ...s.ag, store: ev.storeView } }));
+        else if (ev.type === 'headline') this.setState(s => ({ ag: { ...s.ag, headlineText: ev.text, headlineReason: ev.reason || '' } }));
+      }
+      } catch (e) {
+        const msg = String((e && e.message) || e || ''), notIn = /NotInTree/i.test(msg);
+        this.setState(s => {
+          const ag = { ...s.ag, steps: s.ag.steps.map(x => ({ ...x })) }, i = Math.max(0, ag.steps.findIndex(x => x.status === 'running'));
+          ag.steps[i].status = 'failed'; ag.steps[i].detail = notIn ? 'this browser has no past purchase at this store yet. run bob once, then try it.' : 'this step stopped: ' + (msg.slice(0, 120) || 'unknown error') + '. nothing more was sent. try again.';
+          ag.open = { ...ag.open, [i]: true }; ag.error = notIn ? 'NotInTree' : 'Error'; ag.headlineText = notIn ? 'you need a past purchase first.' : 'bob stopped. try again.';
+          return { ag };
+        });
       }
       this.setState(s => ({ ag: { ...s.ag, phase: s.ag.steps.some(x => x.status === 'failed') ? 'failed' : 'done' } }));
       this.reload();
     });
   }
+  productCard(p, onPick) {
+    const pick = this.state.shopPick;
+    return {
+      title: (p.title || '').toLowerCase(), price: this.money(p.price), store: p.storePrice ? `· ${Number(p.storePrice).toFixed(2)} ${(p.storeCurrency || '').toLowerCase()}` : '',
+      url: p.url || '#', bgImage: p.imageUrl ? `url("${p.imageUrl}")` : 'none', noPhoto: p.imageUrl ? '' : 'no photo',
+      on: !!(pick && pick.variantId === p.variantId), bd: pick && pick.variantId === p.variantId ? 'var(--ink)' : 'var(--rule)', onPick: onPick || (() => {}),
+    };
+  }
+  loadShop = () => { if (this.m && this.m.store && this.m.store.items && !this.state.shopItems) this.m.store.items().then(xs => this.setState({ shopItems: xs })); };
   resetAgent = () => { if (this.m) this.m.ucp.reset(); this.setState({ ag: this.agBlank() }); this.reload(); };
   vAgent() {
+    if (!this.state.shopItems && !this.shopLoading && this.m) { this.shopLoading = true; setTimeout(this.loadShop, 0); }
     const s = this.state, ag = s.ag || this.agBlank(), cart = ag.cart, failed = ag.phase === 'failed', running = ag.phase === 'running';
     const cur = ag.steps.findIndex(x => x.status === 'running'), doneN = ag.steps.filter(x => x.status === 'done').length;
     const agSteps = ag.steps.map((x, i) => {
@@ -1335,7 +1568,7 @@ class Component extends DCLogic {
       };
     });
     const itemsSum = cart.items.reduce((a, i) => a + i.price, 0), disc = cart.discounts[0];
-    const headline = ag.phase === 'idle' ? 'ready to buy a rep tee.' : running ? (cur >= 0 ? this.AGL[cur] + '…' : '…') : failed ? 'proof rejected. discount removed.' : (disc && disc.proven && !disc.removed ? `paid ${this.money(cart.total)} usdc. ${Math.round((disc.amount / (itemsSum || 1)) * 100)}% off, proven.` : `paid ${this.money(cart.total)} usdc. full price.${cart.nextBps ? ` next time it's ${cart.nextBps / 100}% off, proven.` : ''}`);
+    const headline = ag.headlineText ? ag.headlineText : ag.phase === 'idle' ? (this.state.shopPick ? `ready to buy ${this.state.shopPick.title.toLowerCase()}.` : 'ready to buy a rep tee.') : running ? (cur >= 0 ? this.AGL[cur] + '…' : '…') : failed ? 'proof rejected. discount removed.' : (disc && disc.proven && !disc.removed ? `paid ${this.money(cart.total)} usdc. ${Math.round((disc.amount / (itemsSum || 1)) * 100)}% off, proven.` : `paid ${this.money(cart.total)} usdc. full price.${cart.nextBps ? ` next time it's ${cart.nextBps / 100}% off, proven.` : ''}`);
     const sv0 = ag.store || null;
     return {
       ag: {
@@ -1345,7 +1578,10 @@ class Component extends DCLogic {
       },
       agSteps, agBusy: running, agBtnOpacity: running ? 0.35 : 1, agRunLabel: running ? 'shopping' : ag.phase === 'idle' ? 'run bob' : 'run again',
       runAgent: () => this.runAgent(false), runAgentReused: () => this.runAgent(true), resetAgent: this.resetAgent,
-      cartItems: cart.items.map(i => ({ title: i.title, price: this.money(i.price) })), cartEmpty: !cart.items.length,
+      agCanPayFull: failed && !ag.reused, payFullPrice: () => this.runAgent(false, true),
+      shopIdle: ag.phase === 'idle', shopProducts: (this.state.shopItems || []).map(p => this.productCard(p, () => { this.m.store.choose(p.variantId); this.setState({ shopPick: p }); })),
+      cartCards: cart.items.map(i => this.productCard(i, null)),
+      cartItems: [], cartEmpty: !cart.items.length,
       cartDiscounts: cart.discounts.map(d => ({
         label: d.label, amount: this.money(d.amount), state: d.removed ? 'removed' : d.proven ? 'proven' : 'pending',
         bg: d.proven && !d.removed ? 'var(--deal)' : 'transparent', fg: d.removed ? 'var(--warn)' : d.proven ? 'var(--deal-ink)' : 'var(--ink)',
@@ -1372,7 +1608,7 @@ class Component extends DCLogic {
   deskConfirm = () => this.requireWallet('as the hotel', async () => {
     const input = this.state.desk.input.trim();
     this.setDesk({ phase: 'submitting', error: null, detected: false, scanning: false });
-    const r = await this.m.chain.checkout(0, input);
+    const r = await this.m.chain.checkout(this.state.mPlace || 0, input);
     if (r.error) { this.setDesk({ phase: 'error', error: r.error }); return; }
     await this.reload();
     this.setDesk({ phase: 'success', result: r, input: '' });
@@ -1385,23 +1621,35 @@ class Component extends DCLogic {
       this.setState({ disputing: null });
     });
   }
+  guideSteps(defs, cur) {
+    return defs.map(([label, sub], i) => ({ label, sub, mark: i < cur ? '✓' : String(i + 1), bg: i === cur ? 'var(--ink)' : 'transparent', fg: i === cur ? 'var(--bg)' : 'var(--ink)', op: i <= cur ? 1 : 0.6 }));
+  }
   vMerchant() {
-    const s = this.state, P0 = this.byId(0), dk = s.desk, dres = dk.result, newIdx = dk.phase === 'success' && dres ? dres.leafIndex : -1;
+    const s = this.state, P0 = this.byId(this.state.mPlace || 0), dk = s.desk, dres = dk.result, newIdx = dk.phase === 'success' && dres ? dres.leafIndex : -1;
     const dErr = dk.error ? (this.ERR[dk.error] || this.ERR.BadParams) : null, dTx = dres ? this.tx(dres.txHash) : null, shop = this.byId(4);
     return {
       mPlaces: [0, 4].map(id => [id, (this.byId(id) ? this.byId(id).name.toLowerCase() + ' · ' + this.byId(id).kind : '')]).map(([id, label]) => ({ label, line: s.mPlace === id ? 'var(--ink)' : 'transparent', onClick: () => this.setState({ mPlace: id }) })),
       mHotel: s.mPlace === 0, mShop: s.mPlace === 4,
       desk: {
-        input: dk.input, scanning: dk.scanning, scanLabel: dk.scanning ? 'stop' : 'scan qr',
-        canSubmit: dk.phase !== 'submitting', submitting: dk.phase === 'submitting', success: dk.phase === 'success', notSuccess: dk.phase !== 'success', error: dk.phase === 'error',
+        input: dk.input, scanning: dk.scanning, scanLabel: dk.scanning ? 'stop' : 'simulated scan',
+        canSubmit: dk.phase !== 'submitting' && !!s.operator, deskClosed: !s.operator, submitting: dk.phase === 'submitting', success: dk.phase === 'success', notSuccess: dk.phase !== 'success', error: dk.phase === 'error',
         errHead: dErr ? dErr.h : '', errBody: dErr ? dErr.b : '', leafIdx: newIdx >= 0 ? String(newIdx + 1) : '',
         root: P0 ? this.short(P0.roots[P0.roots.length - 1], 8, 6) : '', copyRoot: () => { const r = P0 && P0.roots[P0.roots.length - 1]; if (r && navigator.clipboard) navigator.clipboard.writeText(r).catch(() => {}); }, txUrl: dTx ? dTx.url : '', txShort: dTx ? dTx.short : '', treeLabel: P0 ? `${P0.group_size} of ${(this.m && this.m.TREE_CAP) || 32}` : '',
       },
       leaves: Array.from({ length: 32 }, (_, i) => { const f = P0 && i < P0.group_size, nw = i === newIdx; return { bg: nw ? 'var(--accent)' : f ? 'var(--ink)' : 'transparent', bd: nw ? 'var(--accent)' : f ? 'var(--ink)' : 'var(--rule-soft)' }; }),
       onDeskInput: e => this.setDesk({ input: e.target.value, detected: false }), deskScan: this.deskScan,
       deskSample: () => this.setDesk({ input: this.newCommit(), detected: false, phase: 'idle', error: null }),
-      deskDup: () => { const mm = s.memberships.find(x => x.place === 0); this.setDesk({ input: mm ? mm.commitment : '', detected: false, phase: 'idle', error: null }); },
+      deskDup: () => { const mm = s.memberships.find(x => x.place === (s.mPlace || 0)); this.setDesk({ input: mm ? mm.commitment : '', detected: false, phase: 'idle', error: null }); },
       deskConfirm: this.deskConfirm,
+      mGuide: (() => {
+        const hotel = s.mPlace !== 4, open = s.disputes.some(d => d.status !== 'attested' && this.byId(d.hotel) && d.hotel === (s.mPlace || 0));
+        const cur = open ? 2 : dk.phase === 'success' ? 1 : 0;
+        return { kicker: 'demo: you are acting as ' + (P0 ? P0.name : 'the place'), steps: this.guideSteps([
+          [hotel ? 'a guest checks out' : 'a customer pays', s.operator ? 'they show a commitment, a random number made on their phone. add it below.' : 'the place itself adds them, from the booking. here you watch its group grow.'],
+          ['your group grows', P0 ? `${P0.group_size} ${this.groupWord(P0, P0.group_size)} so far. the tree shows how many, never who.` : 'the tree shows how many, never who.'],
+          ['doubt a review? dispute it', 'the guest can then prove the stay to the arbiter, privately. you only see the outcome.'],
+        ], cur) };
+      })(),
       hotelFeed: (s.reviews[0] || []).map(r => {
         const d = s.disputes.find(x => x.reviewId === r.id);
         return { ...this.rv(r, P0), canDispute: !r.verified && !d && s.disputing !== r.id, disputing: s.disputing === r.id, hasDState: !!d && !r.verified, dState: d ? (d.status === 'awaiting' ? 'disputed · waiting on the guest' : 'disputed · with the arbiter') : '', onDispute: () => this.openDispute(r.id) };
@@ -1436,12 +1684,12 @@ class Component extends DCLogic {
     const s = this.state, ar = s.arb;
     const queue = s.disputes.map(d => {
       const P = this.byId(d.hotel), r = (s.reviews[d.hotel] || []).find(x => x.id === d.reviewId), t = r ? s.texts[r.content_hash] : null, sel = ar.sel === d.id;
-      return { hotelName: P ? P.name.toLowerCase() : '', status: d.status === 'awaiting' ? 'awaiting guest' : d.status === 'disclosed' ? 'ready' : 'attested', excerpt: t ? (t.length > 70 ? t.slice(0, 68) + '…' : t) : 'text unavailable', sel, bg: sel ? 'var(--ink)' : 'transparent', fg: sel ? 'var(--bg)' : 'var(--ink)', onSelect: () => this.setState({ arb: { sel: d.id, checks: ['wait', 'wait', 'wait'], phase: 'idle', tx: null, error: null, reveal: false } }) };
+      return { hotelName: P ? P.name.toLowerCase() : '', status: d.status === 'awaiting' ? 'awaiting guest' : d.status === 'disclosed' ? 'ready' : 'attested', excerpt: t ? (t.length > 70 ? t.slice(0, 68) + '…' : t) : 'rating only, no text', sel, bg: sel ? 'var(--ink)' : 'transparent', fg: sel ? 'var(--bg)' : 'var(--ink)', onSelect: () => this.setState({ arb: { sel: d.id, checks: ['wait', 'wait', 'wait'], phase: 'idle', tx: null, error: null, reveal: false } }) };
     });
     const sd = s.disputes.find(x => x.id === ar.sel), sr = sd ? (s.reviews[sd.hotel] || []).find(x => x.id === sd.reviewId) : null, pk = sd && sd.package;
     const ad = {
-      has: !!sd, awaiting: !!sd && sd.status === 'awaiting', hasPkg: !!pk, stars: this.stars(sr ? sr.rating : 0), aria: sr ? sr.rating + ' of 5' : '', text: sr ? (s.texts[sr.content_hash] || 'text unavailable') : '',
-      secret: pk ? (ar.reveal ? (String(pk.secret).startsWith('0x') ? this.short(pk.secret, 10, 6) : pk.secret) : '••••••••') : '', sig: pk ? (String(pk.signature).startsWith('0x') ? this.short(pk.signature, 6, 4) : pk.signature) : '', leaf: pk ? String(pk.leafIndex) : '', revealLabel: ar.reveal ? 'hide' : 'reveal',
+      has: !!sd, awaiting: !!sd && sd.status === 'awaiting', hasPkg: !!pk, stars: this.stars(sr ? sr.rating : 0), aria: sr ? sr.rating + ' of 5' : '', text: sr ? (s.texts[sr.content_hash] || 'rating only, no text') : '',
+      secret: pk ? (String(pk.secret).startsWith('0x') ? this.short(pk.secret, 10, 6) : pk.secret) : '', sig: pk ? (String(pk.signature).startsWith('0x') ? this.short(pk.signature, 6, 4) : pk.signature) : '', leaf: pk ? String(pk.leafIndex) : '', pkgLine: !pk ? '' : /held by/.test(String(pk.secret)) ? 'the stay package: secret, leaf and signature, held by the arbiter' : `secret ${String(pk.secret).startsWith('0x') ? this.short(pk.secret, 10, 6) : pk.secret} · leaf ${pk.leafIndex} · signature ${String(pk.signature).startsWith('0x') ? this.short(pk.signature, 6, 4) : pk.signature}`, revealLabel: ar.reveal ? 'hide' : 'reveal',
     };
     const attested = !!sd && sd.status === 'attested', chk = attested ? ['ok', 'ok', 'ok'] : ar.checks;
     const checks = ['commitment matches', 'signature valid', 'leaf in the group'].map((label, i) => ({ label, status: { wait: '', active: 'checking', ok: 'pass ✓', fail: 'fail' }[chk[i]], color: chk[i] === 'active' ? 'var(--accent)' : chk[i] === 'fail' ? 'var(--warn)' : 'var(--ink)', labelColor: chk[i] === 'wait' ? 'var(--ink-3)' : 'var(--ink)' }));
@@ -1451,6 +1699,11 @@ class Component extends DCLogic {
       arbCanRun: !!pk && !attested && (ar.phase === 'idle' || ar.phase === 'failed'), arbChecking: ar.phase === 'checking', arbChecked: !attested && ar.phase === 'checked', arbAttesting: ar.phase === 'attesting',
       arbDone: attested, arbHasTx: !!aTx, arbTxUrl: aTx ? aTx.url : '', arbTxShort: aTx ? aTx.short : '', arbError: !!aErr, arbErrHead: aErr ? aErr.h : '', arbErrBody: aErr ? aErr.b : '',
       runChecks: this.runChecks, attest: this.attest,
+      aGuide: { kicker: 'demo: you are acting as the arbiter', steps: this.guideSteps([
+        ['pick a dispute', 'a place doubted a review. you see the review, never who wrote it.'],
+        ['the guest discloses', 'only if the guest chooses to. the stay comes to you, and nobody else.'],
+        ['check, then attest', 'three checks on the package, then one line on Stellar: verified.'],
+      ], !sd ? 0 : sd.status === 'awaiting' ? 1 : attested ? 3 : 2) },
     };
   }
   stepSub(g) { return { returning: 'you were here before. not which time.', network: 'you are a guest somewhere in the network. not where.', traveler: 'an attester vouched for you. not who.' }[g] || ''; }
@@ -1468,15 +1721,16 @@ class Component extends DCLogic {
   async runProof(kind, ctx) {
     const m = this.m, now = () => performance.now();
     this.setField('idle');
-    this.setState({ flow: { kind, ctx, steps: this.flowSteps(kind, ctx), phase: 'running', result: null, error: null, receipt: false } });
+    const runId = (this.runSeq = (this.runSeq || 0) + 1);
+    this.setState({ flow: { kind, ctx, steps: this.flowSteps(kind, ctx), phase: 'running', result: null, error: null, receipt: false, runId } });
     clearInterval(this.tickT);
     this.tickT = setInterval(() => this.setState(s => ({ tick: s.tick + 1 })), 90);
-    const upd = fn => this.setState(s => { if (!s.flow) return null; const f = { ...s.flow, steps: s.flow.steps.map(x => ({ ...x })) }; fn(f); return { flow: f }; });
+    const upd = fn => this.setState(s => { if (!s.flow || s.flow.runId !== runId) return null; const f = { ...s.flow, steps: s.flow.steps.map(x => ({ ...x })) }; fn(f); return { flow: f }; });
     const advance = key => upd(f => { const t = now(); f.steps.forEach(x => { if (x.status === 'active') { x.status = 'ok'; x.t1 = t; } }); const x = f.steps.find(y => y.key === key); if (x) { x.status = 'active'; x.t0 = t; } });
     let result = null, pi = 0;
     try {
       for await (const ev of m.prover.prove(kind, ctx.placeId, { groups: ctx.groups || [] })) {
-        if (!this.state.flow) return;
+        if (!this.state.flow || this.state.flow.runId !== runId) return;
         if (ev !== 'download' && this.dlT) { clearInterval(this.dlT); this.dlT = null; }
         if (ev === 'download') {
           upd(f => { f.steps[0].label = 'fetching proving files'; f.steps[0].sub = 'only the first time.'; }); this.setField('scan');
@@ -1487,11 +1741,14 @@ class Component extends DCLogic {
         else if (ev === 'proving') { advance('p' + pi); pi++; this.setField('churn'); }
         else if (ev === 'verifying') {
           advance('verifying'); this.setField('ring');
-          result = kind === 'review' ? await m.chain.postReview(ctx.placeId, ctx.rating, ctx.text, ctx.mId) : await m.chain.pay(ctx.placeId, ctx.cart, ctx.groups || []);
+          const call = kind === 'review' ? m.chain.postReview(ctx.placeId, ctx.rating, ctx.text, ctx.mId) : m.chain.pay(ctx.placeId, ctx.cart, ctx.groups || []);
+          let limitT; result = await Promise.race([call, new Promise(r => { limitT = setTimeout(() => r({ error: 'Timeout' }), 60000); })]); clearTimeout(limitT);
+          if (!this.state.flow || this.state.flow.runId !== runId) return;
           if (result.error) break;
         } else if (ev === 'done') advance('done');
       }
     } catch (e) { console.error(e); result = { error: 'InvalidProof' }; }
+    if (!this.state.flow || this.state.flow.runId !== runId) return;
     clearInterval(this.tickT);
     const t = now();
     if (result && result.error) {
@@ -1506,8 +1763,9 @@ class Component extends DCLogic {
     requestAnimationFrame(() => { if (this.dialogEl) this.dialogEl.scrollTo({ top: 0, behavior: this.reduced ? 'auto' : 'smooth' }); });
   }
   closeFlow = () => {
-    const f = this.state.flow; if (!f || f.phase === 'running') return;
-    clearInterval(this.tickT); this.setField('idle');
+    const f = this.state.flow; if (!f) return;
+    clearInterval(this.tickT); clearInterval(this.dlT); this.dlT = null; this.setField('idle');
+    if (f.phase === 'running') { this.setState({ flow: null }); this.reload(); return; }
     if (f.phase === 'success') this.go('passes', { flow: null });
     else this.setState({ flow: null });
   };
@@ -1528,7 +1786,8 @@ class Component extends DCLogic {
     const receipt = { receiptOpen: !!f.receipt, receiptLabel: f.receipt ? 'hide receipt' : 'receipt' };
     if (f.phase === 'success') {
       const x = this.tx(f.result.txHash), el0 = (this.state.elig[f.ctx.placeId] || []), pt = f.result.passTx ? this.tx(f.result.passTx) : null;
-      const proofTxs = (f.result.discounts || []).map(r => { const e = el0.find(z => z.group === r.group), h = e && e.txHash; return { label: e ? e.label : r.label, hasTx: !!h, noTx: !h, url: h ? this.tx(h).url : '', short: h ? this.tx(h).short : '' }; });
+      const proofTxs = (f.result.discounts || []).map(r => { const e = el0.find(z => z.group === r.group), h = e && e.txHash; return { ok: true, isDropped: false, why: '', label: e ? e.label : r.label, hasTx: !!h, noTx: !h, url: h ? this.tx(h).url : '', short: h ? this.tx(h).short : '' }; })
+        .concat((f.result.dropped || []).map(d => { const e = el0.find(z => z.group === d.group); return { ok: false, isDropped: true, why: d.why, label: e ? e.label : d.group, hasTx: false, noTx: false, url: '', short: '' }; }));
       const tx = { hasTx: !!f.result.txHash, txUrl: x.url, txShort: x.short, proofTxs, hasPass: !!pt, passUrl: pt ? pt.url : '', passShort: pt ? pt.short : '', passLabel: (this.byId(f.ctx.placeId) || {}).name || '', ...receipt };
       if (f.kind === 'review') return { ...blank, ...tx, head: 'proof verified. review posted.', body: 'it carries a proof, not a name.', primary: 'my passes', pKey: 'passes', secondary: `read it on ${name}`, sKey: 'place' };
       const rows = f.result.discounts || [], paid = this.money(f.result.total);
@@ -1547,7 +1806,7 @@ class Component extends DCLogic {
     const word = st => st === 'wait' ? '' : st === 'fail' ? (f.phase === 'rejected' ? 'refused' : 'failed') : st === 'active' ? 'live' : '';
     const steps = f ? f.steps.map(x => ({
       label: x.label, sub: x.sub, live: x.status === 'active' && !!x.sub,
-      status: x.status === 'ok' && x.key !== 'done' && x.t0 ? `${(((x.t1 || nowT) - x.t0) / 1000).toFixed(2)} s ✓` : x.status === 'ok' ? '✓' : x.status === 'active' && x.t0 ? `${((nowT - x.t0) / 1000).toFixed(2)} s` : word(x.status),
+      status: x.status === 'ok' && x.key !== 'done' && x.t0 && ((x.t1 || nowT) - x.t0) >= 50 ? `${(((x.t1 || nowT) - x.t0) / 1000).toFixed(2)} s ✓` : x.status === 'ok' ? '✓' : x.status === 'active' && x.t0 ? `${((nowT - x.t0) / 1000).toFixed(2)} s` : word(x.status),
       color: x.status === 'active' ? 'var(--accent)' : x.status === 'fail' ? (f.phase === 'rejected' ? 'var(--ink)' : 'var(--warn)') : 'var(--ink-2)',
       labelColor: x.status === 'wait' ? 'var(--ink-3)' : 'var(--ink)',
     })) : [];
@@ -1557,7 +1816,7 @@ class Component extends DCLogic {
       showFlow: !!f, flowTitle: f ? (fp ? fp.name : '') : '',
       flowHeadline: !f ? '' : f.kind === 'review' ? 'posting, without a name.' : groups.length > 1 ? 'proving what you earned.' : groups.length ? 'proving you came back.' : 'paying, no fee.',
       flowStatus: !f ? '' : f.phase === 'running' ? (active ? active.label : '') : f.phase === 'success' ? 'verified' : f.phase === 'rejected' ? 'refused, as designed' : 'stopped',
-      flowRunning: !!f && f.phase === 'running', flowDone: !!f && f.phase !== 'running', closeOpacity: f && f.phase === 'running' ? 0.3 : 1,
+      flowRunning: !!f && f.phase === 'running', flowDone: !!f && f.phase !== 'running', closeOpacity: 1,
       closeFlow: this.closeFlow, steps, res, resHeadColor: f && f.phase === 'error' ? 'var(--warn)' : 'var(--ink)',
       fieldColor: f && f.phase === 'success' ? 'var(--accent)' : f && f.phase === 'error' ? 'var(--warn)' : 'var(--ink)',
       onPrimary: () => this.flowAct(res.pKey), onSecondary: () => this.flowAct(res.sKey),
@@ -1565,6 +1824,10 @@ class Component extends DCLogic {
       connectOpen: !!cn, connectReason: cn ? cn.reason : '', connectBusy: !!(cn && cn.pending),
       passkeyLabel: cn && cn.pending === 'passkey' ? 'waiting for your passkey…' : 'continue with passkey', freighterLabel: cn && cn.pending === 'freighter' ? 'waiting for freighter…' : 'use freighter',
       connectPasskey: () => this.doConnect('passkey'), connectFreighter: () => this.doConnect('freighter'), closeConnect: this.closeConnect,
+      // bb:passkey-signin: sign-in never creates; nothing found -> say so, and creating is its own explicit button
+      connectHasErr: !!(cn && cn.error), connectErr: cn && cn.error ? cn.error : '', connectCanCreate: !!(cn && cn.noPasskey),
+      connectCreateLabel: cn && cn.pending === 'new passkey' ? 'creating your passkey…' : 'create a passkey',
+      connectCreate: () => { if (!this.m || !this.m.createPasskey) return; const p = this.m.createPasskey(); this.setState(st => ({ connect: { ...st.connect, pending: 'new passkey' } })); p.then(r => { if (r && r.fallback) this.setState(st => ({ connect: { ...st.connect, pending: null, error: r.why, noPasskey: false } })); }).catch(() => this.setState(st => ({ connect: { ...st.connect, pending: null } }))); },
     };
   }
   agBlank() { return { phase: 'idle', steps: this.AGL.map(label => ({ label, status: 'pending', detail: '', tx: null })), open: {}, cart: { items: [], discounts: [], total: 0, currency: 'USDC', paid: false, tx: null }, store: null, receipt: false, error: null }; }
@@ -1599,8 +1862,49 @@ class Component extends DCLogic {
     this.setField('settle', 'check');
   }
   // bb:connect-control
-  loadSources = async () => { if (!this.m || !this.m.sources) return; try { const list = await this.m.sources(this.state.view === 'place' && this.state.role === 'guest' ? this.state.placeId : undefined); const w = !this.state.wallet && this.m.wallet.current ? this.m.wallet.current() : null; this.setState(s => ({ src: { ...s.src, list }, ...(w ? { wallet: w } : {}) })); } catch (e) { console.error(e); } };
-  openSources = (focus = null) => { this.setState(s => ({ src: { ...s.src, open: true, focus } })); this.loadSources(); };
+  loadSources = async () => {
+    if (!this.m || !this.m.sources) return;
+    if (this.m.demo && this.opChecked === undefined) { this.opChecked = true; this.m.demo.isOperator().then(op => this.setState({ operator: !!op })).catch(() => {}); }
+    try {
+      const w = this.state.wallet || (this.m.wallet.current ? this.m.wallet.current() : null);
+      // Await shared ensure. Re-run when Freighter address ≠ cached claim address (stale demo claim hid the score).
+      const ly = this.m.loyalty && this.m.loyalty.state;
+      if (w && this.m.loyalty && (ly.status === 'none' || ly.status === 'pending' || (ly.address && ly.address !== w.address) || (ly.status === 'ready' && ly.rating == null))) {
+        await this.m.loyalty.ensure(w.address);
+      }
+      const list = await this.m.sources(this.state.view === 'place' && this.state.role === 'guest' ? this.state.placeId : undefined);
+      this.setState(s => ({ src: { ...s.src, list }, ...(w && !s.wallet ? { wallet: w } : {}) }));
+    } catch (e) { console.error(e); }
+  };
+  openSources = async (focus = null) => {
+    if (!this.m) return;
+    this.setState(s => ({ src: { ...s.src, open: true, focus, scoreOpen: focus === 'wallet' || s.src.scoreOpen } }));
+    const w = this.state.wallet || (this.m.wallet.current ? this.m.wallet.current() : null);
+    if (w && this.m.loyalty && this.m.loyalty.state.status !== 'ready') await this.m.loyalty.ensure(w.address).catch(() => {});
+    await this.loadSources();
+  };
+  // "create a new passkey": called straight from the click (WebAuthn needs the gesture); a new credential in a new
+  // namespace, so zero passes. On {fallback} the reason shows calmly under the wallet, next to Freighter and demo key.
+  // passkey generations: start over with the same passkey (one prompt, inside the click) or switch back
+  startOverGen = () => {
+    if (!this.m || !this.m.generations) return;
+    const p = this.m.generations.startOver();
+    this.setState(s => ({ src: { ...s.src, busy: 'start over', fallback: null } }));
+    p.then(r => { if (r && r.error) this.setState(s => ({ src: { ...s.src, busy: null, fallback: r.error } })); }).catch(() => this.setState(s => ({ src: { ...s.src, busy: null, fallback: 'could not start over here. your current history is unchanged.' } })));
+  };
+  // "switch passkey": one prompt to pick any passkey for this site (never creates); it opens that passkey's own history
+  switchPasskey = () => {
+    if (!this.m || !this.m.passkey) return;
+    const p = this.m.passkey.switch();
+    this.setState(s => ({ src: { ...s.src, busy: 'switch passkey', fallback: null } }));
+    p.then(r => { if (r && r.error) this.setState(s => ({ src: { ...s.src, busy: null, fallback: r.error } })); }).catch(() => this.setState(s => ({ src: { ...s.src, busy: null } })));
+  };
+  newPasskey = () => {
+    if (!this.m || !this.m.createPasskey) return;
+    const p = this.m.createPasskey();
+    this.setState(s => ({ src: { ...s.src, busy: 'new passkey', fallback: null } }));
+    p.then(r => { if (r && r.fallback) this.setState(s => ({ src: { ...s.src, busy: null, fallback: r.why } })); }).catch(() => this.setState(s => ({ src: { ...s.src, busy: null, fallback: 'this browser could not create a passkey here. use Freighter or a demo key.' } })));
+  };
   srcAct = async (id, how) => {
     const m = this.m; if (!m) return;
     if (id === 'wallet') {
@@ -1608,41 +1912,127 @@ class Component extends DCLogic {
       else {
         this.setState(s => ({ src: { ...s.src, busy: how } }));
         let ok = false;
-        try { const w = await m.wallet.connect(how); this.setState({ wallet: w }); ok = true; } catch (e) { console.error(e); }
+        try {
+          const w = await m.wallet.connect(how);
+          this.setState({ wallet: w });
+          ok = true;
+          // wallet.connect already awaited loyalty.ensure; refresh list from live state.
+          if (m.loyalty && m.loyalty.state.status !== 'ready') await m.loyalty.ensure(w.address);
+        } catch (e) { console.error(e); if (how === 'passkey') this.setState(s => ({ src: { ...s.src, fallback: String((e && e.message) || 'this passkey could not sign in here.') } })); }
         this.setState(s => ({ src: { ...s.src, busy: null } }));
-        const fn = ok ? this.pending : null; if (ok) { this.pending = null; this.setState(s => ({ src: { ...s.src, open: false, focus: null, reason: null } })); }
-        await this.reload();
+        const fn = ok ? this.pending : null;
+        if (ok) {
+          this.pending = null;
+          // Keep connections open for Freighter so score + proof are visible (unless an action is waiting).
+          this.setState(s => ({ src: { ...s.src, open: !fn, focus: 'wallet', reason: null, scoreOpen: true } }));
+        }
+        await this.loadSources();
+        // Do not await reload here — it races and used to repaint the Freighter row without score.
+        void this.reload();
         if (fn) fn();
+        return;
       }
+    } else if (id === 'rep' && how === 'reset' && m.rep.resetDemo) {
+      this.setState(s => ({ src: { ...s.src, busy: 'rep reset' } }));
+      await m.rep.resetDemo();
+      this.setState(s => ({ src: { ...s.src, busy: null } }));
+      await this.loadSources();
     } else if (id === 'rep') {
       await m.rep.start(); this.loadSources();
       clearInterval(this.repT);
       this.repT = setInterval(async () => { const st = await m.rep.poll(); if (st.status !== 'pending') { clearInterval(this.repT); await this.reload(); } this.loadSources(); }, 2000);
     } else if (id === 'passport') { const p = m.passport.check(); this.loadSources(); await p; }
+    else if (id === 'tier' && m.stellarTier) {
+      this.setState(s => ({ src: { ...s.src, busy: 'tier' } }));
+      try { await m.stellarTier.join(); } catch (e) { console.error(e); }
+      this.setState(s => ({ src: { ...s.src, busy: null } }));
+      await this.reload(); await this.loadSources();
+    }
     this.loadSources();
   };
+  genRow(r) {
+    const s = this.state, g = this.m && this.m.generations, src = s.src || {};
+    if (!g || r.id !== 'wallet' || r.status !== 'connected' || !s.wallet || s.wallet.method !== 'passkey') return { hasGens: false, gens: [], genNote: '', startLabel: '', onStartOver: () => {} };
+    const cur = g.current(), hhmm = t => new Date(t).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    const xs = g.list();
+    return {
+      hasGens: true, genNote: g.note, startLabel: src.busy === 'start over' ? 'waiting for your passkey…' : 'start over with this passkey', onStartOver: this.startOverGen,
+      hasSwitch: xs.length > 1,
+      gens: xs.map(x => ({ label: x.n === 0 ? 'original' : 'started ' + hhmm(x.at), on: x.n === cur, bg: x.n === cur ? 'var(--ink)' : 'transparent', fg: x.n === cur ? 'var(--bg)' : 'var(--ink)', onClick: () => { if (x.n !== cur) g.switchTo(x.ns); } })),
+    };
+  }
   vSources() {
     const s = this.state, src = s.src || { list: [] }, list = src.list || [], busy = src.busy;
     const dots = { connected: ['var(--accent)', 'var(--accent)'], pending: ['var(--deal)', 'var(--deal-ink)'], failed: ['var(--warn)', 'var(--warn)'], soon: ['transparent', 'var(--rule-soft)'], none: ['transparent', 'currentColor'] };
     const word = { connected: 'connected', pending: 'pending', failed: 'failed', soon: 'soon', none: 'not connected' };
     const short = { wallet: 'key', rep: 'rep', passport: 'passport', network: 'network' };
     const btn = (label, onClick, primary, disabled) => ({ label, onClick, disabled: !!disabled, op: disabled ? 0.45 : 1, bg: primary ? 'var(--ink)' : 'transparent', fg: primary ? 'var(--bg)' : 'var(--ink)' });
+    const pk = this.m && this.m.passkey && s.wallet && s.wallet.method === 'passkey' ? this.m.passkey.info() : null;
     const actions = r => {
-      if (r.id === 'wallet') return r.status === 'connected' ? [btn('disconnect', () => this.srcAct('wallet', 'disconnect'))]
-        : [btn(busy === 'passkey' ? 'waiting for your passkey…' : 'passkey', () => this.srcAct('wallet', 'passkey'), true, busy), btn(busy === 'freighter' ? 'waiting for freighter…' : 'freighter', () => this.srcAct('wallet', 'freighter'), false, busy), btn(busy === 'demo key' ? 'creating…' : 'demo key', () => this.srcAct('wallet', 'demo key'), false, busy)];
+      if (r.id === 'wallet') return r.status === 'connected' ? [...(pk ? [btn(busy === 'switch passkey' ? 'waiting for your passkey…' : 'switch passkey', () => this.switchPasskey(), false, busy)] : []), btn('disconnect', () => this.srcAct('wallet', 'disconnect'))]
+        : [btn(busy === 'passkey' ? 'waiting for your passkey…' : 'sign in with my passkey', () => this.srcAct('wallet', 'passkey'), true, busy),
+           btn(busy === 'new passkey' ? 'creating your passkey…' : 'create a new passkey', () => this.newPasskey(), false, busy),
+           btn(busy === 'freighter' ? 'waiting for freighter…' : 'freighter', () => this.srcAct('wallet', 'freighter'), false, busy), btn(busy === 'demo key' ? 'creating…' : 'demo key', () => this.srcAct('wallet', 'demo key'), false, busy)];
       if (r.id === 'rep' && r.link) return [btn('get REP', () => window.open(r.link, '_blank', 'noopener'), false)];
-      if (r.id === 'rep') return r.status === 'connected' ? [] : r.status === 'pending' ? [btn('waiting for REP Bob…', () => {}, false, true)] : [btn(r.status === 'failed' ? 'try again' : 'verify with REP', () => this.srcAct('rep'), true)];
+      if (r.id === 'rep') return r.status === 'connected' ? [] : r.status === 'pending' ? [btn('waiting for REP Bob…', () => {}, false, true)] : r.canReset ? [btn(busy === 'rep reset' ? 'resetting…' : 'reset REP demo', () => this.srcAct('rep', 'reset'), true, busy)] : [btn(r.status === 'failed' ? 'try again' : 'verify with REP', () => this.srcAct('rep'), true)];
       if (r.id === 'passport') return r.status === 'connected' || r.status === 'soon' ? [] : [btn(r.status === 'pending' ? 'checking…' : 'check', () => this.srcAct('passport'), false, r.status === 'pending' || !s.wallet)];
       return [];
     };
-    const open = !!src.open, connected = !!s.wallet;
+    const open = !!src.open, connected = !!s.wallet, ns = (this.m && this.m.demo) ? this.m.demo.active() : '';
     return {
+      opShow: !!s.operator, opActive: !!ns, opNs: ns, opResetLabel: ns ? 'reset' : 'fresh demo · reset',
+      opReset: () => { if (this.m && this.m.demo) this.m.demo.reset(); }, opExit: () => { if (this.m && this.m.demo) this.m.demo.exit(); },
+      srcClose: () => { this.pending = null; this.setState(st => ({ src: { ...st.src, open: false, focus: null, reason: null } })); },
       srcOpen: open, srcToggle: () => (open ? (this.pending = null, this.setState(st => ({ src: { ...st.src, open: false, focus: null, reason: null } }))) : this.openSources()),
       srcHasReason: !!src.reason, srcReason: src.reason ? 'connect ' + src.reason + '.' : '',
       srcBtnBg: connected ? 'transparent' : 'var(--ink)', srcBtnFg: connected ? 'var(--ink)' : 'var(--bg)',
       srcChips: list.map(r => ({ short: short[r.id] || r.id, dot: (dots[r.status] || dots.none)[0], dotBd: (dots[r.status] || dots.none)[1], title: r.label + ': ' + (word[r.status] || r.status) })),
       srcCta: connected ? '' : 'connect →',
-      srcRows: list.map((r, i) => ({ hasAccount: !!r.accountUrl, accountUrl: r.accountUrl || '', head: i === 1 ? 'add for more perks' : '', hasHead: i === 1, perk: r.perk || '', hasPerk: !!r.perk, hasTx: !!r.txHash, txUrl: r.txHash ? this.tx(r.txHash).url : '', txShort: r.txHash ? this.tx(r.txHash).short : '', label: r.label, proves: r.proves, detail: r.detail, status: word[r.status] || r.status, statusColor: r.status === 'connected' ? 'var(--accent)' : r.status === 'failed' ? 'var(--warn)' : 'var(--ink-3)', rule: i ? 'var(--rule-soft)' : 'transparent', bg: src.focus === r.id ? 'var(--accent-soft)' : 'transparent', actions: actions(r) })),
+      srcRows: list.map((r, i) => {
+        const addr = (s.wallet && s.wallet.address) || (this.m && this.m.wallet && this.m.wallet.address) || null;
+        const live = r.id === 'wallet' && this.m && this.m.loyalty ? this.m.loyalty.state : null;
+        // Kick score whenever Freighter/passkey is connected and we have no ready claim yet.
+        if (r.id === 'wallet' && r.status === 'connected' && addr && this.m && this.m.loyalty) {
+          const st = this.m.loyalty.state.status;
+          const wrong = !!(live && live.address && live.address !== addr);
+          if (wrong) this.m.loyalty.clear();
+          if (st === 'none' || st === 'failed' || wrong) {
+            void this.m.loyalty.ensure(addr).then(() => this.loadSources());
+          } else if (st === 'pending' && !this._scorePoll) {
+            this._scorePoll = setInterval(() => {
+              if (!this.m || !this.m.loyalty || this.m.loyalty.state.status !== 'pending') {
+                clearInterval(this._scorePoll); this._scorePoll = null;
+              }
+              this.loadSources();
+            }, 800);
+          }
+        }
+        const liveOk = !!(live && live.status === 'ready' && live.rating != null && (!live.address || !addr || live.address === addr));
+        const score = liveOk ? live.rating : (r.score != null ? r.score : null);
+        const tier = liveOk ? live.tier : (r.tier != null ? r.tier : null);
+        const liveTx = liveOk ? (live.txHash || null) : (r.txHash || null);
+        const scoreUrl = (liveOk && live.explorerUrl) || r.scoreUrl || (r.id === 'wallet' && liveTx ? this.tx(liveTx).url : '');
+        const scoreTx = r.id === 'wallet' && liveTx ? this.tx(liveTx) : null;
+        const joinedTx = r.id !== 'wallet' && r.txHash;
+        const hasScore = r.id === 'wallet' && score != null;
+        const showScoreRow = r.id === 'wallet' && r.status === 'connected';
+        const scoreLine = hasScore
+          ? `wallet score ${score}/100 · tier ${tier}`
+          : (live && (live.status === 'failed' || live.status === 'skipped') && live.why)
+            ? live.why
+            : 'wallet score: scoring…';
+        const st = r.id === 'wallet' && r.status === 'connected' ? r.stellarTier : null, stTx = st && st.tx ? this.tx(st.tx) : null;
+        const tierBits = {
+          showTier: !!st, tierExplainer: st ? st.explainer : '', tierHeld: !!(st && st.held), tierLabel: st ? 'Stellar wallet tier' + (st.tier != null ? ' ' + st.tier : '') : '',
+          tierHasTx: !!stTx, tierTxUrl: stTx ? stTx.url : '', tierTxShort: stTx ? stTx.short : '', tierHasReason: !!(st && !st.held && st.reason), tierReason: st ? st.reason : '',
+          tierShowBtn: !!(st && !st.held && (st.canJoin || st.pending)), tierBtnDisabled: !!(st && (st.pending || busy === 'tier')), tierBtnOp: st && (st.pending || busy === 'tier') ? 0.45 : 1,
+          tierBtnLabel: st && (st.pending || busy === 'tier') ? 'waiting for your wallet…' : 'join with my wallet', tierBtnBg: 'var(--ink)', tierBtnFg: 'var(--bg)', onTierJoin: () => this.srcAct('tier'),
+          tierHasPerk: !!(st && st.perk), tierPerk: st ? st.perk : '',
+        };
+        const shortAddr = addr ? addr.slice(0, 4) + '…' + addr.slice(-4) : '';
+        const detail = r.id === 'wallet' ? ((pk ? pk.name + ' · ' + (pk.gen ? 'generation ' + pk.gen : 'original') + (shortAddr ? ' · ' + shortAddr : '') : '') || shortAddr || r.detail) : r.detail;
+        return { ...this.genRow(r), ...tierBits, hasNote: r.id === 'wallet' && !!src.fallback, note: r.id === 'wallet' ? (src.fallback || '') : '', hasAccount: !!r.accountUrl, accountUrl: r.accountUrl || '', hasScore, showScoreRow, scoreLine, hasScoreProof: !!(hasScore && scoreUrl), score: score != null ? score : '', tier: tier != null ? tier : '', scoreUrl: scoreUrl || '', scoreTxShort: scoreTx ? scoreTx.short : '', head: i === 1 ? 'add for more perks' : '', hasHead: i === 1, perk: r.perk || '', hasPerk: !!r.perk, hasTx: !!joinedTx, txUrl: joinedTx ? this.tx(r.txHash).url : '', txShort: joinedTx ? this.tx(r.txHash).short : '', label: r.label, proves: r.proves, detail, status: word[r.status] || r.status, statusColor: r.status === 'connected' ? 'var(--accent)' : r.status === 'failed' ? 'var(--warn)' : 'var(--ink-3)', rule: i ? 'var(--rule-soft)' : 'transparent', bg: src.focus === r.id ? 'var(--accent-soft)' : 'transparent', actions: actions(r) };
+      }),
     };
   }
 
@@ -1671,7 +2061,7 @@ class Component extends DCLogic {
   }
 
   renderVals() {
-    return { ...this.vSources(), ...this.vShell(), ...this.vHome(), ...this.vPlace(), ...this.vPasses(), ...this.vAgent(), ...this.vMerchant(), ...this.vArb(), ...this.vFlow() };
+    return { ...this.vSources(), ...this.vShell(), ...this.vBobCard(), ...this.vHome(), ...this.vPlace(), ...this.vPasses(), ...this.vAgent(), ...this.vMerchant(), ...this.vArb(), ...this.vFlow() };
   }
 }
 </script>

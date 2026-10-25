@@ -132,6 +132,11 @@ export function Shell({ children }: { children: ReactNode }) {
   const address = useWallet()
   // the hero (with the field canvas) is the Ask Bob landing: #/ and #/ask/<query>
   const home = (path[0] ?? "") === "" || path[0] === "ask"
+  // the contract id comes from the backend config; the link stays hidden until it is known (never an empty id)
+  const [contractId, setContractId] = useState("")
+  useEffect(() => {
+    fetch("/api/config").then((r) => r.json()).then((c) => setContractId(String(c?.contractId ?? ""))).catch(() => {})
+  }, [])
 
   // myc.js boots on first paint; React mounts the hero canvas later — re-run once it exists.
   useEffect(() => {
@@ -198,9 +203,11 @@ export function Shell({ children }: { children: ReactNode }) {
           </span>
           <span>Proof of Loyalty · everywhere you go</span>
           <a href="#/about">what each party sees</a>
-          <a href={sdk.chain.explorerContract()} target="_blank" rel="noreferrer">
-            contract on stellar.expert
-          </a>
+          {contractId && (
+            <a href={`https://stellar.expert/explorer/testnet/contract/${contractId}`} target="_blank" rel="noreferrer">
+              contract on stellar.expert
+            </a>
+          )}
           <a href="https://stellarbob2026.xyz/" target="_blank" rel="noreferrer">
             stellarbob2026.xyz
           </a>

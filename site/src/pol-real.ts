@@ -33,6 +33,12 @@ const nsStorage = (ns: string): Pick<Storage, "getItem" | "setItem" | "removeIte
   !LS || !ns ? undefined : { getItem: (k) => LS.getItem(`${ns}:${k}`), setItem: (k, v) => LS.setItem(`${ns}:${k}`, v), removeItem: (k) => LS.removeItem(`${ns}:${k}`) }
 
 const isOperator = () => fetch(`${API}/api/rep/status`, { credentials: "same-origin" }).then((r) => r.json()).then((d) => !!d.demo).catch(() => false)
+/** Operator only: clears the REP demo joins on the backend so "verify with REP" works again. Missing endpoint = no-op. */
+const repDemoReset = () =>
+  fetch(`${API}/api/rep/demo-reset`, { method: "POST", credentials: "same-origin" })
+    .then((r) => r.json())
+    .then((d) => !!d.ok)
+    .catch(() => false)
 const reloadClean = () => {
   if (typeof location === "undefined") return
   const u = new URL(location.href)
@@ -50,7 +56,8 @@ export async function createPasskey(): Promise<{ ok: true; address: string } | {
   const st = nsStorage(ns)!
   const label = `BookerBob demo ${new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`
   try {
-    const { session } = await connectPasskey({ rpName: "BookerBob", friendbotUrl: "https://friendbot.stellar.org", storage: st, displayName: label })
+    const { session } = await connectPasskey({ rpName: "BookerBob", friendbotUrl: "https://friendbot.stellar.org", storage: st, displayName: label, create: true })
+    passkeyNs.set(session.credentialId, ns)
     st.setItem("pos.wallet", "passkey")
     st.setItem("pos.pass_binding", session.binding)
     LS?.setItem(NS_KEY, ns)
@@ -61,6 +68,87 @@ export async function createPasskey(): Promise<{ ok: true; address: string } | {
     if (code === "UserCancelled") return { fallback: true, why: "cancelled. you can try again, or use Freighter or a demo key." }
     return { fallback: true, why: "this browser could not create a passkey here. use Freighter or a demo key." }
   }
+}
+
+/** Which namespace holds a passkey's history (credential id -> ns, "" = the browser's own). Signing in with a
+ *  passkey goes back to its own history instead of mixing two identities in one namespace. */
+const PK_NS_KEY = "pol.passkeyNs"
+const passkeyNs = {
+  all(): Record<string, string> {
+    try {
+      return JSON.parse(LS?.getItem(PK_NS_KEY) ?? "{}")
+    } catch {
+      return {}
+    }
+  },
+  set(cred: string, ns: string) {
+    const m = passkeyNs.all()
+    if (cred in m) return
+    m[cred] = ns
+    LS?.setItem(PK_NS_KEY, JSON.stringify(m))
+  },
+  /** The namespace already holding this credential (map, then the stored records), or null. */
+  find(cred: string): string | null {
+    const m = passkeyNs.all()
+    if (cred in m) return m[cred]
+    const credOf = (raw: string | null) => {
+      try {
+        return raw ? JSON.parse(raw).credentialId : null
+      } catch {
+        return null
+      }
+    }
+    if (credOf(LS?.getItem(PASS_KEY) ?? null) === cred) return ""
+    for (let i = 0; LS && i < LS.length; i++) {
+      const k = LS.key(i) ?? ""
+      // generation namespaces share the credential; its history starts in the base namespace
+      if (k.endsWith(`:${PASS_KEY}`) && !/^pk-g\d+-/.test(k) && credOf(LS.getItem(k)) === cred) return k.slice(0, -PASS_KEY.length - 1)
+    }
+    return null
+  },
+}
+const credHere = (): string | null => {
+  try {
+    return JSON.parse((nsStorage(nsNow) ?? LS)?.getItem(PASS_KEY) ?? "null")?.credentialId ?? null
+  } catch {
+    return null
+  }
+}
+
+/** The active passkey for Connect: its name and generation (0 = original). */
+export const passkey = {
+  info(): { name: string; gen: number } | null {
+    if (sdk.wallet.kind !== "passkey") return null
+    let rec: any = null
+    try {
+      rec = JSON.parse((nsStorage(nsNow) ?? LS)?.getItem(PASS_KEY) ?? "null")
+    } catch {}
+    if (!rec) return null
+    return { name: rec.name ?? `passkey ${String(rec.credentialId).slice(0, 6)}`, gen: Math.max(0, generations.current()) }
+  },
+  /** "switch passkey": pick any passkey for this site (one prompt, never creates), then open its own history. */
+  async switch(): Promise<{ ok: true } | { error: string; noPasskey?: boolean }> {
+    const { connectPasskey } = await import("../../packages/pass_connect/src/index.ts")
+    const mem = new Map<string, string>()
+    const tmp = { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => void mem.set(k, v), removeItem: (k: string) => void mem.delete(k) }
+    try {
+      const { session } = await connectPasskey({ rpName: "BookerBob", friendbotUrl: "", storage: tmp })
+      const found = passkeyNs.find(session.credentialId)
+      const ns = found ?? `pk-${Date.now()}`
+      const st = nsStorage(ns) ?? LS!
+      if (found === null) st.setItem(PASS_KEY, mem.get(PASS_KEY)!)
+      st.setItem("pos.wallet", "passkey")
+      passkeyNs.set(session.credentialId, ns)
+      if (ns) LS?.setItem(NS_KEY, ns)
+      else LS?.removeItem(NS_KEY)
+      reloadClean()
+      return { ok: true }
+    } catch (e: any) {
+      if (e?.code === "NoPasskey") return { error: "no passkey for this site on this device. create one?", noPasskey: true }
+      if (e?.code === "UserCancelled") return { error: "cancelled." }
+      return { error: "this passkey could not sign in here." }
+    }
+  },
 }
 
 /** "start over with this passkey": generation n+1 of the same passkey in namespace "<base>-g<n>": a new wallet key
@@ -85,6 +173,7 @@ export const generations = {
     const cur = nsStorage(nsNow) ?? LS
     const cred = cur?.getItem(PASS_KEY)
     if (!cred) return { error: "connect your passkey first" }
+    if (await isOperator()) await repDemoReset()
     const xs = generations.list()
     const n = Math.max(...xs.map((g) => g.n)) + 1
     const ns = `pk-g${n}-${Date.now()}`
@@ -122,6 +211,7 @@ export const demo = {
   /** Start (or restart) a clean ephemeral identity; operator only. Reloads the page. */
   async reset() {
     if (!(await isOperator())) return false
+    await repDemoReset()
     LS?.setItem(NS_KEY, `demo-${Date.now()}`)
     reloadClean()
     return true
@@ -140,6 +230,8 @@ export const demo = {
       if (!f.error) break
       await new Promise((r) => setTimeout(r, 4000))
     }
+    // tell the page a wallet is ready (it connected after the first render)
+    if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("pol:wallet"))
     return addr
   },
 }
@@ -147,7 +239,7 @@ export const demo = {
 // (deferred: the sdk is created below)
 setTimeout(() => {
   if (typeof location !== "undefined" && new URLSearchParams(location.search).get("fresh") === "1") {
-    isOperator().then((ok) => (ok ? demo.reset() : reloadClean()))
+    isOperator().then((ok) => { if (ok) void demo.reset(); else reloadClean() })
   } else if (nsNow) {
     void demo.prepare()
   }
@@ -237,7 +329,7 @@ export let LEDGER_NOW = 0
 export const LEDGER_SECONDS = 5
 export const TREE_CAP = 1024
 export const SEASON = { id: "1", label: "2026 · autumn" }
-const SEASON_N = 1
+const SEASON_N = d.currentSeason()
 export const EXPLORER = "https://stellar.expert/explorer/testnet/tx/"
 
 /** Review text hash, as stored on chain: sha256 of the UTF-8 text. */
@@ -249,7 +341,7 @@ export function hashText(s: string): string {
 const round2 = (x: number) => Math.round(x * 100) / 100
 export function groupLabel(group: string, kind: string) {
   if (group === "returning") return kind === "hotel" ? "returning guest" : "returning customer"
-  return ({ network: "BookerBob regular", traveler: "REP verified traveler · from REP" } as Record<string, string>)[group] || group
+  return ({ network: "BookerBob regular", traveler: "REP verified traveler · from REP", tier: "Stellar wallet tier" } as Record<string, string>)[group] || group
 }
 export function breakdown(subtotal: number, policy: { group: string; label: string; bps: number }[], max_bps: number, groups: string[]) {
   let used = 0
@@ -280,11 +372,12 @@ const groupKey = (ref: d.GroupRef, merchant: number) => {
   const g = groupsMeta.find((x) => x.id === ref.id)
   if (g?.kind === "chain") return "network"
   if (g?.kind === "attested" && /verified traveler/i.test(g.name)) return "traveler"
+  if (g?.kind === "attested" && /stellar wallet tier/i.test(g.name)) return "tier"
   return `g${ref.id}`
 }
 
 // ---- cached chain state ----
-interface PlaceState { mid: number; m: any; catalog: any; policy: { items: { group: d.GroupRef; bps: number }[]; maxBps: number } | null; leaves: bigint[] }
+interface PlaceState { mid: number; m: any; catalog: any; policy: { items: { group: d.GroupRef; bps: number }[]; maxBps: number } | null; leaves: bigint[]; chain: number | null }
 let state: { places: PlaceState[]; reviews: Map<number, any[]>; texts: Record<string, string>; groupLeaves: Map<number, bigint[]>; spent: Set<string>; elig: Record<number, any[]> } | null = null
 let loading: Promise<void> | null = null
 const kindOut = (k: string) => (k === "cafe" ? "café" : k)
@@ -314,7 +407,62 @@ const resolvedTx = new Map<string, string | null>()
 let configP: Promise<any> | null = null
 const apiConfig = () => (configP ??= fetch(`${API}/api/config`).then((r) => r.json()))
 
+// First paint from the backend's warm snapshot (GET /api/state: one request, ~2 ms warm), then a live chain read in
+// the background that replaces it and tells the page ("pol:data"). Falls back to the live read if the snapshot fails.
+const big = (v: any) => (typeof v === "bigint" ? v : BigInt(v ?? 0))
 async function load() {
+  const ledgerP = fetch(`${API}/api/ledger`).then((r) => r.json()).catch(() => ({}))
+  // the store's products never hold up first paint: applied whenever they arrive
+  fetch(`${BRIDGE}/search?q=tee`)
+    .then((r) => r.json())
+    .then((st) => {
+      if (Array.isArray(st) && st.length) storeItems = st
+    })
+    .catch(() => null)
+  // the page head may already have started this request (window.__polState)
+  const early = typeof window !== "undefined" ? (window as any).__polState : null
+  const snap: any = await (early ?? fetch(`${API}/api/state`).then((r) => (r.ok ? r.json() : null))).catch(() => null)
+  if (!snap || !Array.isArray(snap.merchants)) return loadLive()
+  // review ages need the current ledger: estimate it from the newest timed review (5 s per ledger), exact when it lands
+  const timed = (snap.reviews ?? []).filter((r: any) => r.time && r.ledger).sort((a: any, b: any) => b.ledger - a.ledger)[0]
+  if (timed && !LEDGER_NOW) LEDGER_NOW = timed.ledger + Math.round((Date.now() - timed.time) / 1000 / LEDGER_SECONDS)
+  ledgerP.then((l: any) => {
+    if (l?.sequence) LEDGER_NOW = l.sequence
+  })
+  groupsMeta = snap.groups ?? []
+  const catalog = snap.catalog ?? {}
+  const ms = snap.merchants.map((m: any) => ({ ...m, price: big(m.price), root: String(m.root) }))
+  const ucp = ms.find((m: any) => m.kind === "shop" && !catalog[m.id] && /shopify|rep store/i.test(m.name))
+  if (ucp) UCP_MERCHANT = ucp.id
+  const pol = (id: number) => {
+    const p = snap.policies?.[id]
+    return p ? { maxBps: p.maxBps, items: (p.items ?? []).map((it: any) => ({ group: it.group, bps: it.bps })) } : null
+  }
+  const places: PlaceState[] = ms.map((m: any) => ({ mid: m.id, m, catalog: catalog[m.id] ?? null, policy: pol(m.id), leaves: (snap.leaves?.[m.id] ?? []).map(big) }))
+  const reviews = new Map<number, any[]>()
+  const texts: Record<string, string> = {}
+  for (const m of ms) reviews.set(m.id, [])
+  for (const r of snap.reviews ?? []) {
+    reviews.get(r.merchant)?.push(r)
+    if (r.text) texts["0x" + r.contentHash] = r.text
+  }
+  const groupLeaves = new Map<number, bigint[]>()
+  for (const g of groupsMeta) groupLeaves.set(g.id, (snap.groupLeaves?.[g.id] ?? []).map(big))
+  state = { places, reviews, texts, groupLeaves, spent: new Set(), elig: {} }
+  // the contract client is only needed to check spent proofs of held memberships: build it on first use
+  let client: Promise<any> | null = null
+  const read = { is_spent: async (a: any) => (await (client ??= getClient({ ...TESTNET, contractId: snap.contractId }))).is_spent(a) }
+  await refreshEligibility(read)
+  // live read after first paint; the page re-reads when it lands
+  if (typeof window !== "undefined")
+    setTimeout(() => {
+      loadLive()
+        .then(() => window.dispatchEvent(new CustomEvent("pol:data")))
+        .catch(() => null)
+    }, 4000)
+}
+
+async function loadLive() {
   // everything that does not need the contract id starts now, in parallel with /api/config
   const catalogP = fetch(`${API}/api/catalog`).then((r) => r.json())
   const ledgerP = fetch(`${API}/api/ledger`).then((r) => r.json()).catch(() => ({}))
@@ -325,7 +473,7 @@ async function load() {
   groupsMeta = groups
   const ids = Array.from({ length: n }, (_, i) => i)
   // one wave: merchants, policies, leaves, group leaves and backend reviews all at once
-  const [ms, policies, leaves, gLeaves, rlists, catalog, ledger, store] = await Promise.all([
+  const [ms, policies, leaves, gLeaves, rlists, catalog, ledger, store, chains] = await Promise.all([
     Promise.all(ids.map((i) => views.merchant(read, i))),
     Promise.all(ids.map((i) => views.policy(read, i))),
     Promise.all(ids.map((i) => views.leaves(read, i))),
@@ -334,12 +482,15 @@ async function load() {
     catalogP,
     ledgerP,
     storeP,
+    // the chain group each place belongs to: a chain claim there shares the place's own discount nullifier
+    // shared chain scope only on the upgraded contract (views.sharedChainScope); otherwise chain claims keep their own scope
+    Promise.all(ids.map((i) => (views.sharedChainScope(read) ? (read as any).merchant_chain({ merchant: i }).then((t: any) => (t.result ?? null) as number | null).catch(() => null) : Promise.resolve(null)))),
   ])
   storeItems = Array.isArray(store) ? store : []
   LEDGER_NOW = ledger.sequence ?? LEDGER_NOW
   const ucp = ms.find((m) => m.kind === "shop" && !catalog[m.id] && /shopify|rep store/i.test(m.name))
   if (ucp) UCP_MERCHANT = ucp.id
-  const places: PlaceState[] = ms.map((m, i) => ({ mid: m.id, m, catalog: catalog[m.id] ?? null, policy: policies[i], leaves: leaves[i] }))
+  const places: PlaceState[] = ms.map((m, i) => ({ mid: m.id, m, catalog: catalog[m.id] ?? null, policy: policies[i], leaves: leaves[i], chain: chains[i] }))
   const reviews = new Map<number, any[]>()
   const texts: Record<string, string> = {}
   ids.forEach((i) => {
@@ -363,13 +514,18 @@ async function refreshEligibility(read: any) {
   for (const p of state.places) {
     const items = p.policy?.items ?? (p.m.discountBps ? [{ group: { kind: "merchant" as const, id: p.mid }, bps: p.m.discountBps }] : [])
     const out: any[] = []
-    for (const it of items) {
+    // the own-tree claim and this place's chain claim share one nullifier, so they need different stays
+    const shared = (g: d.GroupRef) => (g.kind === "merchant" && g.id === p.mid) || (g.kind === "group" && g.id === p.chain)
+    const taken = new Set<string>()
+    const ordered = [...items].sort((a, b) => Number(b.group.kind === "merchant" && b.group.id === p.mid) - Number(a.group.kind === "merchant" && a.group.id === p.mid))
+    for (const it of ordered) {
       const key = groupKey(it.group, p.mid)
       const leaves = it.group.kind === "merchant" ? (state.places.find((x) => x.mid === it.group.id)?.leaves ?? []) : (state.groupLeaves.get(it.group.id) ?? [])
-      const holder = stays.find((s) => leaves.includes(BigInt(s.commitment)))
+      const holder = stays.find((s) => leaves.includes(BigInt(s.commitment)) && !(shared(it.group) && taken.has(s.commitment)))
+      if (holder && shared(it.group)) taken.add(holder.commitment)
       let used = false
       if (holder) {
-        const scope = d.semaphoreHash(d.ctxScope(p.mid, it.group, SEASON_N))
+        const scope = d.semaphoreHash(d.ctxScope(p.mid, it.group, SEASON_N, p.chain))
         const nf = poseidon2([scope, master(holder).secretScalar])
         used = await read.is_spent({ scope_hash: scope, nullifier: nf }).then((t: any) => !!t.result).catch(() => false)
       }
@@ -378,6 +534,7 @@ async function refreshEligibility(read: any) {
       if (key === "returning") reason = !holder ? (kind === "hotel" ? "no stay here in this browser" : "no purchase here in this browser") : used ? "used this season. renews next season." : kind === "hotel" ? "you stayed here before. not which time." : "you bought here before. not what, not when."
       else if (key === "network") reason = !holder ? "no proven stay or purchase in the network yet" : used ? "used here this season" : "you're a proven customer somewhere in the BookerBob network"
       else if (key === "traveler") reason = !holder ? "no attestation in this browser" : used ? "used here this season" : "an attester vouched for you. not who."
+      else if (key === "tier") reason = !holder ? stellarTier.reason() || "join with your wallet in connect" : used ? "used here this season" : "your wallet's tier counts. places never see the wallet."
       else reason = !holder ? "not a member in this browser" : used ? "used here this season" : "a provider vouched for you. not who."
       const txHash = holder ? await membershipTx(it.group, holder.commitment) : null
       const atPlaces = state.places.filter((q) => (q.policy?.items ?? []).some((x) => x.group.kind === it.group.kind && x.group.id === it.group.id)).length
@@ -392,6 +549,7 @@ export const EXPLAIN: Record<string, string> = {
   returning: "you were a customer here before. not which time.",
   network: "you're a proven customer somewhere in the BookerBob network. places never see where.",
   traveler: "REP proves from your own Airbnb or Booking account that you travel. BookerBob only learns yes. nobody sees your trips.",
+  tier: "your Stellar wallet history earns a tier. places see the tier, never the wallet.",
 }
 
 const ready = () => (loading ??= load())
@@ -439,7 +597,7 @@ async function freshPayer(kp: Keypair, amountRaw: bigint) {
   const c = await apiConfig()
   const post = (path: string, body: any) => fetch(`${API}${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body, (_, v) => (typeof v === "bigint" ? v.toString() : v)) }).then((r) => r.json())
   const o = await post("/api/payer/open", { publicKey: kp.publicKey() })
-  if (o.error) throw new Error(o.error)
+  if (o.error) throw new Error(o.message ?? o.error)
   const tx = TransactionBuilder.fromXDR(o.xdr, c.networkPassphrase)
   tx.sign(kp)
   const a = await post("/api/payer/activate", { xdr: tx.toXDR(), amount: amountRaw })
@@ -552,7 +710,7 @@ export const chain = {
           address: p.m.admin,
           signAuthEntry: async (preimage: string) => {
             const r = await post("/api/cosign", { quoteId: quote.quoteId, preimage })
-            if (r.error) throw new Error(r.error)
+            if (r.error) throw new Error(r.message ?? r.error)
             return { signedAuthEntry: r.signature, signerAddress: p.m.admin }
           },
         })
@@ -568,7 +726,7 @@ export const chain = {
       }
       // the paying browser joins the place's customer tree through the demo desk (a new stay for this purchase)
       const stay = sdk.stays.create(p.mid)
-      const co: any = await sdk.chain.checkout(p.mid, stay.commitment)
+      const co: any = await sdk.chain.checkout(p.mid, stay.commitment, sent.txHash)
       const passTx = co && !co.error ? co.txHash : null
       if (passTx) rememberTx({ kind: "merchant", id: p.mid }, stay.commitment, passTx)
       loading = null
@@ -683,10 +841,43 @@ export const backend = {
 }
 
 /** Store orders from the UCP bridge's admin view: not available yet, the card drops (docs/design-binding.md). */
+// The store's catalog over UCP (bridge /search): what Bob can buy, and which one the next run buys.
+let storeCatalogP: Promise<any[]> | null = null
+let chosenVariant: string | null = null
+/** Ask Bob: the backend search (GET /api/search), places mapped to this site's place ids. */
+export async function search(q: string) {
+  const r: any = await fetch(`${API}/api/search?q=${encodeURIComponent(q)}`).then((x) => x.json())
+  const results = (r?.results ?? []).map((x: any) => ({
+    source: String(x.source), placeId: typeof x.merchantId === "number" ? toPlace(x.merchantId) : null,
+    title: String(x.title ?? ""), kind: kindOut(String(x.kind ?? "")), price: Number(x.price ?? 0), currency: String(x.currency ?? "USDC"),
+    provenRating: typeof x.provenRating === "number" ? x.provenRating : null, reviewCount: Number(x.reviewCount ?? 0), verifiedCount: Number(x.verifiedCount ?? 0),
+    url: x.url ?? null, variantId: x.extra?.variantId ?? x.variantId ?? null,
+    area: x.extra?.area ? String(x.extra.area) : null,
+  }))
+  return { query: q, kind: r?.parsed?.kind ? kindOut(String(r.parsed.kind)) : null, results }
+}
+
 export const store = {
   async orders() {
     return []
   },
+  /** The products REP Store offers (title, USDC price, store price, image when the store has one, product page). */
+  items(): Promise<any[]> {
+    return (storeCatalogP ??= fetch(`${BRIDGE}/search?q=rep`)
+      .then((r) => r.json())
+      .then((xs) =>
+        (Array.isArray(xs) ? xs : []).map((x: any) => ({ variantId: x.variantId, title: String(x.title), price: Number(x.price), storePrice: x.storePrice ?? null, storeCurrency: x.storeCurrency ?? null, imageUrl: x.imageUrl ?? null, url: x.url ?? null })),
+      )
+      .catch(() => {
+        storeCatalogP = null
+        return []
+      }))
+  },
+  /** Pick the product the next ucp.run() buys (null: the store's first tee). */
+  choose(variantId: string | null) {
+    chosenVariant = variantId
+  },
+  chosen: () => chosenVariant,
 }
 
 export const UCP_STEPS = [
@@ -709,38 +900,65 @@ async function ensureWallet() {
   if (!sdk.wallet.address) await sdk.wallet.connect("local")
   if (((await sdk.chain.balance()) ?? 0n) < 100n * 10_000_000n) {
     for (let i = 0; i < 2; i++) {
-      const f: any = await sdk.chain.faucet()
+      const f: any = await sdk.chain.faucet().catch((e: any) => ({ error: String(e?.message ?? e) }))
       if (!f.error) break
       await sleep(4000)
     }
   }
   return sdk.wallet.address!
 }
+// the payment's failure in plain words: USDC contract #13 is a missing USDC trustline on the paying wallet, #10 too little USDC
+const payFailure = (e: string) =>
+  /#13\b|trustline/i.test(e) ? "your wallet wasn't set up for test USDC yet. run bob again: it sets that up first." : /#10\b|balance/i.test(e) ? "not enough test USDC in your wallet. run bob again: it tops up first." : `the payment didn't go through: ${e}`
 
-async function* ucpRun(reuse: boolean): AsyncGenerator<any> {
+async function* ucpRun(reuse: boolean, noClaim = false): AsyncGenerator<any> {
   const cart: any = { items: [], discounts: [], total: 0, currency: "USDC", paid: false, tx: null }
   const snap = () => ({ type: "cart", cart: JSON.parse(JSON.stringify(cart)) })
   const step = (i: number, status: string, extra: any = {}) => ({ type: "step", i, status, detail: extra.detail ?? (status === "done" ? UCP_STEPS[i].detail : ""), ...extra })
   yield step(0, "running")
-  const items = await fetch(`${BRIDGE}/search?q=tee`).then((r) => r.json()).catch(() => [])
-  const item = items[0]
+  const items = await fetch(`${BRIDGE}/search?q=${chosenVariant ? "rep" : "tee"}`).then((r) => r.json()).catch(() => [])
+  const item = (chosenVariant && items.find((x: any) => x.variantId === chosenVariant)) || items[0]
   if (!item) return yield step(0, "failed", { error: "Network", detail: "the store did not answer." })
   yield step(0, "done", { detail: "found REP Store on Shopify. it speaks UCP: checkout, cart and proof of loyalty.", link: { url: item.ucp ?? `${BRIDGE}/.well-known/ucp`, label: "UCP profile" } })
   yield step(1, "running")
   cart.nextBps = Number(item.returningDiscountBps ?? 0)
-  cart.items.push({ title: String(item.title).toLowerCase(), price: Number(item.price), imageUrl: item.imageUrl ?? null, storePrice: item.storePrice ?? null, storeCurrency: item.storeCurrency ?? null })
+  cart.items.push({ title: String(item.title).toLowerCase(), price: Number(item.price), imageUrl: item.imageUrl ?? null, url: item.url ?? null, storePrice: item.storePrice ?? null, storeCurrency: item.storeCurrency ?? null })
   cart.total = Number(item.price)
   yield snap()
   yield step(1, "done", { detail: `1 × ${String(item.title).toLowerCase()} · ${Number(item.price).toFixed(2)} usdc${item.storePrice ? ` (${Number(item.storePrice).toFixed(2)} ${String(item.storeCurrency ?? "").toLowerCase()} in the store)` : ""} · shopify variant ${String(item.variantId ?? "").split("/").pop()}`, ...(item.url ? { link: { url: item.url, label: "product page on Shopify" } } : {}) })
   const payer = await ensureWallet()
   await ready()
-  const shopStay = sdk.stays.list().find((s) => s.merchant === UCP_MERCHANT && (findP(4)?.leaves ?? []).includes(BigInt(s.commitment)))
-  const claim = !!shopStay || reuse
+  const shopStay = pastShopStay()
+  // the replay demo needs a proof that was used before: without a past purchase there is nothing to replay
+  if (reuse && !shopStay) {
+    const headline = "you need a past purchase first."
+    yield step(2, "failed", { error: "NoPastPurchase", headline, detail: "a reused proof replays the proof from your last purchase at this store. this browser has none yet: run bob once, then try it." })
+    return yield { type: "headline", text: headline, reason: "no past purchase in this browser", error: "NoPastPurchase" }
+  }
+  let claim = (!!shopStay || reuse) && !noClaim
   const next = sdk.stays.create(UCP_MERCHANT)
   yield step(2, "running")
-  const st = await bpost("/buy/start", { variantId: item.variantId, qty: 1, claim, nextCommitment: next.commitment })
+  let st = await bpost("/buy/start", { variantId: item.variantId, qty: 1, claim, nextCommitment: next.commitment })
   if (st.error) return yield step(2, "failed", { error: st.error, detail: String(st.error) })
-  yield step(2, "done", { detail: claim ? "you bought here before, so bob claims returning customer. no name, no email sent." : "no past purchase from this store in this browser, so no claim. full price this time." })
+  let claimNote = ""
+  // normal path only (never the replay demo): an already-spent discount is not offered, so a refusal never headlines
+  if (claim && !reuse && st.action && shopStay) {
+    try {
+      const scopeH = d.semaphoreHash(d.discountScope(UCP_MERCHANT, st.action.scope.season))
+      const nf = poseidon2([scopeH, sdk.stays.identity(shopStay).secretScalar])
+      const read = await getClient({ ...TESTNET, contractId: (await apiConfig()).contractId })
+      const spent = await (read as any).is_spent({ scope_hash: scopeH, nullifier: nf }).then((t: any) => !!t.result)
+      if (spent) {
+        claim = false
+        claimNote = "returning customer: already used this season. it renews next season. full price this time."
+        st = await bpost("/buy/start", { variantId: item.variantId, qty: 1, claim: false, nextCommitment: next.commitment })
+        if (st.error) return yield step(2, "failed", { error: st.error, detail: String(st.error) })
+      }
+    } catch {
+      /* if the check cannot run, the contract still refuses a reused proof; the reason is shown in plain words */
+    }
+  }
+  yield step(2, "done", { detail: claimNote || (claim ? (reuse ? "replaying the proof from your last purchase, on purpose. it should be refused." : "you bought here before, so bob claims returning customer. no name, no email sent.") : noClaim ? "paying full price, no claim." : "no past purchase from this store in this browser, so no claim. full price this time.") })
   if (claim && st.action) {
     yield step(3, "running")
     const off = round2(Number(item.price) * (st.action.discount_bps / 10000))
@@ -752,14 +970,33 @@ async function* ucpRun(reuse: boolean): AsyncGenerator<any> {
     const artifacts = await loadArtifacts(ARTIFACTS)
     const leaves = await views.leaves(await getClient({ ...TESTNET, contractId: (await apiConfig()).contractId }), UCP_MERCHANT)
     const holder = shopStay ?? next
+    const ident = sdk.stays.identity(holder)
+    // the identity must already be one of the store's customers; a new visitor has nothing to prove (or replay) yet
+    if (!leaves.includes(ident.commitment)) {
+      const why = "you need a past purchase from this store first"
+      yield step(4, "failed", { error: "NotInTree", headline: `${why}. buy once, then the discount (and the replay demo) work.`, reason: why, detail: `${why}. this purchase can continue at full price.` })
+      yield { type: "headline", text: `${why}. buy once, then the discount works.`, reason: why, error: "NotInTree" }
+      return
+    }
     const t0 = performance.now()
-    const mp = await proveMembership(sdk.stays.identity(holder), leaves, d.discountMessage(payer), d.discountScope(UCP_MERCHANT, st.action.scope.season), artifacts)
+    let mp
+    try {
+      mp = await proveMembership(ident, leaves, d.discountMessage(payer), d.discountScope(UCP_MERCHANT, st.action.scope.season), artifacts)
+    } catch (e) {
+      const why = "the proof could not be made on this device"
+      yield step(4, "failed", { error: "ProveFailed", headline: `${why}. you can still pay full price.`, reason: why, detail: why })
+      return
+    }
     yield step(4, "done", { detail: `made on this device in ${Math.round(performance.now() - t0)} ms. your secret never leaves it.` })
     yield step(5, "running")
     const pr = await bpost("/buy/prove", { checkoutId: st.checkoutId, payer, root: mp.root.toString(), nullifier: mp.nullifier.toString(), proof: mp.proof })
     if (pr.error || !pr.verified) {
       const error = String(pr.code ?? pr.error ?? "InvalidProof")
-      yield step(5, "failed", { error, detail: /Nullifier|#6/.test(error) ? "refused. this proof was already used, so it cannot count twice." : "refused. the proof did not check out, so the discount was never real." })
+      const used = /Nullifier|#6/.test(error)
+      const why = used ? "this discount was already used this season" : /UnknownRoot|#5/.test(error) ? "the store's customer list changed while proving. try again" : /NonCanonical|#7/.test(error) ? "the proof was malformed" : "the proof didn't check out"
+      const headline = reuse ? "same proof again: refused. it only works once." : `discount refused: ${why}. you can still pay full price.`
+      yield step(5, "failed", { error, headline, reason: why, tx: pr.txHash ?? null, detail: used ? "refused by Stellar: this proof was already used, so it cannot count twice." : `refused by Stellar: ${why}.` })
+      yield { type: "headline", text: headline, reason: why, error }
       cart.discounts[0].removed = true
       cart.total = Number(item.price)
       yield snap()
@@ -775,10 +1012,18 @@ async function* ucpRun(reuse: boolean): AsyncGenerator<any> {
   }
   yield step(7, "running")
   const q = await bpost("/buy/quote", { checkoutId: st.checkoutId, payer })
-  if (q.error) return yield step(7, "failed", { error: q.error, detail: String(q.error) })
+  if (q.error) {
+    const why = payFailure(String(q.error))
+    yield step(7, "failed", { error: q.error, headline: why, reason: why, detail: why })
+    return yield { type: "headline", text: why, reason: why, error: String(q.error) }
+  }
   const signed = await sdk.wallet.signTransaction(q.quote.tx_xdr)
   const sent = await bpost("/buy/send", { signedTxXdr: signed })
-  if (sent.error) return yield step(7, "failed", { error: sent.error, detail: String(sent.error) })
+  if (sent.error) {
+    const why = payFailure(String(sent.error))
+    yield step(7, "failed", { error: sent.error, headline: why, reason: why, detail: why })
+    return yield { type: "headline", text: why, reason: why, error: String(sent.error) }
+  }
   cart.paid = true
   cart.tx = sent.txHash
   cart.total = Number(BigInt(q.quote.pays_raw)) / 1e7
@@ -803,17 +1048,39 @@ async function* ucpRun(reuse: boolean): AsyncGenerator<any> {
   if (orderId) yield { type: "store", storeView: { orderId, amount: cart.total, badges: cart.discounts.length ? ["verified returning customer"] : [], tx: sent.txHash } }
 }
 
+/** Wraps the agent run so it never rejects: an unexpected error ends the run with a plain headline. */
+async function* safeRun(g: AsyncGenerator<any>): AsyncGenerator<any> {
+  try {
+    yield* g
+  } catch (e) {
+    console.warn("agent run failed", String((e as any)?.message ?? e))
+    yield { type: "headline", text: "something went wrong on our side. nothing was charged twice; try again.", reason: "unexpected error", error: "Unknown" }
+  }
+}
+
 async function payUcp(cart: { items: { title: string; price: number }[] }, groups: string[]) {
   let last: any = null
-  for await (const ev of ucpRun(groups.includes("returning"))) if (ev.type === "step") last = ev
+  for await (const ev of safeRun(ucpRun(groups.includes("returning")))) if (ev.type === "step") last = ev
   if (last?.status === "failed") return err(last.error ?? "BadParams")
   const tx = last?.tx
   const subtotal = round2(cart.items.reduce((a, i) => a + i.price, 0))
   return { txHash: tx ?? null, subtotal, discounts: [], total: subtotal, saved: 0 }
 }
 
+/** This browser's purchase at the UCP store that is in its customer group (the basis of the returning-customer discount). */
+function pastShopStay() {
+  if (!state) return undefined
+  const leaves = (state.places.find((p) => p.mid === UCP_MERCHANT)?.leaves ?? []) as bigint[]
+  return sdk.stays.list().find((s) => s.merchant === UCP_MERCHANT && leaves.includes(BigInt(s.commitment)))
+}
+
 export const ucp = {
-  run: ({ reuse = false } = {}) => ucpRun(reuse),
+  /** true when this visitor already bought at the store, so bob can claim the returning-customer discount */
+  returning: () => !!pastShopStay(),
+  /** the store's returning-customer discount on chain, in basis points */
+  discountBps: () => Number(state?.places.find((p) => p.mid === UCP_MERCHANT)?.m.discountBps ?? 0),
+  /** reuse: replay the last proof on purpose (the refusal demo). noClaim: pay full price (after a refusal). */
+  run: ({ reuse = false, noClaim = false } = {}) => safeRun(ucpRun(reuse, noClaim)),
   reset() {},
 }
 
@@ -867,7 +1134,7 @@ export const prover = {
           continue
         }
         try {
-          const mp = await proveMembership(ident, leaves, d.discountMessage(payer.publicKey()), d.ctxScope(p.mid, e._ref, SEASON_N), await loadArtifacts(ARTIFACTS))
+          const mp = await proveMembership(ident, leaves, d.discountMessage(payer.publicKey()), d.ctxScope(p.mid, e._ref, SEASON_N, p.chain), await loadArtifacts(ARTIFACTS))
           claims.push({ key: g, arg: { group: { tag: e._ref.kind === "merchant" ? "Merchant" : "Group", values: [e._ref.id] }, proof: proofArg(mp.proof), root: mp.root, nullifier: mp.nullifier } })
         } catch {
           dropped.push(g)
@@ -886,20 +1153,42 @@ export const wallet = {
   method: null as string | null,
   async connect(method = "passkey", _instant = false) {
     let used = method
+    const prev = this.address ?? sdk.wallet.address
     try {
       if (method === "demo key") this.address = await sdk.wallet.connect("local")
       else this.address = await sdk.wallet.connect(method === "freighter" ? "freighter" : "passkey")
-    } catch {
+    } catch (e: any) {
+      // a passkey sign-in that finds nothing says so (the UI offers "create one?"); it never makes a key behind your back
+      if (method !== "freighter" && method !== "demo key") {
+        const noPasskey = /NoPasskey/.test(String(e?.message ?? e))
+        throw Object.assign(new Error(noPasskey ? "no passkey for this site on this device. create one?" : /UserRejected/.test(String(e?.message)) ? "cancelled." : "this passkey could not sign in here."), { noPasskey })
+      }
       used = "demo key"
       this.address = await sdk.wallet.connect("local")
     }
+    if (used === "passkey") {
+      const cred = credHere()
+      const home = cred ? passkeyNs.find(cred) : null
+      if (cred && home !== null && home !== nsNow && !/^pk-g\d+-/.test(nsNow)) {
+        // this passkey's history lives in another namespace: open it there (restored without a prompt)
+        const st = nsStorage(home) ?? LS!
+        st.setItem("pos.wallet", "passkey")
+        if (home) LS?.setItem(NS_KEY, home)
+        else LS?.removeItem(NS_KEY)
+        reloadClean()
+      } else if (cred) passkeyNs.set(cred, nsNow)
+    }
     this.method = used
+    // Freighter after demo (or any address change): drop the old claim or sources() paints "none" and hides score.
+    if (this.address && this.address !== prev) loyalty.clear()
+    if (this.address) await loyalty.ensure(this.address)
     return { address: this.address, method: used }
   },
   disconnect() {
     sdk.wallet.disconnect()
     this.address = null
     this.method = null
+    loyalty.clear()
   },
   /** The wallet this browser already holds (the SDK restores a remembered demo key on load), or null. */
   current() {
@@ -927,6 +1216,8 @@ export interface Source {
   /** One line on what it proves. */
   proves: string
   status: SourceStatus
+  /** REP row, operator only: the REP account already joined in an earlier demo; offer "reset REP demo". */
+  canReset?: boolean
   detail: string
   /** Where to go instead of an in-page action (REP app while REP verify is demo-only). */
   link?: string
@@ -936,6 +1227,132 @@ export interface Source {
   perk?: string
   /** stellar.expert page of the connected account. */
   accountUrl?: string
+  /** Wallet loyalty score (Horizon + optional Passport), when scored. */
+  score?: number
+  tier?: number
+  /** Attest tx on testnet (memo.hash = claim digest) — clickable proof. */
+  scoreUrl?: string
+  /** Stellar wallet tier: explainer, held + join tx, or why it cannot join yet. */
+  stellarTier?: Awaited<ReturnType<typeof stellarTier.view>>
+}
+
+// Wallet loyalty score (verify_onchain_zk): Horizon rating → claim → 1-stroop attest tx.
+const loyaltySeason = () => new Date().getUTCFullYear() * 100 + (new Date().getUTCMonth() + 1)
+const loyaltyCacheKey = (addr: string) => `bookerbob.loyalty.v2.${loyaltySeason()}.${addr}`
+type LoyaltyView = {
+  status: "none" | "pending" | "ready" | "failed" | "skipped"
+  rating?: number
+  tier?: number
+  txHash?: string | null
+  explorerUrl?: string | null
+  address?: string
+  why?: string
+}
+let loyaltyState: LoyaltyView = { status: "none" }
+/** In-flight ensure — callers must share this promise (wallet.connect + UI both call ensure). */
+let loyaltyInflight: { addr: string; p: Promise<LoyaltyView> } | null = null
+function readLoyaltyCache(addr: string): Omit<LoyaltyView, "status" | "address" | "why"> | null {
+  try {
+    const raw = LS?.getItem(loyaltyCacheKey(addr))
+    if (!raw) return null
+    const j = JSON.parse(raw) as { rating?: number; tier?: number; txHash?: string | null; explorerUrl?: string | null }
+    if (typeof j.rating !== "number" || typeof j.tier !== "number") return null
+    return { rating: j.rating, tier: j.tier, txHash: j.txHash ?? null, explorerUrl: j.explorerUrl ?? null }
+  } catch {
+    return null
+  }
+}
+function writeLoyaltyCache(addr: string, v: { rating: number; tier: number; txHash: string | null; explorerUrl: string | null }) {
+  try {
+    LS?.setItem(loyaltyCacheKey(addr), JSON.stringify(v))
+  } catch {
+    /* quota */
+  }
+}
+export const loyalty = {
+  get state() {
+    return { ...loyaltyState }
+  },
+  clear() {
+    loyaltyState = { status: "none" }
+    loyaltyInflight = null
+  },
+  /** Score + attest once per season (cached). `proveScore: false` — panel needs the attest tx, not the Groth16 artifact. */
+  async ensure(address?: string | null) {
+    const addr = address ?? wallet.address ?? sdk.wallet.address
+    if (!addr) return (loyaltyState = { status: "none" })
+    // the demo key is a fresh, history-less account: nothing to score, and no error to show
+    if (sdk.wallet.kind === "local" && sdk.wallet.address === addr) return (loyaltyState = { status: "skipped", address: addr, why: "wallet score: connect a Stellar wallet with history (Freighter) to earn a tier" })
+    const cached = readLoyaltyCache(addr)
+    // Cache hit on rating alone (attest may have failed last time — still show score).
+    if (cached && (cached.explorerUrl || cached.txHash)) {
+      const explorerUrl = cached.explorerUrl || (cached.txHash ? `https://stellar.expert/explorer/testnet/tx/${cached.txHash}` : null)
+      return (loyaltyState = { status: "ready", address: addr, ...cached, explorerUrl })
+    }
+    if (loyaltyInflight?.addr === addr) return loyaltyInflight.p
+    // Keep a cached rating visible while we (re)score / attest — never blank the Freighter row.
+    if (cached) {
+      loyaltyState = { status: "ready", address: addr, ...cached, explorerUrl: cached.explorerUrl || null }
+    } else {
+      loyaltyState = { status: "pending", address: addr }
+    }
+    const p = (async (): Promise<LoyaltyView> => {
+      try {
+        // Score first (Horizon + same-origin Passport proxy). Never hit demo.stellarpassport.xyz from the
+        // browser — CORS hangs and the Freighter panel never gets a score link.
+        const { verifyWallet, claimDigest, attestLoyaltyClaim } = await import("../../packages/verify_onchain_zk/src/index.ts")
+        const season = loyaltySeason()
+        const { claim } = await verifyWallet(addr, 0, season, {
+          passport: true,
+          // "" = same origin. With proxy set, verify_onchain_zk never calls demo.stellarpassport.xyz.
+          passportProxyBase: API,
+        })
+        let view = {
+          rating: claim.rating,
+          tier: claim.tier,
+          txHash: null as string | null,
+          explorerUrl: null as string | null,
+        }
+        // Publish score immediately so the connections panel can render "score" before attest returns.
+        loyaltyState = { status: "ready", address: addr, ...view }
+        writeLoyaltyCache(addr, view)
+        try {
+          // the public attest is off unless the backend enables it (privacy; it also raced the booking sponsor)
+          if (!(await apiConfig()).loyaltyAttest) return loyaltyState
+          const digest = await claimDigest(claim)
+          const attest = await attestLoyaltyClaim(claim, { apiBase: API, digest })
+          view = {
+            rating: claim.rating,
+            tier: claim.tier,
+            txHash: attest.txHash,
+            explorerUrl: attest.explorerUrl || `https://stellar.expert/explorer/testnet/tx/${attest.txHash}`,
+          }
+          writeLoyaltyCache(addr, view)
+        } catch {
+          /* attest optional for showing the score; proof tx may stay unavailable */
+        }
+        return (loyaltyState = { status: "ready", address: addr, ...view })
+      } catch {
+        if (cached) {
+          return (loyaltyState = {
+            status: "ready",
+            address: addr,
+            ...cached,
+            explorerUrl: cached.explorerUrl || null,
+          })
+        }
+        return (loyaltyState = {
+          status: "failed",
+          address: addr,
+          why: "wallet score: not available for this wallet right now",
+        })
+      } finally {
+        if (loyaltyInflight?.addr === addr) loyaltyInflight = null
+      }
+    })()
+    loyaltyInflight = { addr, p }
+    return p
+  },
 }
 
 /** The REP app, one config value (may move to r3p.xyz). */
@@ -947,7 +1364,7 @@ export const repDemo = () => (repDemoP ??= fetch(`${API}/api/rep/status`, { cred
 // REP verified traveler: the guest approves in the REP Bob app; the backend checks the REP-signed verdict and adds a
 // fresh identity of this browser to the attested group. The identity is a new stay at the store that is never checked
 // in, so the group tree cannot be linked to any place's customer tree.
-let repState: { status: SourceStatus; sid?: string; until?: number; tx?: string | null; why?: string } = { status: "none" }
+let repState: { status: SourceStatus; sid?: string; until?: number; tx?: string | null; why?: string; canReset?: boolean } = { status: "none" }
 const travelerHeld = () => local.credentials().some((c: any) => c.group === "traveler" && c.held)
 
 export const rep = {
@@ -971,9 +1388,107 @@ export const rep = {
       repState = { status: "connected", tx: r.txHash || null }
       loading = null // the traveler group changed: re-read it so perks count it
       await ready()
-    } else if (r?.status === "failed") repState = { status: "failed", why: r.reason === "expired" ? "the request expired. try again." : "REP could not confirm it." }
+    } else if (r?.status === "failed") {
+      const joined = /already joined/i.test(String(r.reason ?? ""))
+      // the operator rehearses with the same REP account: offer a reset instead of a dead end
+      const op = joined && (await repDemo())
+      repState = {
+        status: "failed",
+        why: r.reason === "expired" ? "the request expired. try again." : op ? "this REP account already joined in an earlier demo." : joined ? "a new generation needs a new proof in REP Bob." : "REP could not confirm it.",
+        ...(op ? { canReset: true } : {}),
+      }
+    }
     else if (repState.until && Date.now() > repState.until + 5000) repState = { status: "failed", why: "the request expired. try again." }
     return { ...repState }
+  },
+  /** Operator only: reset the REP demo, then "verify with REP" can run again. */
+  async resetDemo() {
+    const ok = await repDemoReset()
+    repState = ok ? { status: "none" } : { ...repState, why: "could not reset the REP demo. try again." }
+    return ok
+  },
+}
+
+// Stellar wallet tier: the wallet's tier comes from the loyalty score above (Horizon read, no public attest). At or above
+// /api/stellar-tier/info minTier, a dedicated identity of this browser (a stay at the store that is never checked in, so it
+// links to no customer tree) joins the attested group: challenge -> SEP-53 signature by the wallet -> join (add_member).
+// G accounts only: a passkey wallet is a contract account (C...) and cannot sign a SEP-53 message.
+let tierMin = 3
+let tierInfoP: Promise<{ minTier: number; explainer: string }> | null = null
+const tierInfo = () =>
+  (tierInfoP ??= fetch(`${API}/api/stellar-tier/info`)
+    .then((r) => r.json())
+    .then((x) => ((tierMin = Number(x.minTier ?? 3)), { minTier: tierMin, explainer: String(x.explainer ?? EXPLAIN.tier) }))
+    .catch(() => ((tierInfoP = null), { minTier: tierMin, explainer: EXPLAIN.tier })))
+let tierState: { status: "none" | "pending" | "failed"; why?: string } = { status: "none" }
+const TIER_KEY = (c: string) => `bookerbob.tier.${c}`
+const tierGroupId = () => groupsMeta.find((g) => g.kind === "attested" && /stellar wallet tier/i.test(g.name))?.id ?? null
+const tierHolder = () => {
+  const gid = tierGroupId()
+  if (gid === null || !state) return null
+  const leaves = state.groupLeaves.get(gid) ?? []
+  return sdk.stays.list().find((s) => leaves.includes(BigInt(s.commitment))) ?? null
+}
+
+export const stellarTier = {
+  info: tierInfo,
+  /** Why this browser cannot join right now ("" = it can). Synchronous, from the wallet and its loyalty score. */
+  reason(): string {
+    const addr = wallet.address ?? sdk.wallet.address
+    if (!addr) return `connect a Stellar wallet with tier ${tierMin}+`
+    if (!addr.startsWith("G")) return "a passkey wallet is a contract account. connect Freighter for the tier."
+    const ly = loyaltyState.address === addr ? loyaltyState : ({ status: "none" } as LoyaltyView)
+    if (sdk.wallet.kind === "local" && ly.status !== "ready") return `a demo key is brand new, so it has no tier. connect Freighter with tier ${tierMin}+`
+    if (ly.status === "pending") return "scoring your wallet…"
+    if (ly.status !== "ready" || typeof ly.tier !== "number") return `connect a Stellar wallet with tier ${tierMin}+`
+    if (ly.tier < tierMin) return `your wallet scores tier ${ly.tier}, needs ${tierMin}`
+    return ""
+  },
+  async view() {
+    await ready()
+    await tierInfo()
+    const h = tierHolder()
+    const gid = tierGroupId()
+    let tx: string | null = null
+    let tier: number | null = null
+    if (h) {
+      try {
+        const saved = JSON.parse(LS?.getItem(TIER_KEY(h.commitment)) ?? "null")
+        tx = saved?.tx ?? null
+        tier = saved?.tier ?? null
+      } catch {}
+      if (!tx && gid !== null) tx = await membershipTx({ kind: "group", id: gid }, h.commitment)
+    }
+    const why = this.reason()
+    return { minTier: tierMin, explainer: EXPLAIN.tier, perk: perkFor("tier"), held: !!h, tx, tier: tier ?? (loyaltyState.tier ?? null), canJoin: !h && !why && tierState.status !== "pending", pending: tierState.status === "pending", reason: h ? "" : tierState.status === "failed" ? (tierState.why ?? why) : why }
+  },
+  async join() {
+    await tierInfo()
+    const why = this.reason()
+    if (why) return (tierState = { status: "failed", why })
+    const addr = (wallet.address ?? sdk.wallet.address)!
+    tierState = { status: "pending" }
+    try {
+      const stay = sdk.stays.create(UCP_MERCHANT)
+      const commitment = BigInt(stay.commitment).toString()
+      const ch: any = await fetch(`${API}/api/stellar-tier/challenge?address=${addr}&commitment=${commitment}`).then((r) => r.json())
+      if (!ch?.message) return (tierState = { status: "failed", why: "bookerbob could not open a request. try again." })
+      const signature = await sdk.wallet.signMessage(ch.message)
+      const r: any = await fetch(`${API}/api/stellar-tier/join`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ address: addr, commitment, nonce: ch.nonce, signature }) })
+        .then(async (x) => ({ status: x.status, ...(await x.json().catch(() => ({}))) }))
+      if (r.ok) {
+        LS?.setItem(TIER_KEY(stay.commitment), JSON.stringify({ tx: r.txHash || null, tier: r.tier ?? null }))
+        tierState = { status: "none" }
+        loading = null // the tier group changed: re-read it so perks count it
+        await ready()
+        return { ...tierState }
+      }
+      const msg =
+        r.status === 403 ? `your wallet scores tier ${r.tier}, needs ${r.minTier}` : r.status === 409 ? "this wallet already joined. one identity per wallet." : r.status === 401 ? "the wallet signature did not check out. try again." : r.status === 410 ? "the request expired. try again." : "the join did not go through. try again."
+      return (tierState = { status: "failed", why: msg })
+    } catch (e: any) {
+      return (tierState = { status: "failed", why: /reject|denied|cancel/i.test(String(e?.message ?? e)) ? "you declined in the wallet. nothing was sent." : "the wallet could not sign. try again." })
+    }
   },
 }
 
@@ -1017,20 +1532,40 @@ export async function sources(placeId?: number): Promise<Source[]> {
   const held = travelerHeld()
   const demo = await repDemo()
   const pp = passportState.address && passportState.address !== addr ? { status: "none" as SourceStatus, detail: "" } : passportState
+  const ly = loyaltyState.address && loyaltyState.address !== addr ? ({ status: "none" } as LoyaltyView) : loyaltyState
+  const walletDetail = !addr
+    ? "face id. no seed phrase. your proofs come back on any of your devices."
+    : ly.status === "ready" && typeof ly.rating === "number"
+      ? `${addr.slice(0, 4)}…${addr.slice(-4)} · score ${ly.rating} · tier ${ly.tier}`
+      : ly.status === "pending"
+        ? `${addr.slice(0, 4)}…${addr.slice(-4)} · scoring…`
+        : ly.status === "failed"
+          ? `${addr.slice(0, 4)}…${addr.slice(-4)} · score failed`
+          : `${addr.slice(0, 4)}…${addr.slice(-4)}`
   return [
     {
       id: "wallet",
       label: addr ? (wallet.method ?? (sdk.wallet.kind === "local" ? "demo key" : "wallet")) : "wallet",
       proves: "pays for you. a fresh address for every payment, so purchases do not link.",
       status: addr ? "connected" : "none",
-      detail: addr ? `${addr.slice(0, 4)}…${addr.slice(-4)}` : "passkey, freighter or a demo key in this browser",
+      detail: walletDetail,
       ...(addr ? { accountUrl: `https://stellar.expert/explorer/testnet/account/${addr}` } : {}),
+      stellarTier: await stellarTier.view(),
+      ...(ly.status === "ready" && typeof ly.rating === "number"
+        ? {
+            score: ly.rating,
+            tier: ly.tier,
+            scoreUrl: ly.explorerUrl || undefined,
+            txHash: ly.txHash ?? null,
+          }
+        : {}),
     },
     {
       id: "rep",
       label: "REP verified traveler · from REP",
       proves: EXPLAIN.traveler,
       status: held ? "connected" : demo ? repState.status : "soon",
+      canReset: !held && demo && !!repState.canReset,
       txHash: held ? ((await heldTx("traveler")) ?? repState.tx ?? null) : null,
       perk: perkFor("traveler", placeId),
       detail: held
@@ -1043,13 +1578,6 @@ export async function sources(placeId?: number): Promise<Source[]> {
               ? (repState.why ?? "")
               : "+5% where places honor it",
       ...(held || demo ? {} : { link: REP_APP_URL }),
-    },
-    {
-      id: "passport",
-      label: "Stellar Passport",
-      proves: "your builder profile on Stellar. read only. not a perk yet: no place offers it today.",
-      status: pp.status,
-      detail: pp.detail || (addr ? "check your wallet's builder profile" : "connect a wallet first"),
     },
     {
       id: "network",

@@ -16,6 +16,8 @@
 //   GET  /api/search?q=                    Ask Bob: federated search over source adapters, ranked by proven reviews
 import { contractId, deployment } from "../../packages/sdk/src/deployment.ts"
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
+import { createHash, timingSafeEqual } from "node:crypto"
+import { rpc } from "@stellar/stellar-sdk"
 import { readFileSync, existsSync, statSync } from "node:fs"
 import { join, extname, resolve } from "node:path"
 import { Ops, keysFromEnv } from "./core.ts"
@@ -103,7 +105,7 @@ const isDec = (v: unknown) => typeof v === "string" && /^\d{1,78}$/.test(v)
 const isHex = (v: unknown, n: number) => typeof v === "string" && new RegExp(`^(0x)?[0-9a-f]{${n}}$`, "i").test(v)
 const fail = (res: ServerResponse, r: { error: string; message?: string }) => json(res, 400, { error: r.error, message: r.message })
 
-// naive per-IP rate limit for writes
+// naive per-IP rate limit for writes: one booking is ~8 POSTs and judges on venue Wi-Fi share one NAT IP
 const hits = new Map<string, number[]>()
 const limited = (req: IncomingMessage) => {
   const ip = String(req.headers["fly-client-ip"] ?? req.socket.remoteAddress)
@@ -111,10 +113,35 @@ const limited = (req: IncomingMessage) => {
   const h = (hits.get(ip) ?? []).filter((t) => now - t < 60_000)
   h.push(now)
   hits.set(ip, h)
-  return h.length > 30
+  return h.length > 120
 }
 
 const MIME: Record<string, string> = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png", ".json": "application/json", ".wasm": "application/wasm", ".zkey": "application/octet-stream", ".woff2": "font/woff2", ".ico": "image/x-icon" }
+
+const OPERATOR_COOKIE = "bb_demo"
+function isOperatorReq(req: IncomingMessage): boolean {
+  const want = process.env.REP_DEMO_TOKEN
+  if (!want) return false
+  const cookie = String(req.headers.cookie ?? "").split(/;\s*/).find((c) => c.startsWith(`${OPERATOR_COOKIE}=`))?.slice(OPERATOR_COOKIE.length + 1)
+  const got = String(req.headers["x-bb-demo"] ?? (cookie ? decodeURIComponent(cookie) : ""))
+  const h = (x: string) => createHash("sha256").update(x).digest()
+  return got.length > 0 && timingSafeEqual(h(got), h(want))
+}
+const BOOKING_FNS = new Set(["book", "book_with_discount", "book_with_context", "book_amount", "book_with_discount_amount"])
+/** A successful, recent (30 min) booking call to our contract for this merchant. */
+async function verifyBookingTx(hash: string, merchant: number): Promise<boolean> {
+  try {
+    const r: any = await new rpc.Server(net.rpcUrl).getTransaction(hash)
+    if (r.status !== "SUCCESS") return false
+    if (Date.now() / 1000 - Number(r.createdAt) > 1800) return false
+    const env = JSON.parse(JSON.stringify(r.envelopeXdr, (_, v) => (typeof v === "bigint" ? v.toString() : v)))
+    const find = (o: any): any => (o && typeof o === "object" ? (o.invoke_contract ?? Object.values(o).map(find).find(Boolean)) : undefined)
+    const call = find(env)
+    return !!call && call.contract_address === CONTRACT && BOOKING_FNS.has(call.function_name) && Number(call.args?.[0]?.u32) === merchant
+  } catch {
+    return false
+  }
+}
 
 async function checkStored(d: { pkg?: import("@bookerbob/pos-sdk").DisclosurePackage }) {
   if (!d.pkg) return { commitmentMatches: false, signatureValid: false, leafInTree: false }
@@ -135,7 +162,7 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
     const sn = await snapshot()
     const demo = sn.merchants.filter((x) => ops.keys.merchantAdmins.has(x.admin)).map((x) => x.id)
     configStatic ??= { usdc: await views.usdc(read), arbiter: await views.arbiter(read) }
-    return json(res, 200, { contractId: CONTRACT, rpcUrl: net.rpcUrl, networkPassphrase: net.networkPassphrase, demoMerchants: demo, usdc: configStatic.usdc, usdcIssuer: ops.keys.usdcIssuer?.publicKey(), arbiter: configStatic.arbiter })
+    return json(res, 200, { contractId: CONTRACT, rpcUrl: net.rpcUrl, networkPassphrase: net.networkPassphrase, demoMerchants: demo, usdc: configStatic.usdc, usdcIssuer: ops.keys.usdcIssuer?.publicKey(), arbiter: configStatic.arbiter, loyaltyAttest: process.env.LOYALTY_ATTEST === "1" })
   }
   if (req.method === "GET" && (m = path.match(/^\/api\/reviews\/(\d+)$/))) {
     const rs = await views.reviews(read, Number(m[1]))
@@ -215,7 +242,7 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
     )
   }
   if (req.method !== "POST") return json(res, 404, { error: "NotFound" })
-  if (limited(req)) return json(res, 429, { error: "RateLimited" })
+  if (limited(req)) return json(res, 429, { error: "RateLimited", message: "busy, retry in a few seconds" })
   const b = await body(req)
 
   // Context provider hook (docs/context-providers.md): a provider verifies its own evidence, then add_member.
@@ -293,6 +320,14 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
   }
   if (path === "/api/checkout") {
     if (!isInt(b.merchant) || !isDec(b.commitment)) return fail(res, { error: "BadParams" })
+    // a stay joins a place's tree only for a real booking at that place (one checkout per booking tx), or for the
+    // demo operator (scripts, the hotel desk demo); never for anyone who asks
+    if (!isOperatorReq(req)) {
+      const ok = typeof b.bookingTx === "string" && /^[0-9a-f]{64}$/.test(b.bookingTx) && (await verifyBookingTx(b.bookingTx, b.merchant))
+      if (!ok) return json(res, 403, { error: "NotDemoMerchant", message: "a stay is added after a booking at this place" })
+      if (store.bookingUsed(b.bookingTx)) return json(res, 409, { error: "DuplicateLeaf", message: "this booking already added a stay" })
+      store.useBooking(b.bookingTx)
+    }
     const r = await ops.checkout(b.merchant, BigInt(b.commitment))
     if (!r.ok) return fail(res, r)
     store.putCheckout(b.merchant, String(b.commitment), r.txHash)
@@ -306,6 +341,9 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
       return fail(res, { error: b.address.startsWith("G") ? "NoTrustline" : "Unknown", message: String(e).slice(0, 200) })
     }
   }
+  // Public wallet+tier attest is OFF by default (LOYALTY_ATTEST=1 enables it): it links a wallet to its tier in public,
+  // and it raced the fresh-payer sponsor. The wallet tier still works privately through group 2.
+  if (path === "/api/loyalty/attest" && process.env.LOYALTY_ATTEST !== "1") return json(res, 404, { error: "Disabled", message: "public loyalty attest is off" })
   if (path === "/api/loyalty/attest") {
     const ok =
       typeof b.address === "string" &&
@@ -356,6 +394,7 @@ function serveFile(res: ServerResponse, root: string, rel: string) {
 
 function serveStatic(res: ServerResponse, path: string) {
   if (path === "/classic" || path.startsWith("/classic/")) return serveFile(res, STATIC, path.slice("/classic".length) || "/")
+  if (path === "/how" || path === "/how/") return serveFile(res, SITE, "/how.html") // "how it works" page
   if (existsSync(join(SITE, "index.html"))) return serveFile(res, SITE, path)
   return serveFile(res, STATIC, path)
 }

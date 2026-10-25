@@ -1,8 +1,10 @@
-// Fresh payer per booking: one guest (one browser, one stay) books twice with perks; the two payments come from
-// unrelated one-time addresses, no wallet is connected and the guest never holds XLM.
+// Fresh payer per booking: one guest (one browser, one stay) books with perks at two network places this season; the
+// two payments come from unrelated one-time addresses, no wallet is connected and the guest never holds XLM.
+// (The contract allows one discount per stay per place per season, so the two bookings are at two places.)
 // Usage: API=http://localhost:8080 node scripts/privacy-test.ts
 import assert from "node:assert/strict"
 import { createSdk, isErr, formatUsdc } from "../packages/sdk/src/index.ts"
+import { currentSeason } from "../packages/sdk/src/derive.ts"
 
 const mem = new Map<string, string>()
 const storage = { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => void mem.set(k, v), removeItem: (k: string) => void mem.delete(k) }
@@ -17,10 +19,10 @@ log("stay checked in at place 0 (joins the network group)", (co as any).txHash)
 assert.equal(sdk.wallet.address, null, "no wallet connected")
 
 const payers: string[] = []
-for (const season of [Date.now() % 100000, (Date.now() % 100000) + 1]) {
-  const r: any = await sdk.chain.bookWithPerks(1, season)
+for (const place of [1, 3]) {
+  const r: any = await sdk.chain.bookWithPerks(place, currentSeason())
   if (isErr(r)) throw new Error(`${r.error} ${r.message ?? ""}`)
-  log(`season ${season}: paid ${formatUsdc(r.paid)} from ${r.payer}`, sdk.chain.explorerTx(r.txHash))
+  log(`place ${place}: paid ${formatUsdc(r.paid)} from ${r.payer}`, sdk.chain.explorerTx(r.txHash))
   payers.push(r.payer)
 }
 assert.notEqual(payers[0], payers[1])

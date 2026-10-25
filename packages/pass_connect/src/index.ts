@@ -20,6 +20,8 @@ export type PassConnectError =
   | "UserCancelled"
   | "PasskeyFailed"
   | "Network"
+  /** Sign-in found no passkey for this site on this device (or the prompt was closed). Never falls back to create. */
+  | "NoPasskey"
 
 export class PassConnectException extends Error {
   // Explicit field instead of a parameter property: Node's type stripping (scripts, tests) rejects those.
@@ -43,6 +45,8 @@ export interface PassConnectOptions {
   storage?: Pick<Storage, "getItem" | "setItem" | "removeItem">
   /** Name shown in the OS passkey list for a NEW credential, e.g. "BookerBob demo 16:40". */
   displayName?: string
+  /** true = register a NEW passkey. Default (sign in) only ever calls navigator.credentials.get(). */
+  create?: boolean
 }
 
 export interface PassSigner {
@@ -71,6 +75,8 @@ type Stored = {
   address: string
   binding: "prf" | "credential-bound"
   createdAt: number
+  /** The passkey's name, from its user handle ("bb1:<name>") or the name it was created with. */
+  name?: string
 }
 
 const b64url = {
@@ -164,6 +170,46 @@ async function deriveSeedPrf(credentialId: Uint8Array, rpId: string): Promise<Ui
   }
 }
 
+// The user handle carries the passkey's name, so a discoverable sign-in on any device can show which passkey it is.
+const HANDLE = "bb1:"
+const handleFor = (name: string) => new TextEncoder().encode((HANDLE + name).slice(0, 64))
+const nameFromHandle = (h: ArrayBuffer | null | undefined) => {
+  if (!h) return undefined
+  const t = new TextDecoder().decode(new Uint8Array(h))
+  return t.startsWith(HANDLE) ? t.slice(HANDLE.length) : undefined
+}
+const PRF_SALT = new TextEncoder().encode("bookerbob/pass_connect/v1")
+
+/** Discoverable sign-in: navigator.credentials.get() with no allowCredentials, PRF in the same prompt. Never creates. */
+async function signIn(opts: PassConnectOptions, rpId: string): Promise<{ stored: Stored; seed: Uint8Array }> {
+  let a: PublicKeyCredential | null
+  try {
+    a = (await navigator.credentials.get({
+      publicKey: { challenge: challenge(), rpId, userVerification: "required", extensions: { prf: { eval: { first: PRF_SALT } } } as AuthenticationExtensionsClientInputs },
+    })) as PublicKeyCredential | null
+  } catch (e) {
+    const name = e && typeof e === "object" && "name" in e ? String((e as { name: string }).name) : ""
+    if (name === "NotAllowedError" || name === "AbortError") throw new PassConnectException("NoPasskey", "no passkey for this site on this device")
+    throw mapWebAuthnError(e)
+  }
+  if (!a) throw new PassConnectException("NoPasskey", "no passkey for this site on this device")
+  const credentialId = b64url.enc(new Uint8Array(a.rawId))
+  const first = (a.getClientExtensionResults() as { prf?: { results?: { first?: ArrayBuffer } } }).prf?.results?.first
+  const prev = loadStored(opts)
+  let seed: Uint8Array
+  let binding: Stored["binding"] = "prf"
+  if (first) seed = await sha256(new Uint8Array(first))
+  else if (prev?.credentialId === credentialId && prev.seedHex) {
+    seed = fromHex(prev.seedHex)
+    binding = "credential-bound"
+  } else throw new PassConnectException("PasskeyFailed", "this passkey cannot sign in on this browser (no PRF)")
+  const { kp } = signerFromSeed(seed)
+  const name = nameFromHandle((a.response as AuthenticatorAssertionResponse).userHandle) ?? (prev?.credentialId === credentialId ? prev.name : undefined)
+  const stored: Stored = { credentialId, address: kp.publicKey(), binding, createdAt: prev?.credentialId === credentialId ? prev.createdAt : Date.now(), ...(binding === "credential-bound" ? { seedHex: prev!.seedHex } : {}), ...(name ? { name } : {}) }
+  saveStored(opts, stored)
+  return { stored, seed }
+}
+
 async function deriveSeedBound(credentialId: Uint8Array, localSalt: Uint8Array): Promise<Uint8Array> {
   const cat = new Uint8Array(credentialId.length + localSalt.length + 16)
   cat.set(credentialId, 0)
@@ -216,9 +262,9 @@ export async function connectPasskey(opts: PassConnectOptions = {}): Promise<{ s
           seed = fromHex(existing.seedHex)
           binding = "credential-bound"
         } else {
-          // re-prompt create path by falling through — treat as missing
+          // the remembered credential gave no seed: sign in again (pick a passkey), never create one
           clearStored(opts)
-          return connectPasskey(opts)
+          return connectPasskey({ ...opts, create: false })
         }
       } else {
         // Touch the authenticator so the user confirms login
@@ -234,9 +280,9 @@ export async function connectPasskey(opts: PassConnectOptions = {}): Promise<{ s
       }
       const { kp } = signerFromSeed(seed)
       if (kp.publicKey() !== existing.address) {
-        // seed drift — rebind
+        // seed drift: sign in again (pick a passkey), never create one
         clearStored(opts)
-        return connectPasskey(opts)
+        return connectPasskey({ ...opts, create: false })
       }
       const session: PassSession = {
         module: MODULE,
@@ -250,8 +296,15 @@ export async function connectPasskey(opts: PassConnectOptions = {}): Promise<{ s
       return { session, seed }
     }
 
-    // Registration
-    const userId = challenge(16)
+    if (!opts.create) {
+      const { stored, seed } = await signIn(opts, rpId)
+      const session: PassSession = { module: MODULE, kind: "passkey", address: stored.address, credentialId: stored.credentialId, binding: stored.binding, createdAt: stored.createdAt, signer: { publicKey: stored.address, signTransaction: async () => ({ signedTxXdr: "" }) } }
+      return { session, seed }
+    }
+
+    // Registration (explicit create only)
+    const name = opts.displayName ?? "BookerBob guest"
+    const userId = handleFor(name)
     const cred = (await navigator.credentials.create({
       publicKey: {
         rp: { name: rpName, id: rpId },
@@ -286,7 +339,7 @@ export async function connectPasskey(opts: PassConnectOptions = {}): Promise<{ s
       await fetch(`${friendbot}/?addr=${encodeURIComponent(kp.publicKey())}`).catch(() => null)
     }
     const createdAt = Date.now()
-    saveStored(opts, { credentialId, seedHex, address: kp.publicKey(), binding, createdAt })
+    saveStored(opts, { credentialId, seedHex, address: kp.publicKey(), binding, createdAt, name })
     const session: PassSession = {
       module: MODULE,
       kind: "passkey",
@@ -303,11 +356,11 @@ export async function connectPasskey(opts: PassConnectOptions = {}): Promise<{ s
   }
 }
 
-export function restorePasskey(opts: PassConnectOptions = {}): { address: string; credentialId: string; binding: Stored["binding"] } | null {
+export function restorePasskey(opts: PassConnectOptions = {}): { address: string; credentialId: string; binding: Stored["binding"]; name?: string } | null {
   const st = loadStored(opts)
   if (!st) return null
   if (!StrKey.isValidEd25519PublicKey(st.address)) return null
-  return { address: st.address, credentialId: st.credentialId, binding: st.binding }
+  return { address: st.address, credentialId: st.credentialId, binding: st.binding, name: st.name }
 }
 
 export function disconnectPasskey(opts: PassConnectOptions = {}) {

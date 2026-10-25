@@ -16,7 +16,7 @@
 // `presentations` are never read. Every other path, including /receive and /issue, is 404.
 import type { IncomingMessage, ServerResponse } from "node:http"
 import { randomBytes, createHash, timingSafeEqual } from "node:crypto"
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs"
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { Keypair } from "@stellar/stellar-sdk"
 import { getClient, write, views, TESTNET } from "../../packages/sdk/src/contract.ts"
@@ -33,7 +33,7 @@ const FR = 218882428718392752222464057452572750885483644004160343436982041865758
 const PLATFORMS = /(^|\.)(airbnb|booking)\.com$/i
 
 type Status = "pending" | "presented" | "passed" | "failed"
-interface Session { sid: string; commitment: string; nonce: string; exp: number; status: Status; reason?: string; txHash?: string; rebind?: RebindProof; moved?: boolean }
+interface Session { sid: string; commitment: string; nonce: string; exp: number; status: Status; reason?: string; txHash?: string; viaOperator?: boolean; rebind?: RebindProof; moved?: boolean }
 
 export interface RepDeps {
   /** Adds a commitment to the verified-traveler group; returns the tx hash. */
@@ -58,7 +58,7 @@ export interface RepDeps {
 const sha = (x: string) => createHash("sha256").update(x).digest()
 const COOKIE = "bb_demo"
 /** Per-IP limits per minute. The phone polls /pending every 2 s (30/min). */
-const LIMITS: Record<string, number> = { "/session": 6, "/rebind": 6, "/pending": 45, "/present": 10, "/result": 60, "/demo": 10, "/status": 60 }
+const LIMITS: Record<string, number> = { "/session": 6, "/rebind": 6, "/pending": 45, "/present": 10, "/result": 60, "/demo-reset": 6, "/demo": 10, "/status": 60 }
 
 export function createRep(deps: RepDeps) {
   const sessions = new Map<string, Session>()
@@ -70,23 +70,36 @@ export function createRep(deps: RepDeps) {
   // spent proof -> {group, hash of the commitment it currently backs}; one line per change, the last one wins.
   // A legacy line (proof only) cannot be moved. Moving is how "start over" keeps exactly one membership.
   const spentFile = deps.stateDir ? join(deps.stateDir, "rep-spent-proofs.txt") : null
-  const spent = new Map<string, { group: number; ch: string } | null>()
+  // spent presentation -> how its join came (demo operator or not) and, for moves, {group, hash of the
+  // commitment it currently backs}. Line format "key op|user [group commitmentHash]"; the last line wins.
+  // Every session has been operator-only since the rep-gate, so a legacy line (no flag) is an operator join.
+  // A line without group/hash (legacy) cannot be moved.
+  type Spent = { viaOperator: boolean; group?: number; ch?: string }
+  const spent = new Map<string, Spent>()
   if (spentFile && existsSync(spentFile)) {
     for (const line of readFileSync(spentFile, "utf8").split("\n").filter(Boolean)) {
-      const [k, g, ch] = line.split(" ")
-      spent.set(k, g && ch ? { group: Number(g), ch } : null)
+      const [k, op, g, ch] = line.split(" ")
+      spent.set(k, { viaOperator: op === undefined || op === "op", ...(g && ch ? { group: Number(g), ch } : {}) })
     }
   }
   const salt = deps.salt ?? "bookerbob-rep"
   const groupOf = deps.groupId ?? (async () => 1)
-  const record = (k: string, v: { group: number; ch: string }) => {
+  const lineOf = (k: string, v: Spent) => `${k} ${v.viaOperator ? "op" : "user"}${v.group !== undefined && v.ch ? ` ${v.group} ${v.ch}` : ""}\n`
+  const record = (k: string, v: Spent) => {
     spent.set(k, v)
     if (spentFile) {
       try {
         mkdirSync(deps.stateDir!, { recursive: true })
-        appendFileSync(spentFile, `${k} ${v.group} ${v.ch}\n`)
+        appendFileSync(spentFile, lineOf(k, v))
       } catch {}
     }
+  }
+  const persistAll = () => {
+    if (!spentFile) return
+    try {
+      mkdirSync(deps.stateDir!, { recursive: true })
+      writeFileSync(spentFile, [...spent].map(([k, v]) => lineOf(k, v)).join(""))
+    } catch {}
   }
   const proofKey = (ah: string) => createHash("sha256").update(`bookerbob/rep/proof/${ah}`).digest("hex")
   const now = () => (deps.now ? deps.now() : Date.now())
@@ -156,14 +169,16 @@ export function createRep(deps: RepDeps) {
     const group = await groupOf()
     if (spent.has(pk)) {
       // Already joined: only a MOVE is allowed, proven by the old identity (signed at /rebind for this session).
-      const entry = spent.get(pk)
-      if (!entry || !s.rebind) return fail(s, "this presentation already joined")
-      if (deps.addMemberWithRep || !deps.replaceMember) return fail(s, "move is not available on this path yet")
+      // The move is the group operator's replace_member in every mode (the attester key also operates the
+      // group when joins go through the tier credential).
+      const entry = spent.get(pk)!
+      if (!s.rebind || entry.group === undefined || !entry.ch) return fail(s, "this presentation already joined")
+      if (!deps.replaceMember) return fail(s, "move is not configured")
       if (entry.group !== group) return fail(s, "this presentation joined another group")
       if (entry.ch !== commitmentKey(salt, s.rebind.oldCommitment)) return fail(s, "the old identity does not hold this membership")
       try {
         s.txHash = await deps.replaceMember(BigInt(s.rebind.oldCommitment), BigInt(s.commitment))
-        record(pk, { group, ch: commitmentKey(salt, s.commitment) })
+        record(pk, { viaOperator: entry.viaOperator, group, ch: commitmentKey(salt, s.commitment) })
         s.status = "passed"
         s.moved = true
         return { code: 200, body: { ok: true, moved: true } }
@@ -171,7 +186,8 @@ export function createRep(deps: RepDeps) {
         return fail(s, `replace_member failed: ${String((e as Error).message).slice(0, 80)}`)
       }
     }
-    record(pk, { group, ch: commitmentKey(salt, s.commitment) })
+    // sessions open only for the demo operator today, so this join is an operator join
+    record(pk, { viaOperator: s.viaOperator !== false, group, ch: commitmentKey(salt, s.commitment) })
     try {
       // The off-chain checks above still run first (they also cover revocation, which the contract cannot read).
       s.txHash = deps.addMemberWithRep
@@ -209,7 +225,7 @@ export function createRep(deps: RepDeps) {
         const q = new URL(req.url ?? path, "http://x").searchParams
         const token = q.get("token") ?? q.get("demo") ?? ""
         if (!deps.demoToken || !token || !timingSafeEqual(sha(token), sha(deps.demoToken))) return json(res, 403, { error: "Forbidden" })
-        res.writeHead(302, { location: q.get("fresh") === "1" ? "/?fresh=1" : "/", "set-cookie": `${COOKIE}=${encodeURIComponent(token)}; Path=/api/rep; Max-Age=604800; HttpOnly; Secure; SameSite=Lax`, "cache-control": "no-store" })
+        res.writeHead(302, { location: q.get("fresh") === "1" ? "/?fresh=1" : "/", "set-cookie": `${COOKIE}=${encodeURIComponent(token)}; Path=/api; Max-Age=604800; HttpOnly; Secure; SameSite=Lax`, "cache-control": "no-store" })
         return void res.end()
       }
       if (req.method === "POST" && sub === "/session") {
@@ -222,7 +238,7 @@ export function createRep(deps: RepDeps) {
         // One open request at a time: the phone answers the newest.
         for (const s of sessions.values()) if (s.status === "pending") (s.status = "failed"), (s.reason = "superseded")
         const sid = randomBytes(12).toString("hex")
-        const s: Session = { sid, commitment: c.toString(), nonce: `pos:${c}:${randomBytes(16).toString("hex")}`, exp: now() + SESSION_MS, status: "pending" }
+        const s: Session = { sid, commitment: c.toString(), nonce: `pos:${c}:${randomBytes(16).toString("hex")}`, exp: now() + SESSION_MS, status: "pending", viaOperator: true }
         sessions.set(sid, s)
         return json(res, 200, { sid, nonce: s.nonce, expiresAt: s.exp })
       }
@@ -236,6 +252,16 @@ export function createRep(deps: RepDeps) {
         if (!r) return json(res, 400, { error: "the old identity's signature does not check out" })
         s.rebind = r
         return json(res, 200, { ok: true })
+      }
+      if (req.method === "POST" && sub === "/demo-reset") {
+        // Live demos only: the operator forgets its OWN spent presentations so the same REP proof can join
+        // again from a fresh start. Joins from non-operator flows are never touched. The old leaf stays in the
+        // group on Stellar (a dead identity); production keeps one presentation, one membership.
+        if (!isDemo(req)) return json(res, 403, { error: "demo operator only" })
+        let cleared = 0
+        for (const [k, v] of spent) if (v.viaOperator) (spent.delete(k), cleared++)
+        persistAll()
+        return json(res, 200, { ok: true, cleared })
       }
       if (req.method === "GET" && sub === "/pending") {
         expire()

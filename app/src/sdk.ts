@@ -2,6 +2,7 @@
 // Swap mock for testnet with VITE_SDK_MODE=testnet; nothing else changes.
 import { createSdk, isErr, kindLabel, type ErrorName, type Merchant, type WriteResult } from "@bookerbob/pos-sdk"
 import { demo } from "./demo"
+import { currentSeason } from "../../packages/sdk/src/derive.ts"
 
 const mode = import.meta.env.VITE_SDK_MODE === "testnet" ? "testnet" : "mock"
 
@@ -42,5 +43,5 @@ export { kindLabel }
 export const stayWord = (kind: string): string => (kind === "hotel" ? "stay" : kind === "shop" ? "purchase" : "visit")
 
 /** Returning-guest discount season for the demo. The seed used season 1; agent and seed must match. */
-export const SEASON = 1
+export const SEASON = currentSeason()
 export const seasonLabel = (season: number) => `season ${season}`

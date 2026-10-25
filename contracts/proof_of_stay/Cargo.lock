@@ -643,6 +643,7 @@ dependencies = [
  "elliptic-curve",
  "rfc6979",
  "signature",
+ "spki",
 ]
 
 [[package]]
@@ -700,6 +701,7 @@ dependencies = [
  "ff",
  "generic-array",
  "group",
+ "pkcs8",
  "rand_core",
  "sec1",
  "subtle",
@@ -1259,7 +1261,9 @@ name = "proof-of-stay"
 version = "0.1.0"
 dependencies = [
  "hex",
+ "p256",
  "serde_json",
+ "sha2",
  "soroban-poseidon",
  "soroban-sdk",
 ]
@@ -1392,6 +1396,7 @@ dependencies = [
  "base16ct",
  "der",
  "generic-array",
+ "pkcs8",
  "subtle",
  "zeroize",
 ]

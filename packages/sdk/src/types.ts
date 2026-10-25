@@ -26,6 +26,9 @@ export type ContractError =
   | "RepHolder"
   | "RepNonce"
   | "RepReplay"
+  | "BadSeason"
+  | "NotMember"
+  | "BadPath"
 export type ClientError = "WalletNotConnected" | "UserRejected" | "InsufficientFunds" | "NotDemoMerchant" | "NotInTree" | "DisclosureRejected" | "Network" | "Unknown"
 export type ErrorName = ContractError | ClientError
 
@@ -152,7 +155,7 @@ export interface Chain {
   explorerContract(): string
 
   /** Merchant role (wallet = merchant admin, or the BookerBob demo desk for demo places). Returns the new root. */
-  checkout(merchant: number, commitment: string): Promise<WriteResult<{ root: string }>>
+  checkout(merchant: number, commitment: string, bookingTx?: string): Promise<WriteResult<{ root: string }>>
   /** Guest, full price. */
   book(merchant: number): Promise<WriteResult<{ paid: Usdc }>>
   /** Guest, returning-guest discount. Drains prover.prove({ kind: "discount" }). */
@@ -319,6 +322,9 @@ export const errorCopy: Record<ErrorName, string> = {
   RepHolder: "the verdict was not presented by its own device",
   RepNonce: "the verdict was presented for another identity",
   RepReplay: "this REP verdict was already used",
+  BadSeason: "that season is over, refresh and retry",
+  NotMember: "that identity is not in this group",
+  BadPath: "the group changed, refresh and retry",
   WalletNotConnected: "connect to continue",
   UserRejected: "signing was cancelled",
   InsufficientFunds: "not enough USDC, get test USDC first",

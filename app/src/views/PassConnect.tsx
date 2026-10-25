@@ -149,7 +149,7 @@ export function PassConnectPanel({ merchantId = 0, season }: { merchantId?: numb
       const r = await verifyOnConnect(addr, {
         merchantId,
         season: seasonVal,
-        attest: !alreadyAttested,
+        attest: false, // public attest off (privacy); the wallet tier joins group 2 privately
         proveScore: true,
         passportProxyBase: "",
       })
@@ -216,10 +216,10 @@ export function PassConnectPanel({ merchantId = 0, season }: { merchantId?: numb
 
   return (
     <section id="pass-connect" className="card pass-connect" aria-label="wallet connect and on-chain verify">
-      <span className="label">pass_connect · verify_onchain_zk</span>
+      <span className="label">wallet score</span>
       <h2>connect · score · prove</h2>
       <p className="muted">
-        Freighter or passkey → verified tier (5→1), loyalty claim, one season attest tx, and a Groth16 score proof on the Proof of Stay stack.
+        Freighter or passkey: your Stellar wallet history earns a score and a tier (1 to 5, 5 best). places see the tier, never the wallet.
       </p>
       <div className="row" style={{ marginTop: 14 }}>
         {!address ? (

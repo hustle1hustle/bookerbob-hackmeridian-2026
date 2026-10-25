@@ -78,11 +78,13 @@ for (let round = 0; round < ROUNDS; round++) {
     const buyer = key(pick(BUYERS))
     const stayKey = `${master}:${m.id}:${Date.now()}`
     const id = d.stayIdentity(stayKey, m.id, 0)
-    const co = await post("/api/checkout", { merchant: m.id, commitment: id.commitment.toString() })
-    if (co.error) throw new Error(`checkout ${co.error}`)
     const bc = await getClient(net, signerOf(buyer, net.networkPassphrase))
     const bk = await write(bc, "book", { merchant: m.id, guest: buyer.publicKey() })
     log(`purchase at ${m.name}`, bk.ok ? bk.txHash : bk.error)
+    if (!bk.ok) throw new Error("booking failed")
+    // the backend adds a stay only for a real booking at that place
+    const co = await post("/api/checkout", { merchant: m.id, commitment: id.commitment.toString(), bookingTx: bk.txHash })
+    if (co.error) throw new Error(`checkout ${co.error}`)
     const avg = m.ratingCount ? m.ratingSum / m.ratingCount : 4
     const rating = Math.max(3, Math.min(5, Math.round(avg + (Math.random() - 0.5) * 1.6))) as 3 | 4 | 5
     const text = pick((texts[m.kind] ?? texts.hotel)[rating])
