@@ -2,7 +2,7 @@
 // BookerBob sponsors its account reserve and USDC trustline, funds it, and fee-bumps its booking transaction,
 // so the guest never holds XLM and two bookings by one guest come from unrelated addresses.
 import { Asset, BASE_FEE, Keypair, Operation, TransactionBuilder, FeeBumpTransaction, Transaction, rpc, scValToNative } from "@stellar/stellar-sdk"
-import type { Ops } from "./core.ts"
+import { serial, type Ops } from "./core.ts"
 
 const BOOKING_FNS = new Set(["book", "book_with_discount", "book_with_context", "book_amount", "book_with_discount_amount"])
 // Fee cap per sponsored transaction: a base plus a per-proof allowance (each Groth16 check + nullifier write and its
@@ -33,7 +33,35 @@ export class PayerService {
   }
 
   /** Step 1: unsigned envelope that creates `fresh` with a sponsored reserve and a USDC trustline. The fresh key signs it. */
+  // The open envelope carries the sponsor's sequence number, so nothing else may use the sponsor between open() and
+  // activate(): open takes the sponsor for up to 60 s and activate releases it.
+  private hold: { fresh: string; release: () => void; timer: ReturnType<typeof setTimeout> } | null = null
+  private take(fresh: string): Promise<void> {
+    return new Promise((ok) => {
+      void serial(this.sponsor.publicKey(), () => new Promise<void>((release) => {
+        const timer = setTimeout(() => this.free(fresh), 60_000)
+        this.hold = { fresh, release, timer }
+        ok()
+      }))
+    })
+  }
+  private free(fresh: string) {
+    if (this.hold?.fresh !== fresh) return
+    clearTimeout(this.hold.timer)
+    const r = this.hold.release
+    this.hold = null
+    r()
+  }
   async open(fresh: string): Promise<string> {
+    await this.take(fresh)
+    try {
+      return await this.openNow(fresh)
+    } catch (e) {
+      this.free(fresh)
+      throw e
+    }
+  }
+  private async openNow(fresh: string): Promise<string> {
     const s = this.server()
     const { asset } = await this.ops.usdcAsset()
     const acct = await s.getAccount(this.sponsor.publicKey())
@@ -49,6 +77,15 @@ export class PayerService {
 
   /** Step 2: checks the signed envelope is exactly the open() shape, co-signs as sponsor, submits, then funds `amount` USDC. */
   async activate(signedXdr: string, amount: bigint): Promise<{ openTx: string; fundTx: string; payer: string }> {
+    const tx0 = TransactionBuilder.fromXDR(signedXdr, this.ops.net.networkPassphrase) as Transaction
+    const fresh0 = (tx0.operations[1] as any)?.destination as string
+    try {
+      return await this.activateNow(signedXdr, amount)
+    } finally {
+      this.free(fresh0)
+    }
+  }
+  private async activateNow(signedXdr: string, amount: bigint): Promise<{ openTx: string; fundTx: string; payer: string }> {
     const tx = TransactionBuilder.fromXDR(signedXdr, this.ops.net.networkPassphrase) as Transaction
     const ops = tx.operations
     const fresh = (ops[1] as any)?.destination as string

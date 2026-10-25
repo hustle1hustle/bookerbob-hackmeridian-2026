@@ -392,7 +392,8 @@ async function loadLive() {
     ledgerP,
     storeP,
     // the chain group each place belongs to: a chain claim there shares the place's own discount nullifier
-    Promise.all(ids.map((i) => (read as any).merchant_chain({ merchant: i }).then((t: any) => (t.result ?? null) as number | null).catch(() => null))),
+    // shared chain scope only on the upgraded contract (views.sharedChainScope); otherwise chain claims keep their own scope
+    Promise.all(ids.map((i) => (views.sharedChainScope(read) ? (read as any).merchant_chain({ merchant: i }).then((t: any) => (t.result ?? null) as number | null).catch(() => null) : Promise.resolve(null)))),
   ])
   storeItems = Array.isArray(store) ? store : []
   LEDGER_NOW = ledger.sequence ?? LEDGER_NOW

@@ -248,7 +248,8 @@ export function createTestnetSdk(opts: TestnetOptions = {}): Sdk {
     const groups = await views.groups(c)
     const mine = loadStays().map((s) => ({ s, id: identityOf(s) }))
     // At a chain member, a chain claim shares the merchant's own discount nullifier, so it needs a different stay.
-    const chain = ((await (c as any).merchant_chain({ merchant })).result ?? null) as number | null
+    // the shared chain scope exists only on the upgraded contract; on the current one chain claims keep their own scope
+    const chain = views.sharedChainScope(c) ? (((await (c as any).merchant_chain({ merchant })).result ?? null) as number | null) : null
     const shared = (g: d.GroupRef) => (g.kind === "merchant" && g.id === merchant) || (g.kind === "group" && chain != null && g.id === chain)
     const used = new Set<bigint>()
     const items: Perk[] = []
