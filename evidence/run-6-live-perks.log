@@ -1,0 +1,13 @@
+[  1.1s] store profile: 12 capabilities, patronage yes, Stellar USDC yes
+[  1.8s] found "REP ship of theseus tee" 150.00 AED
+[  2.0s] buyer holds 9 past purchase(s)/stay(s) (2 at merchant 3, 7 at merchant 5), will claim its context perks
+[  2.0s] fresh payer GDG7W5… funded with test USDC
+[  5.1s] checkout hWNINgxa subtotal 150.00 AED, provisional discount 22.50 AED
+[  5.1s] store offers: returning customer 10% (11), BookerBob Lisbon network 5% (92), REP verified traveler 5% (4); cap 15%, season 20264, proofs bind the payer
+[ 35.9s] 2 proof(s) generated in 6750 ms: returning customer 10% + BookerBob Lisbon network 5% (cap 15%)
+[ 37.9s] store verified 2 claim(s) against the Stellar contract: 15% off, single-use code BB-563AAB1E44CD
+[ 38.7s] code applied by the store: -22.50 AED
+[ 40.3s] store co-signed book_with_context: 40.80 USDC before discount, pays 34.68 USDC, order ref 1ce9adbd…
+[ 46.8s] paid 34.68 USDC on Stellar, tx 7ad074395e8e73bc7131abe01779e188c768862196c505d471505a697efd9762
+[ 56.1s] order #1012 completed. https://stellar.expert/explorer/testnet/tx/7ad074395e8e73bc7131abe01779e188c768862196c505d471505a697efd9762
+[ 56.1s] store saw: a valid proof, a fresh payer, a fresh customer code. Not who the buyer is, nor which past order.

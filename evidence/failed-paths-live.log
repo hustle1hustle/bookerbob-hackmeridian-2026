@@ -1,4 +1,4 @@
 bridge https://bookerbob-ucp-bridge.fly.dev
 forged claim (real proof bytes, invented nullifier) -> verification_required | contract refused the proof: InvalidProof
-reused proof (nullifier 1536492358…, already paid) -> verification_required | contract refused the proof: NullifierUsed
+reused proof (nullifier 1244715450…, already paid) -> verification_required | contract refused the proof: NullifierUsed
 complete with the claim unproven -> eligibility_unresolved
