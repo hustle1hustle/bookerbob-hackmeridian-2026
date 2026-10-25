@@ -679,6 +679,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
           <sc-if value="{{ desk.canSubmit }}" hint-placeholder-val="{{ true }}">
             <button onClick="{{ deskConfirm }}" style="appearance:none;width:100%;border:1px solid var(--ink);background:var(--ink);color:var(--bg);font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;height:52px;padding:0 20px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;transition:background .15s,border-color .15s,color .15s" style-hover="background:var(--accent);border-color:var(--accent);color:var(--accent-ink)">check out, add to group<span>→</span></button>
           </sc-if>
+          <sc-if value="{{ desk.deskClosed }}" hint-placeholder-val="{{ false }}"><p style="margin:0;font-size:15px;line-height:1.45;color:var(--ink-2)">the place itself checks guests in; book to get a pass.</p></sc-if>
           <sc-if value="{{ desk.submitting }}" hint-placeholder-val="{{ false }}">
             <div style="height:52px;border:1px solid var(--ink);display:flex;align-items:center;gap:12px;padding:0 20px;font-family:var(--mono);font-size:12px"><span style="width:8px;height:8px;background:var(--accent);animation:bb-blink 1s steps(1) infinite"></span>signing on stellar</div>
           </sc-if>
@@ -1494,7 +1495,7 @@ class Component extends DCLogic {
       mHotel: s.mPlace === 0, mShop: s.mPlace === 4,
       desk: {
         input: dk.input, scanning: dk.scanning, scanLabel: dk.scanning ? 'stop' : 'scan qr',
-        canSubmit: dk.phase !== 'submitting', submitting: dk.phase === 'submitting', success: dk.phase === 'success', notSuccess: dk.phase !== 'success', error: dk.phase === 'error',
+        canSubmit: dk.phase !== 'submitting' && !!s.operator, deskClosed: !s.operator, submitting: dk.phase === 'submitting', success: dk.phase === 'success', notSuccess: dk.phase !== 'success', error: dk.phase === 'error',
         errHead: dErr ? dErr.h : '', errBody: dErr ? dErr.b : '', leafIdx: newIdx >= 0 ? String(newIdx + 1) : '',
         root: P0 ? this.short(P0.roots[P0.roots.length - 1], 8, 6) : '', copyRoot: () => { const r = P0 && P0.roots[P0.roots.length - 1]; if (r && navigator.clipboard) navigator.clipboard.writeText(r).catch(() => {}); }, txUrl: dTx ? dTx.url : '', txShort: dTx ? dTx.short : '', treeLabel: P0 ? `${P0.group_size} of ${(this.m && this.m.TREE_CAP) || 32}` : '',
       },
@@ -1761,7 +1762,8 @@ class Component extends DCLogic {
         if (ok) {
           this.pending = null;
           // Leave connections open so Freighter row shows score / proof (was closing before ensure finished).
-          this.setState(s => ({ src: { ...s.src, open: true, focus: 'wallet', reason: null, scoreOpen: true } }));
+          // with an action waiting (book, run bob, review), close so the action shows; else stay open for the score
+          this.setState(s => ({ src: { ...s.src, open: !fn, focus: 'wallet', reason: null, scoreOpen: true } }));
         }
         await this.loadSources();
         await this.reload();
