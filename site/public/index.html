@@ -675,6 +675,20 @@ html,body{margin:0;padding:0;background:#EDEBE5}
     </sc-for>
   </div>
 </div>
+<!-- bb:guide: what this role does, three steps, the current one from real state -->
+<div style="border-bottom:1px solid var(--rule-soft);background:var(--surface)">
+  <div style="max-width:1360px;margin:0 auto;padding:18px clamp(16px,4vw,48px)">
+    <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)">{{ mGuide.kicker }}</div>
+    <ol style="list-style:none;margin:10px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:10px 28px">
+      <sc-for list="{{ mGuide.steps }}" as="g" hint-placeholder-count="3">
+        <li style="display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;align-items:start;opacity:{{ g.op }}">
+          <span style="width:24px;height:24px;display:grid;place-items:center;border:1px solid var(--ink);background:{{ g.bg }};color:{{ g.fg }};font-family:var(--mono);font-size:11px">{{ g.mark }}</span>
+          <span style="min-width:0"><span style="display:block;font-size:16px;letter-spacing:-.02em">{{ g.label }}</span><span style="display:block;margin-top:2px;font-size:13px;line-height:1.45;color:var(--ink-2)">{{ g.sub }}</span></span>
+        </li>
+      </sc-for>
+    </ol>
+  </div>
+</div>
 
 <sc-if value="{{ mHotel }}" hint-placeholder-val="{{ true }}">
 <section data-screen-label="Merchant · checkout desk">
@@ -799,6 +813,20 @@ html,body{margin:0;padding:0;background:#EDEBE5}
 </sc-if>
 
 <sc-if value="{{ isArbiter }}" hint-placeholder-val="{{ false }}">
+<!-- bb:guide: what this role does, three steps, the current one from real state -->
+<div style="border-bottom:1px solid var(--rule-soft);background:var(--surface)">
+  <div style="max-width:1360px;margin:0 auto;padding:18px clamp(16px,4vw,48px)">
+    <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)">{{ aGuide.kicker }}</div>
+    <ol style="list-style:none;margin:10px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:10px 28px">
+      <sc-for list="{{ aGuide.steps }}" as="g" hint-placeholder-count="3">
+        <li style="display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;align-items:start;opacity:{{ g.op }}">
+          <span style="width:24px;height:24px;display:grid;place-items:center;border:1px solid var(--ink);background:{{ g.bg }};color:{{ g.fg }};font-family:var(--mono);font-size:11px">{{ g.mark }}</span>
+          <span style="min-width:0"><span style="display:block;font-size:16px;letter-spacing:-.02em">{{ g.label }}</span><span style="display:block;margin-top:2px;font-size:13px;line-height:1.45;color:var(--ink-2)">{{ g.sub }}</span></span>
+        </li>
+      </sc-for>
+    </ol>
+  </div>
+</div>
 <section data-screen-label="Dispute queue">
   <div style="max-width:1360px;margin:0 auto;padding:clamp(40px,6vw,88px) clamp(16px,4vw,48px) clamp(48px,6vw,96px)">
     <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:16px 48px">
@@ -1541,6 +1569,9 @@ class Component extends DCLogic {
       this.setState({ disputing: null });
     });
   }
+  guideSteps(defs, cur) {
+    return defs.map(([label, sub], i) => ({ label, sub, mark: i < cur ? '✓' : String(i + 1), bg: i === cur ? 'var(--ink)' : 'transparent', fg: i === cur ? 'var(--bg)' : 'var(--ink)', op: i <= cur ? 1 : 0.6 }));
+  }
   vMerchant() {
     const s = this.state, P0 = this.byId(this.state.mPlace || 0), dk = s.desk, dres = dk.result, newIdx = dk.phase === 'success' && dres ? dres.leafIndex : -1;
     const dErr = dk.error ? (this.ERR[dk.error] || this.ERR.BadParams) : null, dTx = dres ? this.tx(dres.txHash) : null, shop = this.byId(4);
@@ -1558,6 +1589,15 @@ class Component extends DCLogic {
       deskSample: () => this.setDesk({ input: this.newCommit(), detected: false, phase: 'idle', error: null }),
       deskDup: () => { const mm = s.memberships.find(x => x.place === (s.mPlace || 0)); this.setDesk({ input: mm ? mm.commitment : '', detected: false, phase: 'idle', error: null }); },
       deskConfirm: this.deskConfirm,
+      mGuide: (() => {
+        const hotel = s.mPlace !== 4, open = s.disputes.some(d => d.status !== 'attested' && this.byId(d.hotel) && d.hotel === (s.mPlace || 0));
+        const cur = open ? 2 : dk.phase === 'success' ? 1 : 0;
+        return { kicker: 'demo: you are acting as ' + (P0 ? P0.name : 'the place'), steps: this.guideSteps([
+          [hotel ? 'a guest checks out' : 'a customer pays', s.operator ? 'they show a commitment, a random number made on their phone. add it below.' : 'the place itself adds them, from the booking. here you watch its group grow.'],
+          ['your group grows', P0 ? `${P0.group_size} ${this.groupWord(P0, P0.group_size)} so far. the tree shows how many, never who.` : 'the tree shows how many, never who.'],
+          ['doubt a review? dispute it', 'the guest can then prove the stay to the arbiter, privately. you only see the outcome.'],
+        ], cur) };
+      })(),
       hotelFeed: (s.reviews[0] || []).map(r => {
         const d = s.disputes.find(x => x.reviewId === r.id);
         return { ...this.rv(r, P0), canDispute: !r.verified && !d && s.disputing !== r.id, disputing: s.disputing === r.id, hasDState: !!d && !r.verified, dState: d ? (d.status === 'awaiting' ? 'disputed · waiting on the guest' : 'disputed · with the arbiter') : '', onDispute: () => this.openDispute(r.id) };
@@ -1607,6 +1647,11 @@ class Component extends DCLogic {
       arbCanRun: !!pk && !attested && (ar.phase === 'idle' || ar.phase === 'failed'), arbChecking: ar.phase === 'checking', arbChecked: !attested && ar.phase === 'checked', arbAttesting: ar.phase === 'attesting',
       arbDone: attested, arbHasTx: !!aTx, arbTxUrl: aTx ? aTx.url : '', arbTxShort: aTx ? aTx.short : '', arbError: !!aErr, arbErrHead: aErr ? aErr.h : '', arbErrBody: aErr ? aErr.b : '',
       runChecks: this.runChecks, attest: this.attest,
+      aGuide: { kicker: 'demo: you are acting as the arbiter', steps: this.guideSteps([
+        ['pick a dispute', 'a place doubted a review. you see the review, never who wrote it.'],
+        ['the guest discloses', 'only if the guest chooses to. the stay comes to you, and nobody else.'],
+        ['check, then attest', 'three checks on the package, then one line on Stellar: verified.'],
+      ], !sd ? 0 : sd.status === 'awaiting' ? 1 : attested ? 3 : 2) },
     };
   }
   stepSub(g) { return { returning: 'you were here before. not which time.', network: 'you are a guest somewhere in the network. not where.', traveler: 'an attester vouched for you. not who.' }[g] || ''; }
