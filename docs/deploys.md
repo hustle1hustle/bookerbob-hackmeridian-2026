@@ -13,4 +13,5 @@ Live: https://stellarbob2026.xyz (Fly app `stellarbob2026`). **Protocol (everyon
 | 2026-10-25 ~16:30 | 03cb80b | brain session | clickable references, proving files from our origin + Cache API, operator fresh demo |
 | 2026-10-25 (evening) | 46f50bb | brain session | UCP pay #13 = missing USDC trustline (faucet funds never-funded keys), demo key not scored, rate limit 120/min |
 | 2026-10-25 (evening) | 5ea9644 | brain session | operator REP demo reset (server) |
-| 2026-10-25 (evening) | 54ac576 | brain session | inline ZK steps in the flow, Ask Bob hero, passkey sign-in never creates, rep-onchain-tier matching wasm d66cd00f, rebind client; contract upgraded before it |
+| 2026-10-25 ~18:50 WET | 54ac576 | brain session | inline ZK steps in the flow, Ask Bob hero, passkey sign-in never creates, rep-onchain-tier matching wasm d66cd00f, rebind client; contract upgraded before it |
+| 2026-10-25 ~19:05 WET | b8be83a | brain session | rebind server (operator replace_member in every mode) + client, deck v7 |
