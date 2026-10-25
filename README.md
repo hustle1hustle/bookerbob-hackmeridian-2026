@@ -67,6 +67,10 @@ Example testnet transactions (seed run, all real proofs):
 
 More in [docs/testnet.md](docs/testnet.md).
 
+## Context perks
+
+Loyalty does not have to stop at one place. A place's discount policy can reward **context groups**: its own returning customers, a **chain group** (every stay at any member place is enrolled at checkout, "guest anywhere in the network") and **attested groups** owned by independent context providers (REP "verified traveler" from Booking proofs, a Stellar wallet history module, later booking partners). `book_with_context` stacks one proof per group, caps the total, and pays in one transaction. On testnet: a guest whose only stay was at Casa Azulejo Nove booked Pátio do Vento with the network and verified-traveler perks, 95 to 85.5 USDC, [`f9c5b201…`](https://stellar.expert/explorer/testnet/tx/f9c5b2019acd616db39074a5e4442fe7b3d253cdbeb1e676d1349427a4fadb9d). Providers plug in without contract changes: [docs/context-providers.md](docs/context-providers.md).
+
 ## Numbers
 
 From [docs/bench.md](docs/bench.md):
@@ -75,6 +79,7 @@ From [docs/bench.md](docs/bench.md):
 |---|---|
 | Groth16 verification on Soroban | about 31M CPU instructions, 7.8% of the per-transaction limit |
 | Poseidon tree insert | about 1.1M CPU instructions |
+| Booking with 3 stacked context proofs | about 88M CPU instructions (22% of the limit, measured in the host test budget) |
 | Proof on chain | 256 bytes + root + nullifier |
 | Browser proving | about 0.3 to 1.5 s, after a one-time ~4.2 MB download (depth-10 artifacts) |
 
