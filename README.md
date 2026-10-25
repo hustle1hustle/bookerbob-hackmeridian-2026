@@ -103,7 +103,7 @@ The contract has an admin-gated `upgrade()` so fixes keep the contract ID and it
 The contract enforces: a root only from the place's own recent root history and never 0 (the Semaphore circuit does not bound the path length, so depth overflow yields root 0); every public input below the BN254 field modulus (the host silently reduces otherwise); scope and message computed on chain, never taken from the client; the discount proof bound to the paying address, so a proof seen in the mempool cannot be front-run; nullifiers in persistent storage.
 
 Honest limitations of the demo:
-- Reviews are submitted by a shared relayer account, so the sender address does not link the author. A discount payment is made by the guest's own address, which shows that address paid a returning-guest price at that place; fresh payer accounts per booking with a fee relayer are on the roadmap.
+- Reviews are submitted by a shared relayer account, so the sender address does not link the author. Every booking is paid from a **fresh one-time address**: the guest's browser makes a key per booking, BookerBob sponsors its account reserve and USDC trustline and fee-bumps the booking (`server/src/payer.ts`), so the guest never holds XLM and two discounted bookings by one guest come from unrelated addresses (`scripts/privacy-test.ts`: [`13a7527f…`](https://stellar.expert/explorer/testnet/tx/13a7527f69da0b1012db223f4d0299e2cf58dcaa21d058aa4dc7f08ec6a48d97) and [`ae6ebd58…`](https://stellar.expert/explorer/testnet/tx/ae6ebd58c377b90d23ed5046153c28360ac8e51b26e4edf0847fc44a70a3a046), same guest, two payers). On testnet the one-time payer is funded by our test-USDC faucet; in production it would be funded from a private balance (for example a confidential token or a privacy pool), since a direct transfer from the guest's main account would link the two again.
 - On testnet, demo places are checked in by the BookerBob backend (it holds those demo admin keys) and the arbiter is our backend. In production a place signs its own checkouts, and the arbiter should be a blind node (TEE or MPC), because it learns which checkout a disputed review came from.
 - The verifier follows the official example, which its README describes as unaudited.
 
@@ -161,7 +161,7 @@ The starting point was the BookerBob brand and the idea of an agentic hotel desk
 ## Roadmap
 
 - Let a UCP order be an entry into a merchant's tree, so a buyer's agent applies the returning-customer discount at agentic checkout.
-- Fresh payer per booking with a fee relayer, so discount payments do not link to a long-lived address.
+- Fund the one-time payer from a private balance (confidential tokens or a privacy pool) instead of the testnet faucet.
 - Real hotels via a booking partner, with real reviews only; past stays imported with zkTLS.
 - Night resale on SDEX, hidden ratings revealed at k>=5, portable loyalty across a hotel network.
 - Blind arbiter in a TEE, agent spending limits via OpenZeppelin policies and x402.
