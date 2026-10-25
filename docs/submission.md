@@ -80,12 +80,19 @@ Every commit in the repository was made during the hackathon: `aae8033` (Sun 25 
 
 | t | Scene |
 |---|---|
-| 0:00 | _hook: TBD_ |
-| 0:__ | _anonymous review: TBD_ |
-| 0:__ | _returning-guest discount, proof + USDC in one tx: TBD_ |
-| 0:__ | _context perks and REP verified traveler: TBD_ |
-| 0:__ | _agent at the Shopify store over UCP: TBD_ |
-| 0:__ | _close: TBD_ |
+| 0:00 | hook: agents will search for you; who does your agent trust |
+| 0:22 | teaser: proof verified, price dropped |
+| 0:39 | Ask Bob ranks on proofs only |
+| 0:52 | passkey, no seed phrase |
+| 1:02 | first purchase at Café Lento, pass issued |
+| 1:25 | REP verified traveler from the phone, joined on chain |
+| 1:45 | Belém Garden Inn: inline ZK steps (Poseidon leaf, Semaphore v4 proof in the browser, verifying on Stellar), 240 to 216 USDC in one tx |
+| 2:28 | Bob shops over UCP: 40.80 to 36.72 USDC, Shopify order |
+| 2:51 | review posted, author unknown |
+| 3:05 | second review refused (nullifier spent) |
+| 3:21 | arbiter: private by default, accountable when needed |
+| 3:33 | /how: where Stellar does the work |
+| 3:41 | a real tx on stellar.expert |
 
 Video link: https://youtu.be/2z7azyU-_Rw
 
