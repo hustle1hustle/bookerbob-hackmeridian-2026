@@ -2,7 +2,7 @@
 
 Network: Stellar testnet (Protocol 29). Explorer links: stellar.expert.
 
-Live app and BookerBob backend: [https://bookerbob-proof-of-loyalty.fly.dev](https://bookerbob-proof-of-loyalty.fly.dev) (Fly, region cdg). API: `/api/config`, `/api/reviews/:merchant`, `/api/disputes`.
+Live app and BookerBob backend: [https://stellarbob2026.xyz](https://stellarbob2026.xyz) (Fly app `stellarbob2026`). Deploy log: [deploys.md](deploys.md). API: `/api/config`, `/api/reviews/:merchant`, `/api/disputes`.
 
 | What | Value |
 |---|---|
