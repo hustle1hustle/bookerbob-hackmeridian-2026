@@ -73,3 +73,31 @@ The review-text store is missing entries for reviews that exist on chain. Screen
 
 Testnet rent is high today: uploading a 53 KB wasm cost about 9.4k XLM at 15:30 UTC (2.9k XLM at 13:20 for the
 context-groups upgrade). Fund the deployer before `scripts/rep-onchain.sh upgrade`.
+
+## Rerun on 36a6812 (Sun 25 Oct, ~18:30 UTC)
+
+Fresh profiles, DEMO KEY, live site. Cross-checked against `ux.md` (contract audit set) and the list above.
+
+Fixed:
+- Booking on the new design: fresh demo key, Pátio do Vento, paid; the pass appears; review posts; BOOK AGAIN with
+  "returning guest -10%" pays 190 -> 171 in one proof (tx `f91bcd…6988`). CRIT 1 above and ux.md CRIT 1.
+- RUN BOB with a wallet: full price 40.80 USDC, then joins the store's customer group (tx `4d6aa2…a3c4`).
+- Connect at 390 px: a full-width sheet with a close button; Escape closes it (ux.md CRIT 2, LOW 3 above).
+- `/api/checkout` is gated: a stay joins a tree only for a verified booking tx at that place, once per booking
+  (ux.md CRIT 3, first half).
+
+Open:
+- CRIT: the first booking in a fresh profile failed 2 of the last 3 tries at `POST /api/payer/activate` (400 "tx
+  timeout", the tx never landed; then 502). Both times `/api/loyalty/attest` ran at the same moment, so two
+  sponsor-signed transactions likely race on one sequence number. Fix: one queue for sponsor-signed transactions,
+  a bounded wait with a real error.
+- HIGH: "TRY A REUSED PROOF" as a new visitor hangs at 4/10 with pageerror NotInTree (ux.md HIGH 4).
+- HIGH: every page load throws `TypeError: Cannot read properties of undefined (reading 'wallet')`, and a CORS error
+  from `demo.stellarpassport.xyz/api/leaderboard`.
+- HIGH: after two stays at the same place, the picker offers "BookerBob regular: proven elsewhere" there
+  (ux.md HIGH 8 wording). After the contract upgrade a network claim at a member place shares the place's
+  discount nullifier, so the picker must use a different stay for it (done on `choly/rep-onchain-tier`).
+- The pass card still shows REVIEW after "reviewed ✓"; the double-review attempt could not run because of the CRIT.
+- Still open from ux.md: "restaurants next" (10), the unsourced "9.1 from 2,000 reviews elsewhere" (13), the
+  `/classic/` contract link empty after 8 s (14).
+- `/api/ops/errors` stays empty while client errors and 4xx/5xx happen.
