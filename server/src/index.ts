@@ -8,6 +8,8 @@
 //   POST /api/attest                       demo arbiter: checks the disclosure, then attest_review
 //   POST /api/context/attest               context provider hook (stub)
 //   POST /api/payer/open|activate|feebump   fresh payer per booking, sponsored and fee-bumped by BookerBob
+//   GET  /api/catalog  POST /api/quote  POST /api/cosign   demo catalog, server-computed totals, admin co-sign
+//   POST /api/disputes/open                merchant disputes a review (awaits the guest's disclosure)
 //   GET  /api/search?q=                    Ask Bob: federated search over source adapters, ranked by proven reviews
 import { contractId } from "../../packages/sdk/src/deployment.ts"
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
@@ -23,6 +25,7 @@ import { placesAdapter } from "./search/places.ts"
 import { ucpAdapter } from "./search/ucp.ts"
 import { jmprAdapter } from "./search/jmpr.ts"
 import { PayerService } from "./payer.ts"
+import { loadCatalog, Quotes } from "./catalog.ts"
 import type { Merchant, Review } from "../../packages/sdk/src/types.ts"
 
 const CONTRACT = contractId()
@@ -45,6 +48,8 @@ async function snapshot() {
   return snap
 }
 const payers = new PayerService(ops)
+const catalog = loadCatalog(join(ROOT, "data"))
+const quotes = new Quotes(net.networkPassphrase)
 const UCP_MERCHANTS = new Set((process.env.UCP_MERCHANTS ?? "5").split(",").filter(Boolean).map(Number))
 const adapters = [
   placesAdapter(async () => (await snapshot()).merchants, UCP_MERCHANTS),
@@ -82,7 +87,8 @@ const limited = (req: IncomingMessage) => {
 
 const MIME: Record<string, string> = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png", ".json": "application/json", ".wasm": "application/wasm", ".zkey": "application/octet-stream", ".woff2": "font/woff2", ".ico": "image/x-icon" }
 
-async function checkStored(d: { pkg: import("@bookerbob/pos-sdk").DisclosurePackage }) {
+async function checkStored(d: { pkg?: import("@bookerbob/pos-sdk").DisclosurePackage }) {
+  if (!d.pkg) return { commitmentMatches: false, signatureValid: false, leafInTree: false }
   const read = await ops.read()
   const review = await views.review(read, d.pkg.reviewId)
   const leaf = await views.leafIndex(read, d.pkg.merchant, BigInt(d.pkg.commitment))
@@ -107,12 +113,22 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
     }))
   }
   // The disclosure package stays server-side (the arbiter's side); the public queue gets status only.
+  if (req.method === "GET" && path === "/api/catalog") {
+    const sn = await snapshot()
+    const out: Record<number, unknown> = {}
+    for (const m of sn.merchants) if (catalog[m.name]) out[m.id] = catalog[m.name]
+    return json(res, 200, out)
+  }
+  if (req.method === "GET" && path === "/api/ledger") {
+    const r = await fetch(net.rpcUrl, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "getLatestLedger" }) }).then((x) => x.json())
+    return json(res, 200, { sequence: r.result?.sequence ?? null, at: Date.now() })
+  }
   if (req.method === "GET" && path === "/api/search") {
     const q = String(new URL(req.url ?? "", "http://x").searchParams.get("q") ?? "").slice(0, 200)
     const sn = await snapshot()
     return json(res, 200, await federatedSearch(q, adapters, sn.merchants, sn.reviews))
   }
-  if (req.method === "GET" && path === "/api/disputes") return json(res, 200, store.disputes().map(({ pkg, ...d }) => d))
+  if (req.method === "GET" && path === "/api/disputes") return json(res, 200, store.disputes().map(({ pkg, ...d }) => ({ ...d, disclosed: !!pkg })))
   if (req.method === "GET" && (m = path.match(/^\/api\/disputes\/(\d+)\/check$/))) {
     const id = Number(m[1])
     const d = store.disputes().find((x) => x.id === id)
@@ -126,6 +142,41 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
   // Context provider hook (docs/context-providers.md): a provider verifies its own evidence, then add_member.
   if (path === "/api/context/attest") {
     return json(res, 501, { error: "NotImplemented", message: "context provider attestation is not wired yet; see docs/context-providers.md" })
+  }
+  // Cart totals: computed here from the catalog, then the demo desk co-signs exactly that amount (never a client amount).
+  if (path === "/api/quote") {
+    if (!isInt(b.merchant)) return fail(res, { error: "BadParams" })
+    const sn = await snapshot()
+    const m = sn.merchants.find((x) => x.id === b.merchant)
+    const entry = m && catalog[m.name]
+    if (!m || !entry || !ops.keys.merchantAdmins.has(m.admin)) return fail(res, { error: "NotDemoMerchant" })
+    try {
+      const q = quotes.create(m.id, entry, b.items)
+      return json(res, 200, { quoteId: q.quoteId, total: q.total.toString(), orderRef: q.orderRef })
+    } catch {
+      return fail(res, { error: "BadParams" })
+    }
+  }
+  if (path === "/api/cosign") {
+    if (typeof b.quoteId !== "string" || typeof b.preimage !== "string") return fail(res, { error: "BadParams" })
+    const sn = await snapshot()
+    try {
+      const signature = quotes.cosign(b.quoteId, b.preimage, CONTRACT, (mid) => {
+        const m = sn.merchants.find((x) => x.id === mid)
+        return m ? ops.keys.merchantAdmins.get(m.admin) : undefined
+      })
+      return json(res, 200, { signature })
+    } catch (e) {
+      return fail(res, { error: String((e as any)?.message ?? "BadParams") })
+    }
+  }
+  if (path === "/api/disputes/open") {
+    if (!isInt(b.reviewId)) return fail(res, { error: "BadParams" })
+    const read2 = await ops.read()
+    const r = await views.review(read2, b.reviewId).catch(() => null)
+    if (!r) return fail(res, { error: "ReviewNotFound" })
+    const { pkg: _p, ...d } = store.openAwaiting(b.reviewId, r.merchant)
+    return json(res, 200, d)
   }
   // Fresh payer per booking: sponsored account + trustline, funding, fee-bumped booking (server/src/payer.ts)
   if (path === "/api/payer/open") {
