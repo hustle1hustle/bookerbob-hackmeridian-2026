@@ -1083,7 +1083,7 @@ class Component extends DCLogic {
 
   vShell() {
     const s = this.state, p = this.props, theme = s.theme || p.theme || 'light', role = s.role, connected = !!s.wallet;
-    const tabDefs = [['explore', ['home', 'place'], this.goHome, ''], ['bob shops', ['agent'], this.goAgent, ''], ['my passes', ['passes', 'review'], this.goPasses, String(s.memberships.length)]];
+    const tabDefs = [['explore', ['home', 'place'], this.goHome, ''], ['bob shops', ['agent'], this.goAgent, ''], ['my passes', ['passes', 'review'], this.goPasses, s.ready ? String(s.memberships.length) : '']];
     return {
       theme, themeAria: theme === 'dark' ? 'switch to light' : 'switch to dark', toggleTheme: () => this.setState({ theme: theme === 'dark' ? 'light' : 'dark' }),
       roles: [['guest', 'guest'], ['merchant', 'merchant'], ['arbiter', 'arbiter']].map(([k, label]) => ({ label, active: role === k, bg: role === k ? 'var(--ink)' : 'transparent', fg: role === k ? 'var(--bg)' : 'var(--ink)', onClick: () => this.setRole(k) })),
@@ -1114,11 +1114,11 @@ class Component extends DCLogic {
     const pickKind = k => { this.setKind(k); this.scrollToRank(); };
     return {
       hero: { caption: P0 ? `${P0.name.toLowerCase()} · ${P0.group_size} proven guests` : '' },
-      heroKinds: kinds.map(([k, label]) => ({ label, count: String(count(k)), onClick: () => pickKind(k) })),
+      heroKinds: kinds.map(([k, label]) => ({ label, count: s.ready ? String(count(k)) : '', onClick: () => pickKind(k) })),
       scrollToRank: this.scrollToRank,
-      cats: kinds.map(([k, label]) => ({ label, count: String(count(k)), on: s.kind === k, line: s.kind === k ? 'var(--ink)' : 'transparent', fg: s.kind === k ? 'var(--ink)' : 'var(--ink-3)', onClick: () => this.setKind(k) })),
+      cats: kinds.map(([k, label]) => ({ label, count: s.ready ? String(count(k)) : '', on: s.kind === k, line: s.kind === k ? 'var(--ink)' : 'transparent', fg: s.kind === k ? 'var(--ink)' : 'var(--ink-3)', onClick: () => this.setKind(k) })),
       rankQuery: queries[s.kind] || '', askBob: this.askBob, rankBusy: s.rank === 'thinking', rankBtn: s.rank === 'thinking' ? 'ranking' : s.rank === 'done' ? 'again' : 'ask bob',
-      rankHasLines: shown > 0 || s.rank === 'thinking', rankLines: lines.slice(0, shown).map((t, i) => ({ t, color: s.rank === 'done' && i === 2 ? 'var(--accent)' : 'var(--ink-2)' })),
+      rankHasLines: !s.ready || shown > 0 || s.rank === 'thinking', rankLines: !s.ready ? [{ t: 'reading the proven reviews', color: 'var(--ink-3)' }] : lines.slice(0, shown).map((t, i) => ({ t, color: s.rank === 'done' && i === 2 ? 'var(--accent)' : 'var(--ink-2)' })),
       rankShow: s.rank !== 'thinking',
       ranked: ranked.map((P, i) => ({
         rank: String(i + 1).padStart(2, '0'), rankColor: i === 0 ? 'var(--accent)' : 'var(--ink)', isTop: i === 0 && ranked.length > 1, name: P.name,

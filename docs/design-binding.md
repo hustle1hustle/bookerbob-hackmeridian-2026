@@ -9,6 +9,7 @@ The Claude Design deliverable `Proof of Loyalty v2.dc.html` is served byte-exact
 5. **connect control** (marked `bb:connect-control`): the header's connect / disconnect buttons are replaced by one button showing a status chip per source (key, rep, passport, network; filled = connected, tinted = pending, red = failed, hollow = not connected) and a popover listing each source with what it proves, its status and one action. Data and actions come from new `pol-real` exports: `sources()`, `rep.start()` / `rep.poll()`, `passport.check()`, `wallet.current()`, and `wallet.connect('demo key')`. Class additions: `state.src`, `loadSources`, `openSources`, `srcAct`, `vSources` (merged into `renderVals`). `reload()` refreshes the sources. Built only with the v2 tokens; the whole block can be swapped for a Claude Design version.
 6. the place picker shows a "connect REP for +5%" link under an unearned verified-traveler perk, which opens the popover at REP.
 7. a review whose transaction hash is unknown shows a plain "proven stay" badge instead of a link to `/tx/null`.
+8. **no zeros before data**: until the component is `ready` (places loaded), the kind counts in the hero and the category tabs and the "my passes" count render empty instead of 0, and the ranking shows one line in the design's rank-line style, "reading the proven reviews". After the load, real counts, and an empty state only when there is truly nothing.
 
 Sources and what they read:
 
