@@ -9,6 +9,7 @@ import { Empty, Loading } from "../ui"
 import { AskBox, AskHero, ResultCard } from "../views/askbob"
 import { Explainer } from "../views/explainer"
 import { PassConnectPanel } from "../views/PassConnect"
+import { RepVerify } from "../views/RepVerify"
 
 const examples = ["hotel in lisbon under 120", "hotel under 100", "coffee nearby", "restaurant dinner", "t-shirt under 50 usdc"]
 
@@ -37,6 +38,7 @@ export function AskBobScreen({ initial }: { initial: string }) {
       <AskHero />
       <AskBox value={input} onChange={setInput} onAsk={() => ask(input)} onExample={ask} examples={examples} sources={current?.sources ?? null} busy={!!asked && !current && !res.error} />
       <PassConnectPanel />
+      <RepVerify />
       {asked && !current && !res.error && <Loading what="places and stores" />}
       {res.error && <Empty title="bob could not search right now">refresh to retry.</Empty>}
       {current && results.length === 0 && <Empty title="nothing matches yet">try a higher price or another kind.</Empty>}
