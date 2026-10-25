@@ -3,10 +3,13 @@ FROM node:22-slim AS build
 WORKDIR /repo
 COPY package.json package-lock.json ./
 COPY packages/sdk/package.json packages/sdk/
+COPY packages/pass_connect/package.json packages/pass_connect/
+COPY packages/verify_onchain_zk/package.json packages/verify_onchain_zk/
 COPY server/package.json server/
 COPY scripts/package.json scripts/
 COPY app/package.json app/
 COPY agent/package.json agent/
+COPY site/package.json site/
 RUN npm ci --no-audit --no-fund
 COPY packages packages
 COPY server server
@@ -14,9 +17,12 @@ COPY config config
 COPY app app
 # the app imports the agent's rank() (agent/src/rank.ts)
 COPY agent agent
+# the Claude Design site served at / (its data module is bundled from site/src/pol-real.ts)
+COPY site site
 # the app talks to this same server (apiUrl ""), so the testnet SDK needs no URL
 ENV VITE_SDK_MODE=testnet
 RUN npm run build -w app
+RUN npm run build -w site
 
 FROM node:22-slim
 WORKDIR /repo
