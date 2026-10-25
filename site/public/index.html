@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="./support.js"></script>
+<!-- bb: start the data request and the data module download before the design runtime mounts -->
+<script>window.__polState = fetch("/api/state").then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });</script>
+<link rel="modulepreload" href="./pol-real.js">
 </head>
 <body>
 <script src="/ops.js"></script>
@@ -29,6 +32,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
 @keyframes bb-scan{0%{top:8%}50%{top:88%}100%{top:8%}}
 @keyframes bb-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 @keyframes bb-fade{from{opacity:0}to{opacity:1}}
+@keyframes bb-pulse{0%,100%{opacity:.55}50%{opacity:1}}
 @media (prefers-reduced-motion: reduce){[data-theme] *{animation:none!important;transition:none!important}}
 </style>
 </helmet>
@@ -147,6 +151,15 @@ html,body{margin:0;padding:0;background:#EDEBE5}
 
     <sc-if value="{{ rankShow }}" hint-placeholder-val="{{ true }}">
       <ol style="list-style:none;margin:clamp(20px,3vw,32px) 0 0;padding:0;border-bottom:1px solid var(--rule)">
+        <sc-for list="{{ rankSkeleton }}" as="k" hint-placeholder-count="0">
+          <li aria-hidden="true" style="border-top:1px solid var(--rule);padding:clamp(18px,2.4vw,28px) 0;display:grid;grid-template-columns:clamp(64px,9vw,140px) minmax(0,1fr);gap:0 clamp(12px,2vw,28px);align-items:center">
+            <span style="display:block;width:70%;height:clamp(44px,6vw,96px);background:var(--rule-soft);animation:{{ skAnim }}"></span>
+            <span style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px 32px">
+              <span style="display:block;flex:1 1 260px"><span style="display:block;width:{{ k.w }};height:clamp(26px,3vw,44px);background:var(--rule-soft);animation:{{ skAnim }}"></span><span style="display:block;width:45%;height:14px;margin-top:12px;background:var(--rule-soft);animation:{{ skAnim }}"></span></span>
+              <span style="display:flex;align-items:center;gap:20px"><span style="display:block;width:72px;height:clamp(40px,4.6vw,64px);background:var(--rule-soft);animation:{{ skAnim }}"></span><span style="display:block;width:78px;height:26px;background:var(--rule-soft);animation:{{ skAnim }}"></span></span>
+            </span>
+          </li>
+        </sc-for>
         <sc-for list="{{ ranked }}" as="r" hint-placeholder-count="3">
           <li style="animation:bb-in .55s cubic-bezier(.2,.7,0,1) both;animation-delay:{{ r.delay }}">
             <button onClick="{{ r.onOpen }}" style="appearance:none;width:100%;text-align:left;background:transparent;color:var(--ink);border:0;border-top:1px solid var(--rule);padding:clamp(18px,2.4vw,28px) 0;display:grid;grid-template-columns:clamp(64px,9vw,140px) minmax(0,1fr);gap:0 clamp(12px,2vw,28px);align-items:center;cursor:pointer;transition:background .15s" style-hover="background:var(--surface)">
@@ -932,6 +945,7 @@ class Component extends DCLogic {
     if (this.props.walletConnected) { const w = await this.m.wallet.connect('passkey', true); this.setState({ wallet: w }); }
     // bb:connect-control: a wallet connected by pol-real after load (fresh demo) shows up without a reload
     window.addEventListener('pol:wallet', () => { this.loadSources(); this.reload(); });
+    window.addEventListener('pol:data', () => this.reload());
     await this.reload();
     this.setState({ ready: true, ag: this.agBlank() });
     this.selectFirstDispute();
@@ -1169,6 +1183,7 @@ class Component extends DCLogic {
       scrollToRank: this.scrollToRank,
       cats: kinds.map(([k, label]) => ({ label, count: s.ready ? String(count(k)) : '', on: s.kind === k, line: s.kind === k ? 'var(--ink)' : 'transparent', fg: s.kind === k ? 'var(--ink)' : 'var(--ink-3)', onClick: () => this.setKind(k) })),
       rankQuery: queries[s.kind] || '', askBob: this.askBob, rankBusy: s.rank === 'thinking', rankBtn: s.rank === 'thinking' ? 'ranking' : s.rank === 'done' ? 'again' : 'ask bob',
+      rankSkeleton: s.ready ? [] : [{ w: '62%' }, { w: '48%' }, { w: '55%' }], skAnim: this.reduced ? 'none' : 'bb-pulse 1.6s ease-in-out infinite',
       rankHasLines: !s.ready || shown > 0 || s.rank === 'thinking', rankLines: !s.ready ? [{ t: 'reading the proven reviews', color: 'var(--ink-3)' }] : lines.slice(0, shown).map((t, i) => ({ t, color: s.rank === 'done' && i === 2 ? 'var(--accent)' : 'var(--ink-2)' })),
       rankShow: s.rank !== 'thinking',
       ranked: ranked.map((P, i) => ({

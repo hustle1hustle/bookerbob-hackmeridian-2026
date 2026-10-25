@@ -264,7 +264,62 @@ const resolvedTx = new Map<string, string | null>()
 let configP: Promise<any> | null = null
 const apiConfig = () => (configP ??= fetch(`${API}/api/config`).then((r) => r.json()))
 
+// First paint from the backend's warm snapshot (GET /api/state: one request, ~2 ms warm), then a live chain read in
+// the background that replaces it and tells the page ("pol:data"). Falls back to the live read if the snapshot fails.
+const big = (v: any) => (typeof v === "bigint" ? v : BigInt(v ?? 0))
 async function load() {
+  const ledgerP = fetch(`${API}/api/ledger`).then((r) => r.json()).catch(() => ({}))
+  // the store's products never hold up first paint: applied whenever they arrive
+  fetch(`${BRIDGE}/search?q=tee`)
+    .then((r) => r.json())
+    .then((st) => {
+      if (Array.isArray(st) && st.length) storeItems = st
+    })
+    .catch(() => null)
+  // the page head may already have started this request (window.__polState)
+  const early = typeof window !== "undefined" ? (window as any).__polState : null
+  const snap: any = await (early ?? fetch(`${API}/api/state`).then((r) => (r.ok ? r.json() : null))).catch(() => null)
+  if (!snap || !Array.isArray(snap.merchants)) return loadLive()
+  // review ages need the current ledger: estimate it from the newest timed review (5 s per ledger), exact when it lands
+  const timed = (snap.reviews ?? []).filter((r: any) => r.time && r.ledger).sort((a: any, b: any) => b.ledger - a.ledger)[0]
+  if (timed && !LEDGER_NOW) LEDGER_NOW = timed.ledger + Math.round((Date.now() - timed.time) / 1000 / LEDGER_SECONDS)
+  ledgerP.then((l: any) => {
+    if (l?.sequence) LEDGER_NOW = l.sequence
+  })
+  groupsMeta = snap.groups ?? []
+  const catalog = snap.catalog ?? {}
+  const ms = snap.merchants.map((m: any) => ({ ...m, price: big(m.price), root: String(m.root) }))
+  const ucp = ms.find((m: any) => m.kind === "shop" && !catalog[m.id] && /shopify|rep store/i.test(m.name))
+  if (ucp) UCP_MERCHANT = ucp.id
+  const pol = (id: number) => {
+    const p = snap.policies?.[id]
+    return p ? { maxBps: p.maxBps, items: (p.items ?? []).map((it: any) => ({ group: it.group, bps: it.bps })) } : null
+  }
+  const places: PlaceState[] = ms.map((m: any) => ({ mid: m.id, m, catalog: catalog[m.id] ?? null, policy: pol(m.id), leaves: (snap.leaves?.[m.id] ?? []).map(big) }))
+  const reviews = new Map<number, any[]>()
+  const texts: Record<string, string> = {}
+  for (const m of ms) reviews.set(m.id, [])
+  for (const r of snap.reviews ?? []) {
+    reviews.get(r.merchant)?.push(r)
+    if (r.text) texts["0x" + r.contentHash] = r.text
+  }
+  const groupLeaves = new Map<number, bigint[]>()
+  for (const g of groupsMeta) groupLeaves.set(g.id, (snap.groupLeaves?.[g.id] ?? []).map(big))
+  state = { places, reviews, texts, groupLeaves, spent: new Set(), elig: {} }
+  // the contract client is only needed to check spent proofs of held memberships: build it on first use
+  let client: Promise<any> | null = null
+  const read = { is_spent: async (a: any) => (await (client ??= getClient({ ...TESTNET, contractId: snap.contractId }))).is_spent(a) }
+  await refreshEligibility(read)
+  // live read after first paint; the page re-reads when it lands
+  if (typeof window !== "undefined")
+    setTimeout(() => {
+      loadLive()
+        .then(() => window.dispatchEvent(new CustomEvent("pol:data")))
+        .catch(() => null)
+    }, 4000)
+}
+
+async function loadLive() {
   // everything that does not need the contract id starts now, in parallel with /api/config
   const catalogP = fetch(`${API}/api/catalog`).then((r) => r.json())
   const ledgerP = fetch(`${API}/api/ledger`).then((r) => r.json()).catch(() => ({}))
