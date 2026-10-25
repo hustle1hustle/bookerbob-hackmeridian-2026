@@ -8,9 +8,12 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { Keypair } from "@stellar/stellar-sdk"
 import { createStellarTier, sep53Hash, GROUP_NAME } from "./stellar-tier.ts"
+import { Identity } from "@semaphore-protocol/identity"
+import { signRebind } from "./rebind.ts"
 
 function harness(opts: { tiers?: Record<string, number>; stateDir?: string | null; slowAdd?: boolean } = {}) {
   const added: bigint[] = []
+  const members = new Set<bigint>()
   const t = createStellarTier({
     minTier: 3,
     salt: "test-salt",
@@ -19,20 +22,29 @@ function harness(opts: { tiers?: Record<string, number>; stateDir?: string | nul
     addMember: async (c) => {
       if (opts.slowAdd) await new Promise((r) => setTimeout(r, 50))
       added.push(c)
+      members.add(c)
       return "ab".repeat(32)
+    },
+    groupId: async () => 2,
+    replaceMember: async (o, n) => {
+      if (!members.has(o)) throw new Error("NotMember")
+      members.delete(o)
+      members.add(n)
+      return "cd".repeat(32)
     },
   })
   const server = createServer((req, res) => t.handle(req, res, new URL(req.url!, "http://x").pathname))
   const base = new Promise<string>((ok) => server.listen(0, "127.0.0.1", () => ok(`http://127.0.0.1:${(server.address() as any).port}/api/stellar-tier`)))
   const get = async (p: string) => { const r = await fetch(`${await base}${p}`); return { status: r.status, body: (await r.json()) as any } }
   const post = async (p: string, b: unknown) => { const r = await fetch(`${await base}${p}`, { method: "POST", body: JSON.stringify(b) }); return { status: r.status, body: (await r.json()) as any } }
-  const join_ = async (kp: Keypair, commitment: string, signer: Keypair = kp) => {
+  const join_ = async (kp: Keypair, commitment: string, signer: Keypair = kp, old?: Identity) => {
     const c = await get(`/challenge?address=${kp.publicKey()}&commitment=${commitment}`)
     assert.equal(c.status, 200)
     const signature = Buffer.from(signer.sign(sep53Hash(c.body.message))).toString("base64")
-    return post("/join", { address: kp.publicKey(), commitment, nonce: c.body.nonce, signature })
+    const rebind = old ? signRebind(old, 2, commitment, c.body.nonce) : undefined
+    return post("/join", { address: kp.publicKey(), commitment, nonce: c.body.nonce, signature, ...(rebind ? { rebind } : {}) })
   }
-  return { added, get, post, join: join_, close: () => server.close() }
+  return { added, members, get, post, join: join_, close: () => server.close() }
 }
 
 test("a wallet at or above the tier joins once; the explainer is served", async () => {
@@ -109,5 +121,22 @@ test("contract accounts, bad commitments and rate limits", async () => {
   let last = 0
   for (let i = 0; i < 22; i++) last = (await h.get(`/challenge?address=${Keypair.random().publicKey()}&commitment=${i + 1}`)).status
   assert.equal(last, 429)
+  h.close()
+})
+
+test("start over MOVES the wallet's membership with the old identity's signature", async () => {
+  const h = harness()
+  const kp = Keypair.random()
+  const a = new Identity(), b = new Identity(), c = new Identity(), x = new Identity()
+  assert.equal((await h.join(kp, a.commitment.toString())).status, 200)
+  assert.equal((await h.join(kp, b.commitment.toString())).status, 409) // no rebind: refused
+  assert.equal((await h.join(kp, b.commitment.toString(), kp, x)).status, 409) // signed by a stranger identity
+  const r = await h.join(kp, b.commitment.toString(), kp, a)
+  assert.equal(r.status, 200)
+  assert.equal(r.body.moved, true)
+  assert.deepEqual([...h.members], [b.commitment])
+  assert.equal((await h.join(kp, c.commitment.toString(), kp, a)).status, 409) // a no longer holds it
+  assert.equal((await h.join(kp, c.commitment.toString(), kp, b)).status, 200)
+  assert.deepEqual([...h.members], [c.commitment])
   h.close()
 })
