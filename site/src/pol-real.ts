@@ -1153,26 +1153,65 @@ export const loyalty = {
     if (!addr) return (loyaltyState = { status: "none" })
     const cached = readLoyaltyCache(addr)
     // Cache hit on rating alone (attest may have failed last time — still show score).
-    if (cached) {
+    if (cached && (cached.explorerUrl || cached.txHash)) {
       const explorerUrl = cached.explorerUrl || (cached.txHash ? `https://stellar.expert/explorer/testnet/tx/${cached.txHash}` : null)
       return (loyaltyState = { status: "ready", address: addr, ...cached, explorerUrl })
     }
     if (loyaltyInflight?.addr === addr) return loyaltyInflight.p
-    loyaltyState = { status: "pending", address: addr }
+    // Keep a cached rating visible while we (re)score / attest — never blank the Freighter row.
+    if (cached) {
+      loyaltyState = { status: "ready", address: addr, ...cached, explorerUrl: cached.explorerUrl || null }
+    } else {
+      loyaltyState = { status: "pending", address: addr }
+    }
     const p = (async (): Promise<LoyaltyView> => {
       try {
-        const { verifyOnConnect } = await import("../../packages/verify_onchain_zk/src/index.ts")
-        const r = await verifyOnConnect(addr, { apiBase: API, attest: true, proveScore: false, passportProxyBase: API })
-        const view = {
-          rating: r.claim.rating,
-          tier: r.claim.tier,
-          txHash: r.attest?.txHash ?? null,
-          explorerUrl: r.attest?.explorerUrl ?? (r.attest?.txHash ? `https://stellar.expert/explorer/testnet/tx/${r.attest.txHash}` : null),
+        // Score first (Horizon + same-origin Passport proxy). Never hit demo.stellarpassport.xyz from the
+        // browser — CORS hangs and the Freighter panel never gets a score link.
+        const { verifyWallet, claimDigest, attestLoyaltyClaim } = await import("../../packages/verify_onchain_zk/src/index.ts")
+        const season = loyaltySeason()
+        const { claim } = await verifyWallet(addr, 0, season, {
+          passport: true,
+          // "" = same origin. With proxy set, verify_onchain_zk never calls demo.stellarpassport.xyz.
+          passportProxyBase: API,
+        })
+        let view = {
+          rating: claim.rating,
+          tier: claim.tier,
+          txHash: null as string | null,
+          explorerUrl: null as string | null,
         }
+        // Publish score immediately so the connections panel can render "score" before attest returns.
+        loyaltyState = { status: "ready", address: addr, ...view }
         writeLoyaltyCache(addr, view)
+        try {
+          const digest = await claimDigest(claim)
+          const attest = await attestLoyaltyClaim(claim, { apiBase: API, digest })
+          view = {
+            rating: claim.rating,
+            tier: claim.tier,
+            txHash: attest.txHash,
+            explorerUrl: attest.explorerUrl || `https://stellar.expert/explorer/testnet/tx/${attest.txHash}`,
+          }
+          writeLoyaltyCache(addr, view)
+        } catch {
+          /* attest optional for showing the score; proof tx may stay unavailable */
+        }
         return (loyaltyState = { status: "ready", address: addr, ...view })
       } catch {
-        return (loyaltyState = { status: "failed", address: addr, why: "could not score this wallet. try again." })
+        if (cached) {
+          return (loyaltyState = {
+            status: "ready",
+            address: addr,
+            ...cached,
+            explorerUrl: cached.explorerUrl || null,
+          })
+        }
+        return (loyaltyState = {
+          status: "failed",
+          address: addr,
+          why: "could not score this wallet. try again.",
+        })
       } finally {
         if (loyaltyInflight?.addr === addr) loyaltyInflight = null
       }

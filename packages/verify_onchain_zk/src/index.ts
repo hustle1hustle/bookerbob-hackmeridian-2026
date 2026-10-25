@@ -238,15 +238,25 @@ export interface PassportOptions {
   fetch?: typeof fetch
 }
 
-async function passportGet(base: string, path: string, f: typeof fetch, key?: string): Promise<unknown> {
-  const res = await f(`${base}${path}`, key ? { headers: { authorization: `Bearer ${key}` } } : undefined)
-  if (res.status === 404) return null
-  if (!res.ok) throw new Error(`passport ${res.status}: ${path}`)
-  return res.json().catch(() => null)
+export async function passportGet(base: string, path: string, f: typeof fetch, key?: string): Promise<unknown> {
+  // Hard timeout: a hanging CORS preflight to a third-party Passport origin must not block connect UI.
+  const ctrl = typeof AbortController !== "undefined" ? new AbortController() : null
+  const t = ctrl ? setTimeout(() => ctrl.abort(), 4_000) : null
+  try {
+    const res = await f(`${base}${path}`, {
+      ...(key ? { headers: { authorization: `Bearer ${key}` } } : {}),
+      ...(ctrl ? { signal: ctrl.signal } : {}),
+    })
+    if (res.status === 404) return null
+    if (!res.ok) throw new Error(`passport ${res.status}: ${path}`)
+    return res.json().catch(() => null)
+  } finally {
+    if (t) clearTimeout(t)
+  }
 }
 
 /** Accept a bare array or wrappers ({builders|profiles|data|entries|…}). */
-function rowsOf(payload: unknown): Record<string, unknown>[] {
+export function rowsOf(payload: unknown): Record<string, unknown>[] {
   if (Array.isArray(payload)) return payload as Record<string, unknown>[]
   if (payload && typeof payload === "object") {
     for (const k of ["builders", "profiles", "data", "entries", "leaderboard", "results"]) {
@@ -264,15 +274,15 @@ function nextCursorOf(payload: unknown): string | null {
   return typeof o.next_cursor === "string" && o.next_cursor ? o.next_cursor : null
 }
 
-function numOf(x: unknown): number | undefined {
+export function numOf(x: unknown): number | undefined {
   return typeof x === "number" && Number.isFinite(x) ? x : undefined
 }
 
-function strOf(x: unknown): string | undefined {
+export function strOf(x: unknown): string | undefined {
   return typeof x === "string" && x ? x : undefined
 }
 
-function signalsFromProfile(
+export function signalsFromProfile(
   profile: Record<string, unknown>,
   source: PassportSignals["source"],
   extra: Partial<PassportSignals> = {},
@@ -294,7 +304,7 @@ function signalsFromProfile(
  * Builder slug for /api/builder/public/<slug> from a leaderboard profileUrl.
  * The live API returns relative paths ("/builder/<slug>"); a full github.com URL also works.
  */
-function builderSlug(profileUrl: string | undefined): string | undefined {
+export function builderSlug(profileUrl: string | undefined): string | undefined {
   if (!profileUrl) return undefined
   try {
     const u = new URL(profileUrl, PASSPORT_BASE_URL)
@@ -320,17 +330,25 @@ export async function fetchPassport(address: string, opts: PassportOptions = {})
   const none: PassportScore = { score: 0, matched: false, signals: { matched: false, source } }
 
   if (opts.passportProxyBase !== undefined) {
+    // Proxy configured → same-origin only. Never fall through to demo.stellarpassport.xyz from a
+    // browser (CORS preflight can hang forever and block Freighter connect score UI).
     try {
       const proxy = opts.passportProxyBase.replace(/\/$/, "")
-      const res = await f(`${proxy}/api/passport/lookup?address=${encodeURIComponent(address)}`)
-      if (res.ok) {
-        const body = (await res.json().catch(() => null)) as PassportScore | null
-        if (body && typeof body.score === "number" && typeof body.matched === "boolean" && body.signals) return body
+      const ctrl = typeof AbortController !== "undefined" ? new AbortController() : null
+      const t = ctrl ? setTimeout(() => ctrl.abort(), 6_000) : null
+      try {
+        const res = await f(`${proxy}/api/passport/lookup?address=${encodeURIComponent(address)}`, ctrl ? { signal: ctrl.signal } : undefined)
+        if (res.ok) {
+          const body = (await res.json().catch(() => null)) as PassportScore | null
+          if (body && typeof body.score === "number" && typeof body.matched === "boolean" && body.signals) return body
+        }
+      } finally {
+        if (t) clearTimeout(t)
       }
     } catch {
-      /* fall through */
+      /* proxy down / timed out */
     }
-    // a browser with a proxy never calls the Passport origin directly (CORS); the proxy's answer is final
+    // Browser + proxy: never call Passport origin (CORS hang). Keyed server-side path may continue below.
     if (!opts.passportApiKey) return none
   }
 
@@ -353,27 +371,11 @@ export async function fetchPassport(address: string, opts: PassportOptions = {})
       }
       return none
     }
-    const payload = await passportGet(base, "/api/leaderboard?metric=points&window=all&limit=10", f)
-    for (const entry of rowsOf(payload).slice(0, 10)) {
-      const slug = builderSlug(strOf(entry.profileUrl))
-      if (!slug) continue
-      const payloadB = await passportGet(base, `/api/builder/public/${slug}`, f)
-      if (!payloadB || typeof payloadB !== "object") continue
-      const wrap = payloadB as Record<string, unknown>
-      const profile = (wrap.builder && typeof wrap.builder === "object" ? wrap.builder : wrap) as Record<string, unknown>
-      if (profile.stellar_address !== address) continue
-      const rawUrl = strOf(entry.profileUrl)
-      const topStats = (wrap.stats ?? {}) as Record<string, unknown>
-      const signals = signalsFromProfile(profile, "keyless", {
-        points: numOf(entry.points) ?? numOf(entry.value),
-        rankName: strOf(entry.rankName),
-        profileUrl: rawUrl ? (rawUrl.startsWith("/") ? `${base}${rawUrl}` : rawUrl) : undefined,
-        totalCommits30d: numOf(topStats.totalCommits30d),
-        activeDays30d: numOf(topStats.activeDays30d),
-      })
-      return { score: ratePassportSignals(signals), matched: true, signals }
-    }
-    return none
+    // keyless builder walk (Passport leaderboard): server only, kept out of browser bundles entirely
+    if (typeof window !== "undefined") return none
+    const spec = "./passport-keyless" + ".ts"
+    const mod = await import(/* @vite-ignore */ spec)
+    return await mod.keylessPassport(address, base, f, none)
   } catch {
     return none
   }
@@ -626,7 +628,12 @@ export async function verifyOnConnect(address: string, opts: VerifyOnConnectOpti
   const digest = await claimDigest(claim)
   let attest: LoyaltyAttest | null = null
   if (opts.attest !== false) {
-    attest = await attestLoyaltyClaim(claim, { apiBase: opts.apiBase, fetch: opts.fetch, digest })
+    try {
+      attest = await attestLoyaltyClaim(claim, { apiBase: opts.apiBase, fetch: opts.fetch, digest })
+    } catch {
+      // Attest is best-effort for the clickable proof tx — score/claim still return.
+      attest = null
+    }
   }
   let proved: ProveLoyaltyResult | null = null
   let proofMode: VerifyOnConnectResult["proofMode"] = null
