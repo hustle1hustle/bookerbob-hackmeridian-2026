@@ -20,6 +20,7 @@ Tool: Claude Code (Anthropic, model Claude Opus 5.5), directed and reviewed by t
 | Seed | `scripts/seed.ts`, `server/data/seed-*.json` | wrote the seed and the fictional places and review texts; every seed review is a real proof and transaction | chose the places and the demo story, reviewed |
 | Testnet deploy | `scripts/deploy.sh`, `docs/testnet.md` | wrote the deploy script, ran deploy and the golden-proof gate on testnet | reviewed |
 | Contributing guide, design handoff | `CONTRIBUTING.md`, `docs/design-handoff.md` | edited from the team's flow and handoff docs | wrote the flow and the handoff |
+| Web app functional shell | `app/*` | wrote the Vite + React app over the SDK: routing, role switcher, read-only mode, per-action state machines, thin presentational components, neutral styling, screenshots | defined screens, moments, copy rules and the functional-shell scope; the visual layer comes from the team's design pass |
 
 ## Not AI-generated
 - Product idea, problem framing, scope and cut decisions.

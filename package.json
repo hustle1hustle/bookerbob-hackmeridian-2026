@@ -2,7 +2,7 @@
   "name": "proof-of-stay",
   "private": true,
   "type": "module",
-  "workspaces": ["packages/sdk", "server", "scripts"],
+  "workspaces": ["packages/sdk", "server", "scripts", "app"],
   "scripts": {
     "test:sdk": "node packages/sdk/src/smoke.test.ts",
     "typecheck": "tsc -p packages/sdk && tsc -p server",

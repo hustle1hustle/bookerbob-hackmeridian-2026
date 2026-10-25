@@ -1,0 +1,275 @@
+/* Plain functional layout. No brand look: the designed components replace this. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.5 var(--font);
+}
+h1,
+h2,
+h3 {
+  margin: 0 0 8px;
+  line-height: 1.2;
+}
+h1 {
+  font-size: 26px;
+}
+h2 {
+  font-size: 20px;
+}
+h3 {
+  font-size: 16px;
+}
+p {
+  margin: 0 0 8px;
+}
+a {
+  color: var(--link);
+}
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.muted {
+  color: var(--ink-2);
+}
+.small {
+  font-size: 13px;
+}
+.mono {
+  font-family: var(--mono);
+  font-size: 12px;
+  word-break: break-all;
+}
+.skip {
+  position: absolute;
+  left: -999px;
+}
+.skip:focus {
+  left: 8px;
+  top: 8px;
+  background: var(--bg);
+  padding: 6px;
+}
+
+.wrap {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+.top {
+  border-bottom: 1px solid var(--line);
+}
+.top .wrap {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+.brand {
+  font-weight: 600;
+  color: var(--ink);
+  text-decoration: none;
+}
+.roles {
+  display: flex;
+  gap: 4px;
+  margin-right: auto;
+}
+.roles a {
+  padding: 4px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  text-decoration: none;
+  color: var(--ink);
+}
+.roles a[aria-current="page"] {
+  background: var(--btn);
+  color: var(--btn-ink);
+  border-color: var(--btn);
+}
+.banner {
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+  padding: 6px 0;
+}
+main.wrap {
+  padding-top: 20px;
+  padding-bottom: 48px;
+  min-height: 60vh;
+}
+footer {
+  border-top: 1px solid var(--line);
+  padding: 16px 0 28px;
+  font-size: 13px;
+}
+footer .wrap {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+button,
+.btn {
+  font: inherit;
+  font-size: 14px;
+  padding: 6px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--btn);
+  background: var(--btn);
+  color: var(--btn-ink);
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+}
+button.secondary,
+.btn.secondary {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--line);
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+input,
+textarea,
+select {
+  font: inherit;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 6px 10px;
+}
+textarea {
+  width: 100%;
+  min-height: 90px;
+}
+label {
+  display: block;
+}
+
+.card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  background: var(--bg);
+}
+.list {
+  display: grid;
+  gap: 12px;
+}
+.grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+.row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.cols {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 20px;
+  align-items: start;
+}
+.section {
+  margin-top: 28px;
+}
+.tag {
+  display: inline-block;
+  font-size: 12px;
+  padding: 1px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink-2);
+}
+.tag.ok {
+  color: var(--ok);
+  border-color: currentColor;
+}
+.note {
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: 14px;
+}
+.note.warn {
+  color: var(--warn);
+}
+.note.ok {
+  color: var(--ok);
+}
+.empty {
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  padding: 20px;
+  text-align: center;
+  color: var(--ink-2);
+}
+.stars {
+  color: var(--warn);
+  letter-spacing: 1px;
+}
+.steps {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+}
+.steps li {
+  padding: 4px 0;
+  color: var(--ink-2);
+}
+.steps li[data-state="active"] {
+  color: var(--ink);
+  font-weight: 600;
+}
+.steps li[data-state="done"] {
+  color: var(--ok);
+}
+.qr {
+  width: 160px;
+  height: 160px;
+  background: #fff;
+  padding: 6px;
+  border: 1px solid var(--line);
+}
+.strike {
+  text-decoration: line-through;
+  color: var(--ink-2);
+}
+.compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.sees {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+.sees ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 14px;
+}
+
+@media (max-width: 800px) {
+  .cols,
+  .compare,
+  .sees {
+    grid-template-columns: 1fr;
+  }
+}
