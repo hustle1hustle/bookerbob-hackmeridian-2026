@@ -288,3 +288,18 @@ fn contract_verify_entry() {
     bad.set(3, bad.get_unchecked(3).add(&U256::from_u32(&c.env, 1)));
     assert!(!c.client.verify(&proof, &bad));
 }
+
+#[test]
+fn leaves_view_matches_checkouts() {
+    let c = setup();
+    let leaves = c.client.get_leaves(&0);
+    let fx = c.fx["commitments"].as_array().unwrap();
+    assert_eq!(leaves.len() as usize, fx.len());
+    for (i, cm) in fx.iter().enumerate() {
+        let v = u256_dec(&c.env, cm.as_str().unwrap());
+        assert_eq!(leaves.get_unchecked(i as u32), v);
+        assert_eq!(c.client.leaf_index(&0, &v), Some(i as u32));
+    }
+    assert_eq!(c.client.leaf_index(&0, &U256::from_u32(&c.env, 7)), None);
+    assert_eq!(tree::lean_imt_root(&c.env, &leaves), c.client.get_root(&0));
+}

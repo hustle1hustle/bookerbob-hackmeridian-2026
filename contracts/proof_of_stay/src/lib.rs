@@ -85,6 +85,7 @@ enum Key {
     Nullifier(U256, U256),
     Review(u32),
     HotelReviews(u32),
+    Leaves(u32),
 }
 
 #[contract]
@@ -259,6 +260,12 @@ impl ProofOfStay {
         save_hotel(&env, hotel, &h);
         env.storage().persistent().set(&lk, &index);
         bump_persistent(&env, &lk);
+        // Full leaf list (<= 1024 x 32 bytes) so clients can build Merkle paths without an indexer.
+        let lsk = Key::Leaves(hotel);
+        let mut leaves: Vec<U256> = env.storage().persistent().get(&lsk).unwrap_or(Vec::new(&env));
+        leaves.push_back(id_commitment.clone());
+        env.storage().persistent().set(&lsk, &leaves);
+        bump_persistent(&env, &lsk);
         bump_instance(&env);
         env.events().publish((soroban_sdk::symbol_short!("checkout"), hotel), (id_commitment, index, root.clone()));
         root
@@ -395,6 +402,14 @@ impl ProofOfStay {
             out.push_back(env.storage().persistent().get(&Key::Review(id)).unwrap());
         }
         out
+    }
+
+    pub fn get_leaves(env: Env, hotel: u32) -> Vec<U256> {
+        env.storage().persistent().get(&Key::Leaves(hotel)).unwrap_or(Vec::new(&env))
+    }
+
+    pub fn leaf_index(env: Env, hotel: u32, id_commitment: U256) -> Option<u32> {
+        env.storage().persistent().get(&Key::Leaf(hotel, id_commitment))
     }
 
     pub fn is_spent(env: Env, scope_hash: U256, nullifier: U256) -> bool {
