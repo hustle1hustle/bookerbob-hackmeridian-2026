@@ -1065,6 +1065,8 @@ type LoyaltyView = {
   why?: string
 }
 let loyaltyState: LoyaltyView = { status: "none" }
+/** In-flight ensure — callers must share this promise (wallet.connect + UI both call ensure). */
+let loyaltyInflight: { addr: string; p: Promise<LoyaltyView> } | null = null
 function readLoyaltyCache(addr: string): Omit<LoyaltyView, "status" | "address" | "why"> | null {
   try {
     const raw = LS?.getItem(loyaltyCacheKey(addr))
@@ -1089,32 +1091,40 @@ export const loyalty = {
   },
   clear() {
     loyaltyState = { status: "none" }
+    loyaltyInflight = null
   },
   /** Score + attest once per season (cached). `proveScore: false` — panel needs the attest tx, not the Groth16 artifact. */
   async ensure(address?: string | null) {
     const addr = address ?? wallet.address ?? sdk.wallet.address
     if (!addr) return (loyaltyState = { status: "none" })
     const cached = readLoyaltyCache(addr)
-    if (cached && (cached.explorerUrl || cached.txHash)) {
+    // Cache hit on rating alone (attest may have failed last time — still show score).
+    if (cached) {
       const explorerUrl = cached.explorerUrl || (cached.txHash ? `https://stellar.expert/explorer/testnet/tx/${cached.txHash}` : null)
       return (loyaltyState = { status: "ready", address: addr, ...cached, explorerUrl })
     }
-    if (loyaltyState.status === "pending" && loyaltyState.address === addr) return loyaltyState
+    if (loyaltyInflight?.addr === addr) return loyaltyInflight.p
     loyaltyState = { status: "pending", address: addr }
-    try {
-      const { verifyOnConnect } = await import("../../packages/verify_onchain_zk/src/index.ts")
-      const r = await verifyOnConnect(addr, { apiBase: API, attest: true, proveScore: false })
-      const view = {
-        rating: r.claim.rating,
-        tier: r.claim.tier,
-        txHash: r.attest?.txHash ?? null,
-        explorerUrl: r.attest?.explorerUrl ?? (r.attest?.txHash ? `https://stellar.expert/explorer/testnet/tx/${r.attest.txHash}` : null),
+    const p = (async (): Promise<LoyaltyView> => {
+      try {
+        const { verifyOnConnect } = await import("../../packages/verify_onchain_zk/src/index.ts")
+        const r = await verifyOnConnect(addr, { apiBase: API, attest: true, proveScore: false })
+        const view = {
+          rating: r.claim.rating,
+          tier: r.claim.tier,
+          txHash: r.attest?.txHash ?? null,
+          explorerUrl: r.attest?.explorerUrl ?? (r.attest?.txHash ? `https://stellar.expert/explorer/testnet/tx/${r.attest.txHash}` : null),
+        }
+        writeLoyaltyCache(addr, view)
+        return (loyaltyState = { status: "ready", address: addr, ...view })
+      } catch {
+        return (loyaltyState = { status: "failed", address: addr, why: "could not score this wallet. try again." })
+      } finally {
+        if (loyaltyInflight?.addr === addr) loyaltyInflight = null
       }
-      writeLoyaltyCache(addr, view)
-      return (loyaltyState = { status: "ready", address: addr, ...view })
-    } catch {
-      return (loyaltyState = { status: "failed", address: addr, why: "could not score this wallet. try again." })
-    }
+    })()
+    loyaltyInflight = { addr, p }
+    return p
   },
 }
 
