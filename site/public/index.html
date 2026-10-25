@@ -292,7 +292,6 @@ html,body{margin:0;padding:0;background:#EDEBE5}
           </sc-if>
           <sc-if value="{{ pp.isShop }}" hint-placeholder-val="{{ false }}">
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));border:1px solid var(--rule);margin-top:14px">
-              <div style="min-height:260px;background:repeating-linear-gradient(135deg,var(--surface) 0 10px,var(--bg) 10px 20px);border-right:1px solid var(--rule-soft);display:grid;place-items:center;font-family:var(--mono);font-size:10.5px;color:var(--ink-3);letter-spacing:.08em;text-transform:uppercase">product photo</div>
               <div style="padding:22px;display:flex;flex-direction:column;gap:18px">
                 <div><div style="font-size:26px;font-weight:500;letter-spacing:-.035em">{{ product.title }}</div><div style="font-size:30px;letter-spacing:-.045em;margin-top:8px">{{ product.price }}<span style="font-family:var(--mono);font-size:11px;color:var(--ink-3);margin-left:6px">usdc</span></div></div>
                 <div role="radiogroup" aria-label="size" style="display:flex;gap:6px">
@@ -480,7 +479,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
       <sc-if value="{{ hasNetworkPass }}" hint-placeholder-val="{{ false }}">
         <article style="border:1px solid var(--ink);background:var(--ink);color:var(--bg);display:flex;flex-direction:column;animation:bb-in .45s ease both">
           <div style="padding:20px 22px 18px">
-            <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;opacity:.65">network pass</div>
+            <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;opacity:.65">pass</div>
             <div style="font-size:32px;font-weight:500;letter-spacing:-.045em;line-height:1;margin-top:30px">BookerBob regular</div>
             <div style="font-size:14px;opacity:.75;margin-top:8px">{{ networkLine }}</div>
             <div style="font-size:13px;opacity:.75;margin-top:10px;line-height:1.45">every place in the network can give you a regular's perk without knowing where you've been. you got this from your {{ netFrom.what }} at {{ netFrom.place }}<sc-if value="{{ netFrom.hasTx }}" hint-placeholder-val="{{ false }}"> · <a href="{{ netFrom.url }}" target="_blank" rel="noopener" style="color:var(--bg);font-family:var(--mono);font-size:12px">tx {{ netFrom.short }} ↗</a></sc-if>.</div>
@@ -668,7 +667,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
             <span style="position:absolute;bottom:14px;left:14px;width:28px;height:28px;border-bottom:2px solid var(--ink);border-left:2px solid var(--ink)"></span>
             <span style="position:absolute;bottom:14px;right:14px;width:28px;height:28px;border-bottom:2px solid var(--ink);border-right:2px solid var(--ink)"></span>
             <span style="position:absolute;left:10%;right:10%;height:2px;background:var(--accent);animation:bb-scan 1.6s ease-in-out infinite"></span>
-            <span style="font-size:15px;color:var(--ink-2)">show the guest's qr</span>
+            <span style="font-size:15px;color:var(--ink-2)">simulated scan: fills a sample commitment</span>
           </div>
         </sc-if>
         <label for="bb-commit" style="font-size:17px">guest commitment</label>
@@ -803,7 +802,6 @@ html,body{margin:0;padding:0;background:#EDEBE5}
           <sc-if value="{{ ad.hasPkg }}" hint-placeholder-val="{{ false }}">
             <div style="padding:20px 24px;border-bottom:1px solid var(--rule-soft);display:flex;flex-wrap:wrap;gap:8px 24px;align-items:center;font-family:var(--mono);font-size:12px">
               <span>secret {{ ad.secret }}</span><span>leaf {{ ad.leaf }}</span><span>signature {{ ad.sig }}</span>
-              <button onClick="{{ onReveal }}" style="appearance:none;border:0;border-bottom:1px solid var(--ink);background:none;color:var(--ink);font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;padding:0 0 2px;cursor:pointer">{{ ad.revealLabel }}</button>
             </div>
             <div style="padding:4px 24px 0">
               <sc-for list="{{ checks }}" as="c" hint-placeholder-count="3">
@@ -1523,7 +1521,7 @@ class Component extends DCLogic {
       mPlaces: [0, 4].map(id => [id, (this.byId(id) ? this.byId(id).name.toLowerCase() + ' · ' + this.byId(id).kind : '')]).map(([id, label]) => ({ label, line: s.mPlace === id ? 'var(--ink)' : 'transparent', onClick: () => this.setState({ mPlace: id }) })),
       mHotel: s.mPlace === 0, mShop: s.mPlace === 4,
       desk: {
-        input: dk.input, scanning: dk.scanning, scanLabel: dk.scanning ? 'stop' : 'scan qr',
+        input: dk.input, scanning: dk.scanning, scanLabel: dk.scanning ? 'stop' : 'simulated scan',
         canSubmit: dk.phase !== 'submitting' && !!s.operator, deskClosed: !s.operator, submitting: dk.phase === 'submitting', success: dk.phase === 'success', notSuccess: dk.phase !== 'success', error: dk.phase === 'error',
         errHead: dErr ? dErr.h : '', errBody: dErr ? dErr.b : '', leafIdx: newIdx >= 0 ? String(newIdx + 1) : '',
         root: P0 ? this.short(P0.roots[P0.roots.length - 1], 8, 6) : '', copyRoot: () => { const r = P0 && P0.roots[P0.roots.length - 1]; if (r && navigator.clipboard) navigator.clipboard.writeText(r).catch(() => {}); }, txUrl: dTx ? dTx.url : '', txShort: dTx ? dTx.short : '', treeLabel: P0 ? `${P0.group_size} of ${(this.m && this.m.TREE_CAP) || 32}` : '',
@@ -1572,7 +1570,7 @@ class Component extends DCLogic {
     const sd = s.disputes.find(x => x.id === ar.sel), sr = sd ? (s.reviews[sd.hotel] || []).find(x => x.id === sd.reviewId) : null, pk = sd && sd.package;
     const ad = {
       has: !!sd, awaiting: !!sd && sd.status === 'awaiting', hasPkg: !!pk, stars: this.stars(sr ? sr.rating : 0), aria: sr ? sr.rating + ' of 5' : '', text: sr ? (s.texts[sr.content_hash] || 'text unavailable') : '',
-      secret: pk ? (ar.reveal ? (String(pk.secret).startsWith('0x') ? this.short(pk.secret, 10, 6) : pk.secret) : '••••••••') : '', sig: pk ? (String(pk.signature).startsWith('0x') ? this.short(pk.signature, 6, 4) : pk.signature) : '', leaf: pk ? String(pk.leafIndex) : '', revealLabel: ar.reveal ? 'hide' : 'reveal',
+      secret: pk ? (String(pk.secret).startsWith('0x') ? this.short(pk.secret, 10, 6) : pk.secret) : '', sig: pk ? (String(pk.signature).startsWith('0x') ? this.short(pk.signature, 6, 4) : pk.signature) : '', leaf: pk ? String(pk.leafIndex) : '', revealLabel: ar.reveal ? 'hide' : 'reveal',
     };
     const attested = !!sd && sd.status === 'attested', chk = attested ? ['ok', 'ok', 'ok'] : ar.checks;
     const checks = ['commitment matches', 'signature valid', 'leaf in the group'].map((label, i) => ({ label, status: { wait: '', active: 'checking', ok: 'pass ✓', fail: 'fail' }[chk[i]], color: chk[i] === 'active' ? 'var(--accent)' : chk[i] === 'fail' ? 'var(--warn)' : 'var(--ink)', labelColor: chk[i] === 'wait' ? 'var(--ink-3)' : 'var(--ink)' }));
@@ -1684,7 +1682,7 @@ class Component extends DCLogic {
     const word = st => st === 'wait' ? '' : st === 'fail' ? (f.phase === 'rejected' ? 'refused' : 'failed') : st === 'active' ? 'live' : '';
     const steps = f ? f.steps.map(x => ({
       label: x.label, sub: x.sub, live: x.status === 'active' && !!x.sub,
-      status: x.status === 'ok' && x.key !== 'done' && x.t0 ? `${(((x.t1 || nowT) - x.t0) / 1000).toFixed(2)} s ✓` : x.status === 'ok' ? '✓' : x.status === 'active' && x.t0 ? `${((nowT - x.t0) / 1000).toFixed(2)} s` : word(x.status),
+      status: x.status === 'ok' && x.key !== 'done' && x.t0 && ((x.t1 || nowT) - x.t0) >= 50 ? `${(((x.t1 || nowT) - x.t0) / 1000).toFixed(2)} s ✓` : x.status === 'ok' ? '✓' : x.status === 'active' && x.t0 ? `${((nowT - x.t0) / 1000).toFixed(2)} s` : word(x.status),
       color: x.status === 'active' ? 'var(--accent)' : x.status === 'fail' ? (f.phase === 'rejected' ? 'var(--ink)' : 'var(--warn)') : 'var(--ink-2)',
       labelColor: x.status === 'wait' ? 'var(--ink-3)' : 'var(--ink)',
     })) : [];
