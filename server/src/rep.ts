@@ -16,6 +16,8 @@
 // `presentations` are never read. Every other path, including /receive and /issue, is 404.
 import type { IncomingMessage, ServerResponse } from "node:http"
 import { randomBytes, createHash, timingSafeEqual } from "node:crypto"
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs"
+import { join } from "node:path"
 import { Keypair } from "@stellar/stellar-sdk"
 import { getClient, write, TESTNET } from "../../packages/sdk/src/contract.ts"
 import { contractId } from "../../packages/sdk/src/deployment.ts"
@@ -35,11 +37,13 @@ interface Session { sid: string; commitment: string; nonce: string; exp: number;
 export interface RepDeps {
   /** Adds a commitment to the verified-traveler group; returns the tx hash. */
   addMember: (commitment: bigint) => Promise<string>
-  /** On-chain path (REP_ONCHAIN=1): the contract checks the verdict itself (`add_member_with_rep`), no attester key. */
-  addMemberWithRep?: (commitment: bigint, jws: string, kbJwt: string) => Promise<string>
+  /** On-chain path: the verdict goes to the REP tier issuer (or, REP_ONCHAIN=verdict, to the contract as is); no attester key. */
+  addMemberWithRep?: (commitment: bigint, jws: string, kbJwt: string, nonce: string) => Promise<string>
   /** Test hook: a fixed JWKS instead of fetching the issuer's. */
   jwks?: { keys: unknown[] } | null
   now?: () => number
+  /** Where the spent-proof set survives a restart (DATA_DIR). */
+  stateDir?: string | null
   /** Demo operator token (REP_DEMO_TOKEN). Unset or empty: no session can be opened. */
   demoToken?: string | null
 }
@@ -51,6 +55,14 @@ const LIMITS: Record<string, number> = { "/session": 6, "/pending": 45, "/presen
 
 export function createRep(deps: RepDeps) {
   const sessions = new Map<string, Session>()
+  // One REP PRESENTATION joins once: rep-attest re-signs the same presentation on demand with any holder key,
+  // so the spent key is its attestation_hash (sha256 of the presentation bytes), persisted under DATA_DIR.
+  // Known limit: one notarized session can yield several presentations (another reveal set), so this raises
+  // the cost of a sybil but does not bound it per account; that needs a stable id from REP (header hash or
+  // account tag). The demo-operator gate on /session is what bounds it today.
+  const spentFile = deps.stateDir ? join(deps.stateDir, "rep-spent-proofs.txt") : null
+  const spentProofs = new Set<string>(spentFile && existsSync(spentFile) ? readFileSync(spentFile, "utf8").split("\n").filter(Boolean) : [])
+  const proofKey = (ah: string) => createHash("sha256").update(`bookerbob/rep/proof/${ah}`).digest("hex")
   const now = () => (deps.now ? deps.now() : Date.now())
   const json = (res: ServerResponse, code: number, body: unknown) => {
     res.writeHead(code, { "content-type": "application/json", "access-control-allow-origin": "*" })
@@ -112,10 +124,21 @@ export function createRep(deps: RepDeps) {
     if (!r.payload?.status?.status_list) return fail(s, "no revocation status")
     if (typeof r.verdict?.lodging_spend_tier !== "string" || !r.verdict.lodging_spend_tier) return fail(s, "no lodging tier")
     if (typeof r.payload.server_name !== "string" || !PLATFORMS.test(r.payload.server_name)) return fail(s, "not a lodging platform")
+    const ah = r.payload.attestation_hash
+    if (typeof ah !== "string" || ah.length < 16) return fail(s, "no attestation hash")
+    const pk = proofKey(ah)
+    if (spentProofs.has(pk)) return fail(s, "this presentation already joined")
+    spentProofs.add(pk)
+    if (spentFile) {
+      try {
+        mkdirSync(deps.stateDir!, { recursive: true })
+        appendFileSync(spentFile, pk + "\n")
+      } catch {}
+    }
     try {
       // The off-chain checks above still run first (they also cover revocation, which the contract cannot read).
       s.txHash = deps.addMemberWithRep
-        ? await deps.addMemberWithRep(BigInt(s.commitment), a.jws, a.kbJwt)
+        ? await deps.addMemberWithRep(BigInt(s.commitment), a.jws, a.kbJwt, s.nonce)
         : await deps.addMember(BigInt(s.commitment))
       s.status = "passed"
       return { code: 200, body: { ok: true } }
@@ -215,26 +238,48 @@ const done = (r: Awaited<ReturnType<typeof write>>) => {
   throw new Error(r.error === "Unknown" ? (r.message ?? r.error) : r.error)
 }
 
+/** The REP tier issuer (rep-attest-tier): full verdict in, 106-byte tier credential + P-256 signature out. */
+export async function tierCredential(base: string, b: { jws: string; kbJwt: string; nonce: string; commitment: string }): Promise<{ cred: Buffer; sig: Buffer }> {
+  const r = await fetch(`${base.replace(/\/$/, "")}/issue`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(b), signal: AbortSignal.timeout(15_000) })
+  const j: any = await r.json().catch(() => ({}))
+  if (!r.ok || typeof j.cred !== "string" || typeof j.sig !== "string") throw new Error(`tier issuer ${r.status}${j.reasons ? " " + j.reasons.join(",") : ""}`)
+  const cred = Buffer.from(j.cred, "base64url")
+  const sig = Buffer.from(j.sig, "base64url")
+  if (cred.length !== 106 || sig.length !== 64) throw new Error("tier issuer returned a malformed credential")
+  return { cred, sig }
+}
+
 /** The deployed handler, group "REP verified traveler". Default: the REP attester key (REP_ATTESTER_SECRET) calls
- *  add_member. REP_ONCHAIN=1: any funded relayer (REP_RELAYER_SECRET, holds no group rights) submits the verdict
- *  to add_member_with_rep and the contract checks it. OFF by default: the verdict and the holder proof become
- *  public tx arguments, which publishes its bands (tier, approximate spend, city band, source) and the device key. */
+ *  add_member. REP_ONCHAIN=1: the REP tier issuer (REP_TIER_URL) checks the verdict and signs a compact
+ *  credential (commitment + tier byte, nothing else), and any funded relayer (REP_RELAYER_SECRET, no group
+ *  rights) submits it to add_member_with_tier, which the contract checks with secp256r1. REP_ONCHAIN=verdict:
+ *  the raw verdict goes to add_member_with_rep, which publishes its bands and the device key; kept for tests. */
 export function repApi(req: IncomingMessage, res: ServerResponse, path: string) {
-  const onchain = process.env.REP_ONCHAIN === "1"
+  const mode = process.env.REP_ONCHAIN === "1" ? "tier" : process.env.REP_ONCHAIN === "verdict" ? "verdict" : "attester"
+  const tierUrl = process.env.REP_TIER_URL ?? "https://rep-attest-tier.fly.dev"
   live ??= createRep({
     demoToken: process.env.REP_DEMO_TOKEN || null,
+    stateDir: process.env.DATA_DIR || null,
     async addMember(commitment) {
       const { c, group } = await client("REP_ATTESTER_SECRET")
       return done(await write(c, "add_member", { group, id_commitment: commitment }))
     },
-    ...(onchain
+    ...(mode === "tier"
       ? {
-          async addMemberWithRep(commitment: bigint, jws: string, kbJwt: string) {
+          async addMemberWithRep(commitment: bigint, jws: string, kbJwt: string, nonce: string) {
+            const { cred, sig } = await tierCredential(tierUrl, { jws, kbJwt, nonce, commitment: commitment.toString() })
             const { c, group } = await client("REP_RELAYER_SECRET")
-            return done(await write(c, "add_member_with_rep", { group, id_commitment: commitment, verdict: Buffer.from(jws), kb: Buffer.from(kbJwt) }))
+            return done(await write(c, "add_member_with_tier", { group, id_commitment: commitment, cred, sig }))
           },
         }
-      : {}),
+      : mode === "verdict"
+        ? {
+            async addMemberWithRep(commitment: bigint, jws: string, kbJwt: string) {
+              const { c, group } = await client("REP_RELAYER_SECRET")
+              return done(await write(c, "add_member_with_rep", { group, id_commitment: commitment, verdict: Buffer.from(jws), kb: Buffer.from(kbJwt) }))
+            },
+          }
+        : {}),
   })
   return live.handle(req, res, path)
 }

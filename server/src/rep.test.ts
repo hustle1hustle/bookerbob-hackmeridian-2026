@@ -5,7 +5,7 @@ import assert from "node:assert/strict"
 import { createServer, type Server } from "node:http"
 import { createHash, generateKeyPairSync, sign } from "node:crypto"
 import { deflateRawSync } from "node:zlib"
-import { createRep, REP_ISSUER, AUD } from "./rep.ts"
+import { createRep, REP_ISSUER, AUD, tierCredential } from "./rep.ts"
 
 const b64u = (x: Buffer | string) => Buffer.from(x).toString("base64url")
 const issuerKey = generateKeyPairSync("ec", { namedCurve: "P-256" })
@@ -33,11 +33,12 @@ const ready = new Promise<void>((ok) => {
 })
 
 const NOW = 1_792_900_000
+let proofSerial = 0
 function verdict(over: Record<string, unknown> = {}) {
   return jws({ alg: "ES256", typ: "rep-attestation+jws", kid: "rep-attest-1" }, {
     iss: REP_ISSUER, vct: "travel-context", rep_profile: 1, iat: NOW - 60, exp: NOW + 3600,
     cnf: { jkt: thumb(pub(holderKey)) }, status: { status_list: { uri: statusUrl, idx: 3 } },
-    server_name: "www.airbnb.com", evidence_time: NOW - 86_400, lodging_spend_tier: "T2", ...over,
+    server_name: "www.airbnb.com", evidence_time: NOW - 86_400, lodging_spend_tier: "T2", attestation_hash: `proof-${++proofSerial}-${"c".repeat(40)}`, ...over,
   })
 }
 const kb = (v: string, nonce: string, aud = AUD) =>
@@ -213,7 +214,7 @@ test("REP_ONCHAIN path hands the exact verdict and holder proof to the contract,
   const rep = createRep({
     jwks: { keys: [JWK] }, now: () => NOW * 1000,
     addMember: async (c) => (added.push(c), "attester"),
-    addMemberWithRep: async (c, j, k) => (onchain.push([c, j, k]), "onchain"),
+    addMemberWithRep: async (c, j, k, n) => (onchain.push([c, j, k]), assert.equal(n, `pos:777:${"ab".repeat(16)}`), "onchain"),
   })
   const s = await rep.present({ sid: "x" })
   assert.equal(s.code, 404)
@@ -227,4 +228,41 @@ test("REP_ONCHAIN path hands the exact verdict and holder proof to the contract,
   assert.deepEqual(added, [])
   assert.deepEqual(onchain, [[777n, v, k]])
   assert.equal(rep.sessions.get(sid)!.txHash, "onchain")
+})
+
+test("tier issuer client: passes verdict, holder proof, nonce and commitment; rejects a refusal or a malformed credential", async () => {
+  const got: any[] = []
+  let mode = "ok"
+  const srv = createServer(async (req, res) => {
+    let b = ""
+    for await (const c of req) b += c
+    got.push({ path: req.url, body: JSON.parse(b) })
+    res.writeHead(mode === "refuse" ? 403 : 200, { "content-type": "application/json" })
+    if (mode === "refuse") return res.end(JSON.stringify({ error: "verdict refused", reasons: ["REVOKED"] }))
+    res.end(JSON.stringify({ cred: Buffer.alloc(mode === "short" ? 50 : 106, 1).toString("base64url"), sig: Buffer.alloc(64, 2).toString("base64url") }))
+  })
+  const base = await new Promise<string>((ok) => srv.listen(0, "127.0.0.1", () => ok(`http://127.0.0.1:${(srv.address() as any).port}`)))
+  const r = await tierCredential(base, { jws: "J", kbJwt: "K", nonce: "pos:9:aa", commitment: "9" })
+  assert.equal(r.cred.length, 106)
+  assert.equal(r.sig.length, 64)
+  assert.deepEqual(got[0], { path: "/issue", body: { jws: "J", kbJwt: "K", nonce: "pos:9:aa", commitment: "9" } })
+  mode = "refuse"
+  await assert.rejects(tierCredential(base, { jws: "J", kbJwt: "K", nonce: "pos:9:aa", commitment: "9" }), /403 REVOKED/)
+  mode = "short"
+  await assert.rejects(tierCredential(base, { jws: "J", kbJwt: "K", nonce: "pos:9:aa", commitment: "9" }), /malformed/)
+  srv.close()
+})
+
+test("one REP presentation joins once, even re-attested with another holder key", async () => {
+  await ready
+  const h = harness()
+  const a = await h.open("101")
+  const v = verdict({ attestation_hash: "same-proof-" + "d".repeat(40) })
+  assert.equal((await h.call("/present", { sid: a.sid, attestations: [{ jws: v, kbJwt: kb(v, a.nonce) }] })).status, 200)
+  const b = await h.open("202")
+  const v2 = verdict({ attestation_hash: "same-proof-" + "d".repeat(40), iat: NOW - 5 })
+  assert.equal((await h.call("/present", { sid: b.sid, attestations: [{ jws: v2, kbJwt: kb(v2, b.nonce) }] })).status, 400)
+  assert.match((await h.call(`/result?sid=${b.sid}`)).body.reason, /already joined/)
+  assert.deepEqual(h.added, [101n])
+  h.close()
 })

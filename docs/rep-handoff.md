@@ -98,12 +98,24 @@ The contract stores nothing beyond the replay key, but the arguments stay in the
 trustless but publishes band details. Production needs a tier-only issuer-signed verdict (SD-JWT or a
 tier-only JWS from rep-attest) and a pairwise holder key per verifier.
 
-Turn it on (testnet, after review):
+### Tier credential (REP_ONCHAIN=1): the privacy-safe on-chain path
+
+`REP_ONCHAIN=1` no longer submits the raw verdict. The backend sends the verdict and holder proof to the REP tier
+issuer (`REP_TIER_URL`, default `https://rep-attest-tier.fly.dev`, code `tier-issuer.mjs` in REP-CORE/rep-context-mcp),
+which runs the same full verification off chain and signs a 106-byte credential with its own P-256 key:
+`"REPTIER1" | kid u8 | sha256("rep-verified-traveler") | tier u8 | commitment | iat | exp | jti`. The tier byte is 1
+("qualified at the policy minimum") unless the issuer runs with `REP_TIER_BANDS=1`. One REP presentation mints one credential; a notarized session can yield several presentations, so sybil resistance per account needs a stable id from REP (open).
+The relayer submits `add_member_with_tier(group, id_commitment, cred, sig)`; the contract checks the signature with
+secp256r1 against the pinned issuer key, the group hash, the commitment, `iat`/`exp` and a single-use `jti`. Nothing
+about spend, dates, source or the device key reaches the ledger. `REP_ONCHAIN=verdict` keeps the raw-verdict path below
+for tests.
+
+Turn on the raw-verdict path (testnet, after review):
 
 ```
 scripts/rep-onchain.sh upgrade        # admin: new wasm through upgrade(), storage and contract ID stay
 scripts/rep-onchain.sh set-issuer     # admin: pins kid rep-attest-1 from the live JWKS for group 1
-fly secrets set --app <backend app> REP_ONCHAIN=1 REP_RELAYER_SECRET="$(stellar keys show <any funded key>)" > /dev/null
+fly secrets set --app <backend app> REP_ONCHAIN=verdict REP_RELAYER_SECRET="$(stellar keys show <any funded key>)" > /dev/null
 ```
 
 The relayer only pays fees and holds no group rights. Leave `REP_ATTESTER_SECRET` set: unset `REP_ONCHAIN` and the
