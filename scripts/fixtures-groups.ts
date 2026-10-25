@@ -13,7 +13,8 @@ const all = stays.map((s) => s.commitment)
 const artifacts = await loadArtifacts()
 const msg = d.discountMessage(GUEST)
 const claim = async (leaves: bigint[], group: d.GroupRef) => {
-  const p = await proveMembership(stays[2], leaves, msg, d.ctxScope(MERCHANT, group, SEASON), artifacts)
+  // merchant 0 is a member of chain group 0, so a chain claim there uses its discount scope (one nullifier per stay)
+  const p = await proveMembership(stays[2], leaves, msg, d.ctxScope(MERCHANT, group, SEASON, 0), artifacts)
   return { proof: p.proof, root: p.root.toString(), nullifier: p.nullifier.toString() }
 }
 const out = {

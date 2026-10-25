@@ -70,7 +70,7 @@ const SEASON = 1
 const msg = d.discountMessage(guest.publicKey())
 const claims = []
 for (const [gid, leaves] of [[chain, await views.groupLeaves(read, chain)], [att, await views.groupLeaves(read, att)]] as const) {
-  const p = await proveMembership(guestStay, leaves, msg, d.ctxScope(1, { kind: "group", id: gid }, SEASON), artifacts)
+  const p = await proveMembership(guestStay, leaves, msg, d.ctxScope(1, { kind: "group", id: gid }, SEASON, chain), artifacts)
   claims.push({ group: G(gid), proof: proofArg(p.proof), root: p.root, nullifier: p.nullifier })
 }
 const paid = must("book_with_context", await write(await getClient(net, signerOf(guest, net.networkPassphrase)), "book_with_context", { merchant: 1, guest: guest.publicKey(), season: SEASON, amount: undefined, claims }))
