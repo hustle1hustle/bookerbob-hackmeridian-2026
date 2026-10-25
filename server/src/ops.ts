@@ -119,6 +119,17 @@ async function reachable(url: string, init?: RequestInit): Promise<boolean> {
   }
 }
 
+/** true when the browser's Origin (if any) names this host; non-browser posts carry none */
+export function sameOrigin(req: IncomingMessage): boolean {
+  const origin = req.headers.origin
+  if (!origin) return true
+  try {
+    return new URL(origin).host === String(req.headers["x-forwarded-host"] ?? req.headers.host ?? "")
+  } catch {
+    return false
+  }
+}
+
 /** GET /ops.js: the browser reporter, one file for every page (/, /classic/). */
 const CLIENT = readFileSync(new URL("./ops-client.js", import.meta.url))
 export function opsClient(res: ServerResponse) {
@@ -129,6 +140,8 @@ export function opsClient(res: ServerResponse) {
 export async function opsApi(req: IncomingMessage, res: ServerResponse, path: string) {
   if (req.method === "POST" && path === "/api/ops/client-error") {
     if (limited(req)) return json(res, 429, { error: "RateLimited" })
+    // a dev page proxying /api to this server (vite, a local build) sends its own Origin: drop it so the ring holds this deploy's errors only
+    if (!sameOrigin(req)) return json(res, 202, { ok: true, dropped: "origin" })
     let s = ""
     for await (const c of req) {
       s += c
