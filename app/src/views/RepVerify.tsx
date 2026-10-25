@@ -5,6 +5,11 @@ import { sdk } from "../sdk"
 import { bump } from "../store"
 import { TxLink } from "../ui"
 
+// Only the demo operator's browser can open a request (REP_DEMO_TOKEN cookie): the one phone answering
+// requests is the team's. Everyone else sees how it works instead of a button.
+/** The REP mobile app's home (one value: may move to https://r3p.xyz). */
+export const REP_APP_URL = "https://r3p.app"
+
 type Phase = { k: "idle" } | { k: "waiting"; sid: string; until: number } | { k: "passed"; tx: string | null } | { k: "failed"; why: string }
 
 // A dedicated, never-checked-in stay identity: it joins only the REP group, so the public group tree
@@ -15,6 +20,10 @@ const post = async (path: string, body: unknown) => (await fetch(path, { method:
 
 export function RepVerify() {
   const [phase, setPhase] = useState<Phase>({ k: "idle" })
+  const [demo, setDemo] = useState<boolean | null>(null)
+  useEffect(() => {
+    fetch("/api/rep/status").then((r) => r.json()).then((d) => setDemo(!!d.demo), () => setDemo(false))
+  }, [])
   const [now, setNow] = useState(Date.now())
   const timer = useRef<number | null>(null)
 
@@ -23,7 +32,7 @@ export function RepVerify() {
   const start = async () => {
     const stay = sdk.stays.create(REP_STAY_MERCHANT)
     const r = await post("/api/rep/session", { commitment: stay.commitment }).catch(() => ({ error: "network" }))
-    if (r.error) return setPhase({ k: "failed", why: "bookerbob could not open a request, retry" })
+    if (r.error) return setPhase({ k: "failed", why: r.error === "demo operator only" ? "REP verify runs in the demo only" : "bookerbob could not open a request, retry" })
     setPhase({ k: "waiting", sid: r.sid, until: r.expiresAt })
     timer.current = window.setInterval(async () => {
       setNow(Date.now())
@@ -44,7 +53,12 @@ export function RepVerify() {
   return (
     <section className="card section">
       <h3>verified traveler</h3>
-      {phase.k === "idle" && (
+      {phase.k === "idle" && demo === false && (
+        <p className="muted">
+          REP verified traveler is coming to the REP app. <a href={REP_APP_URL} target="_blank" rel="noreferrer">get REP</a>
+        </p>
+      )}
+      {phase.k === "idle" && demo && (
         <>
           <p className="muted">prove past stays with REP and get the verified-traveler perk where places honor it. bookerbob keeps only yes or no.</p>
           <button type="button" onClick={start}>

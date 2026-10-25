@@ -43,19 +43,21 @@ function verdict(over: Record<string, unknown> = {}) {
 const kb = (v: string, nonce: string, aud = AUD) =>
   jws({ alg: "ES256", typ: "kb+jwt", jwk: { ...pub(holderKey), kty: "EC" } }, { aud, nonce, iat: NOW, at_hash: createHash("sha256").update(v).digest("base64url") }, holderKey.privateKey)
 
-function harness() {
+const DEMO = "demo-operator-token-for-tests"
+function harness(demoToken: string | null = DEMO) {
   const added: bigint[] = []
   let t = NOW * 1000
-  const rep = createRep({ jwks: { keys: [JWK] }, now: () => t, addMember: async (c) => (added.push(c), "ab".repeat(32)) })
+  const rep = createRep({ demoToken, jwks: { keys: [JWK] }, now: () => t, addMember: async (c) => (added.push(c), "ab".repeat(32)) })
   // exactly like index.ts: the handler gets the pathname, the query stays on req.url
   const server = createServer((req, res) => rep.handle(req, res, new URL(req.url!, "http://x").pathname))
   const base = new Promise<string>((ok) => server.listen(0, "127.0.0.1", () => ok(`http://127.0.0.1:${(server.address() as any).port}/api/rep`)))
-  const call = async (path: string, body?: unknown) => {
-    const r = await fetch(`${await base}${path}`, body === undefined ? {} : { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
-    return { status: r.status, body: (await r.json()) as any }
+  const call = async (path: string, body?: unknown, headers: Record<string, string> = {}) => {
+    const r = await fetch(`${await base}${path}`, body === undefined ? { headers, redirect: "manual" } : { method: "POST", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify(body) })
+    const text = await r.text()
+    return { status: r.status, body: (text ? JSON.parse(text) : {}) as any, headers: r.headers }
   }
   const open = async (commitment = "12345") => {
-    const s = await call("/session", { commitment })
+    const s = await call("/session", { commitment }, { "x-bb-demo": DEMO })
     const p = await call("/pending")
     assert.equal(p.body.sid, s.body.sid)
     assert.equal(p.body.aud, AUD)
@@ -144,6 +146,55 @@ test("revoked verdict, missing tier and non-lodging source are refused", async (
     assert.equal(h.added.length, 0)
     h.close()
   }
+})
+
+test("a visitor without the demo token cannot put a request on the phone", async () => {
+  await ready
+  const h = harness()
+  const r = await h.call("/session", { commitment: "999" })
+  assert.equal(r.status, 403)
+  assert.equal((await h.call("/session", { commitment: "999" }, { "x-bb-demo": "wrong" })).status, 403)
+  assert.equal((await h.call("/session", { commitment: "999" }, { cookie: "bb_demo=wrong" })).status, 403)
+  assert.deepEqual((await h.call("/pending")).body, {})
+  assert.equal((await h.call("/status")).body.demo, false)
+  h.close()
+})
+
+test("the demo link sets an HttpOnly cookie that opens sessions; a wrong link does not", async () => {
+  await ready
+  const h = harness()
+  assert.equal((await h.call("/demo?token=nope")).status, 403)
+  assert.equal((await h.call(`/demo?demo=${DEMO}`)).status, 302) // the /?demo= form index.ts forwards
+  const r = await h.call(`/demo?token=${DEMO}`)
+  assert.equal(r.status, 302)
+  const cookie = r.headers.get("set-cookie") ?? ""
+  assert.match(cookie, /^bb_demo=.*HttpOnly.*Secure/)
+  const jar = cookie.split(";")[0]
+  assert.equal((await h.call("/status", undefined, { cookie: jar })).body.demo, true)
+  assert.equal((await h.call("/session", { commitment: "4242" }, { cookie: jar })).status, 200)
+  assert.ok((await h.call("/pending")).body.sid)
+  h.close()
+})
+
+test("with no REP_DEMO_TOKEN configured no session opens at all", async () => {
+  await ready
+  const h = harness(null)
+  assert.equal((await h.call("/session", { commitment: "1" }, { "x-bb-demo": DEMO })).status, 403)
+  assert.equal((await h.call(`/demo?token=${DEMO}`)).status, 403)
+  h.close()
+})
+
+test("session and pending are rate-limited per IP", async () => {
+  await ready
+  const h = harness()
+  const codes: number[] = []
+  for (let i = 0; i < 8; i++) codes.push((await h.call("/session", { commitment: String(100 + i) }, { "x-bb-demo": DEMO })).status)
+  assert.deepEqual(codes.slice(0, 6), [200, 200, 200, 200, 200, 200])
+  assert.equal(codes[7], 429)
+  let last = 0
+  for (let i = 0; i < 46; i++) last = (await h.call("/pending")).status
+  assert.equal(last, 429)
+  h.close()
 })
 
 test("/receive and /issue are 404 and never read", async () => {
