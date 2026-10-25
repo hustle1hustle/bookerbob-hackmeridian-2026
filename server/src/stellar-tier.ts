@@ -19,6 +19,7 @@ import { Keypair, StrKey } from "@stellar/stellar-sdk"
 import { getClient, write, TESTNET } from "../../packages/sdk/src/contract.ts"
 import { contractId } from "../../packages/sdk/src/deployment.ts"
 import { signerOf } from "./core.ts"
+import { checkRebind, commitmentKey } from "./rebind.ts"
 
 const FR = 21888242871839275222246405745257275088548364400416034343698204186575808495617n
 export const GROUP_NAME = "Stellar wallet tier"
@@ -31,6 +32,10 @@ export interface StellarTierDeps {
   tierOf: (address: string) => Promise<number>
   /** add_member(group "Stellar wallet tier", commitment) with the attester key; returns the tx hash. */
   addMember: (commitment: bigint) => Promise<string>
+  /** Moves the wallet's membership: replace_member(group, old, new) with the attester key. */
+  replaceMember?: (oldCommitment: bigint, newCommitment: bigint) => Promise<string>
+  /** The group id, for the rebind challenge. */
+  groupId?: () => Promise<number>
   minTier: number
   stateDir?: string | null
   /** salt for the stored wallet / commitment hashes */
@@ -48,14 +53,22 @@ export function createStellarTier(deps: StellarTierDeps) {
   const challenges = new Map<string, { address: string; commitment: string; exp: number }>()
   const file = deps.stateDir ? join(deps.stateDir, "stellar-tier-joined.txt") : null
   const pending = new Set<string>()
-  const joined = new Set<string>(file && existsSync(file) ? readFileSync(file, "utf8").split("\n").filter(Boolean) : [])
+  // salted keys: a joined identity -> "", a joined wallet -> the hash of the identity it currently backs.
+  // One line per change, the last wins; a legacy wallet line without a hash cannot be moved.
+  const joined = new Map<string, string>()
+  if (file && existsSync(file)) {
+    for (const line of readFileSync(file, "utf8").split("\n").filter(Boolean)) {
+      const [k, v] = line.split(" ")
+      joined.set(k, v ?? "")
+    }
+  }
   const h = (kind: string, v: string) => createHash("sha256").update(`${deps.salt}|${kind}|${v}`).digest("hex")
-  const remember = (k: string) => {
-    joined.add(k)
+  const remember = (k: string, v = "") => {
+    joined.set(k, v)
     if (file) {
       try {
         mkdirSync(deps.stateDir!, { recursive: true })
-        appendFileSync(file, k + "\n")
+        appendFileSync(file, v ? `${k} ${v}\n` : `${k}\n`)
       } catch {}
     }
   }
@@ -76,7 +89,7 @@ export function createStellarTier(deps: StellarTierDeps) {
   const validCommitment = (c: unknown) => typeof c === "string" && /^\d{1,78}$/.test(c) && BigInt(c) > 0n && BigInt(c) < FR
 
   async function joinGroup(b: any): Promise<{ code: number; body: unknown }> {
-    const { address, commitment, nonce, signature } = b ?? {}
+    const { address, commitment, nonce, signature, rebind } = b ?? {}
     if (typeof address !== "string" || !StrKey.isValidEd25519PublicKey(address)) return { code: 400, body: { error: "a G... wallet address is required" } }
     if (!validCommitment(commitment)) return { code: 400, body: { error: "commitment must be a nonzero field element (decimal)" } }
     const ch = typeof nonce === "string" ? challenges.get(nonce) : undefined
@@ -90,8 +103,31 @@ export function createStellarTier(deps: StellarTierDeps) {
     if (!ok) return { code: 401, body: { error: "the wallet signature does not check out" } }
     const wk = h("wallet", address)
     const ck = h("commitment", commitment)
-    if (joined.has(wk) || pending.has(wk)) return { code: 409, body: { error: "this wallet already joined" } }
-    if (joined.has(ck) || pending.has(ck)) return { code: 409, body: { error: "this identity already joined" } }
+    if (pending.has(wk) || pending.has(ck)) return { code: 409, body: { error: "a join for this wallet is in progress" } }
+    if (joined.has(ck)) return { code: 409, body: { error: "this identity already joined" } }
+    if (joined.has(wk)) {
+      // one membership per wallet: "start over" MOVES it, proven by the old identity's signature
+      const cur = joined.get(wk)
+      const groupId = deps.groupId ? await deps.groupId() : 2
+      const r = rebind ? checkRebind(rebind, groupId, commitment, nonce) : null
+      if (!r || !cur || !deps.replaceMember) return { code: 409, body: { error: "this wallet already joined" } }
+      if (cur !== commitmentKey(deps.salt, r.oldCommitment)) return { code: 409, body: { error: "the old identity does not hold this wallet's membership" } }
+      pending.add(wk)
+      pending.add(ck)
+      try {
+        const tier = await deps.tierOf(address)
+        if (!(tier >= deps.minTier)) return { code: 403, body: { error: "wallet tier below the threshold", minTier: deps.minTier, tier } }
+        const txHash = await deps.replaceMember(BigInt(r.oldCommitment), BigInt(commitment))
+        remember(wk, commitmentKey(deps.salt, commitment))
+        remember(ck)
+        return { code: 200, body: { ok: true, moved: true, txHash, tier, group: GROUP_NAME } }
+      } catch (e) {
+        return { code: 502, body: { error: `replace_member failed: ${String((e as Error).message).slice(0, 80)}` } }
+      } finally {
+        pending.delete(wk)
+        pending.delete(ck)
+      }
+    }
     // reserved before the first await, so two concurrent joins cannot both pass; released if it does not land
     pending.add(wk)
     pending.add(ck)
@@ -99,7 +135,7 @@ export function createStellarTier(deps: StellarTierDeps) {
       const tier = await deps.tierOf(address)
       if (!(tier >= deps.minTier)) return { code: 403, body: { error: "wallet tier below the threshold", minTier: deps.minTier, tier } }
       const txHash = await deps.addMember(BigInt(commitment))
-      remember(wk)
+      remember(wk, commitmentKey(deps.salt, commitment))
       remember(ck)
       return { code: 200, body: { ok: true, txHash, tier, group: GROUP_NAME } }
     } catch (e) {
@@ -113,7 +149,13 @@ export function createStellarTier(deps: StellarTierDeps) {
   async function handle(req: IncomingMessage, res: ServerResponse, path: string) {
     const sub = path.replace(/^\/api\/stellar-tier/, "")
     try {
-      if (req.method === "GET" && sub === "/info") return json(res, 200, { minTier: deps.minTier, group: GROUP_NAME, explainer: EXPLAINER })
+      if (req.method === "GET" && sub === "/info") {
+        let groupId: number | null = null
+        try {
+          groupId = deps.groupId ? await deps.groupId() : null
+        } catch {}
+        return json(res, 200, { minTier: deps.minTier, group: GROUP_NAME, groupId, explainer: EXPLAINER })
+      }
       if (req.method === "GET" && sub === "/challenge") {
         if (limited(req, "/challenge")) return json(res, 429, { error: "RateLimited" })
         const q = new URL(req.url ?? path, "http://x").searchParams
@@ -148,6 +190,21 @@ export function createStellarTier(deps: StellarTierDeps) {
 let live: ReturnType<typeof createStellarTier> | null = null
 let groupId: Promise<number> | null = null
 
+async function attester() {
+  const secret = process.env.STELLAR_TIER_ATTESTER_SECRET
+  if (!secret) throw new Error("STELLAR_TIER_ATTESTER_SECRET not set")
+  const kp = Keypair.fromSecret(secret)
+  const net = { ...TESTNET, rpcUrl: process.env.STELLAR_RPC_URL ?? TESTNET.rpcUrl, contractId: contractId() }
+  const c = await getClient(net, signerOf(kp, net.networkPassphrase))
+  groupId ??= (async () => {
+    if (process.env.STELLAR_TIER_GROUP_ID) return Number(process.env.STELLAR_TIER_GROUP_ID)
+    const g = (((await (c as any).list_groups()).result ?? []) as any[]).find((x) => String(x.name) === GROUP_NAME)
+    if (!g) throw new Error("group not found")
+    return Number(g.id)
+  })()
+  return { c, group: await groupId }
+}
+
 /** The deployed handler: attester key STELLAR_TIER_ATTESTER_SECRET, group "Stellar wallet tier" (or STELLAR_TIER_GROUP_ID),
  *  threshold STELLAR_TIER_MIN (default 3 on Denis's 1..5 ladder). Works without PASSPORT_API_KEY (on-chain history only);
  *  with it, Denis's scoring adds the Passport signals. */
@@ -161,19 +218,19 @@ export function stellarTierApi(req: IncomingMessage, res: ServerResponse, path: 
       const w = await inspectWallet(address, { passport: true, passportApiKey: process.env.PASSPORT_API_KEY || undefined, passportBaseUrl: process.env.PASSPORT_BASE_URL || undefined })
       return Number(w.tier)
     },
+    async groupId() {
+      if (process.env.STELLAR_TIER_GROUP_ID) return Number(process.env.STELLAR_TIER_GROUP_ID)
+      return (await attester()).group
+    },
+    async replaceMember(oldCommitment, newCommitment) {
+      const { c, group } = await attester()
+      const r = await write(c, "replace_member", { group, old_commitment: oldCommitment, new_commitment: newCommitment })
+      if (r.ok) return r.txHash
+      throw new Error(r.error)
+    },
     async addMember(commitment) {
-      const secret = process.env.STELLAR_TIER_ATTESTER_SECRET
-      if (!secret) throw new Error("STELLAR_TIER_ATTESTER_SECRET not set")
-      const kp = Keypair.fromSecret(secret)
-      const net = { ...TESTNET, rpcUrl: process.env.STELLAR_RPC_URL ?? TESTNET.rpcUrl, contractId: contractId() }
-      const c = await getClient(net, signerOf(kp, net.networkPassphrase))
-      groupId ??= (async () => {
-        if (process.env.STELLAR_TIER_GROUP_ID) return Number(process.env.STELLAR_TIER_GROUP_ID)
-        const g = (((await (c as any).list_groups()).result ?? []) as any[]).find((x) => String(x.name) === GROUP_NAME)
-        if (!g) throw new Error("group not found")
-        return Number(g.id)
-      })()
-      const r = await write(c, "add_member", { group: await groupId, id_commitment: commitment })
+      const { c, group } = await attester()
+      const r = await write(c, "add_member", { group, id_commitment: commitment })
       if (r.ok) return r.txHash
       if (r.error === "DuplicateLeaf") return ""
       throw new Error(r.error)

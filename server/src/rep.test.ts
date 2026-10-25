@@ -6,6 +6,8 @@ import { createServer, type Server } from "node:http"
 import { createHash, generateKeyPairSync, sign } from "node:crypto"
 import { deflateRawSync } from "node:zlib"
 import { createRep, REP_ISSUER, AUD, tierCredential } from "./rep.ts"
+import { Identity } from "@semaphore-protocol/identity"
+import { signRebind } from "./rebind.ts"
 
 const b64u = (x: Buffer | string) => Buffer.from(x).toString("base64url")
 const issuerKey = generateKeyPairSync("ec", { namedCurve: "P-256" })
@@ -264,5 +266,81 @@ test("one REP presentation joins once, even re-attested with another holder key"
   assert.equal((await h.call("/present", { sid: b.sid, attestations: [{ jws: v2, kbJwt: kb(v2, b.nonce) }] })).status, 400)
   assert.match((await h.call(`/result?sid=${b.sid}`)).body.reason, /already joined/)
   assert.deepEqual(h.added, [101n])
+  h.close()
+})
+
+function moveHarness(groupRef = { id: 1 }) {
+  const members = new Set<bigint>()
+  let t = NOW * 1000
+  const rep = createRep({
+    demoToken: DEMO, jwks: { keys: [JWK] }, now: () => t, groupId: async () => groupRef.id,
+    addMember: async (c) => (members.add(c), "add"),
+    replaceMember: async (o, n) => {
+      if (!members.has(o)) throw new Error("NotMember")
+      members.delete(o)
+      members.add(n)
+      return "move"
+    },
+  })
+  const server = createServer((req, res) => rep.handle(req, res, new URL(req.url!, "http://x").pathname))
+  const base = new Promise<string>((ok) => server.listen(0, "127.0.0.1", () => ok(`http://127.0.0.1:${(server.address() as any).port}/api/rep`)))
+  const call = async (path: string, body?: unknown) => {
+    const r = await fetch(`${await base}${path}`, body === undefined ? { headers: { "x-bb-demo": DEMO } } : { method: "POST", headers: { "content-type": "application/json", "x-bb-demo": DEMO }, body: JSON.stringify(body) })
+    return { status: r.status, body: (await r.json()) as any }
+  }
+  const session = async (id: Identity) => (await call("/session", { commitment: id.commitment.toString() })).body as { sid: string; nonce: string }
+  const present = (s: { sid: string; nonce: string }, v: string) => call("/present", { sid: s.sid, attestations: [{ jws: v, kbJwt: kb(v, s.nonce) }] })
+  return { members, call, session, present, close: () => server.close() }
+}
+
+test("start over MOVES a REP membership with the old identity's signature; twice in a row too", async () => {
+  await ready
+  const h = moveHarness()
+  const AH = "moved-proof-" + "e".repeat(40)
+  const a = new Identity(), b = new Identity(), c = new Identity()
+  const sa = await h.session(a)
+  assert.equal((await h.present(sa, verdict({ attestation_hash: AH }))).status, 200)
+  // without a rebind: still refused
+  const s0 = await h.session(b)
+  assert.equal((await h.present(s0, verdict({ attestation_hash: AH }))).status, 400)
+  const sb = await h.session(b)
+  assert.equal((await h.call("/rebind", { sid: sb.sid, rebind: signRebind(a, 1, b.commitment.toString(), sb.nonce) })).status, 200)
+  const r = await h.present(sb, verdict({ attestation_hash: AH }))
+  assert.equal(r.status, 200)
+  assert.equal(r.body.moved, true)
+  assert.equal((await h.call(`/result?sid=${sb.sid}`)).body.moved, true)
+  assert.deepEqual([...h.members], [b.commitment])
+  const sc = await h.session(c)
+  assert.equal((await h.call("/rebind", { sid: sc.sid, rebind: signRebind(b, 1, c.commitment.toString(), sc.nonce) })).status, 200)
+  assert.equal((await h.present(sc, verdict({ attestation_hash: AH }))).status, 200)
+  assert.deepEqual([...h.members], [c.commitment])
+  h.close()
+})
+
+test("a wrong rebind signature, a missing old leaf and another group are refused", async () => {
+  await ready
+  const groupRef = { id: 1 }
+  const h = moveHarness(groupRef)
+  const AH = "guarded-proof-" + "f".repeat(40)
+  const a = new Identity(), b = new Identity(), x = new Identity()
+  const sa = await h.session(a)
+  assert.equal((await h.present(sa, verdict({ attestation_hash: AH }))).status, 200)
+  const sb = await h.session(b)
+  // signed by someone else, or for another session's nonce
+  const forged = { ...signRebind(x, 1, b.commitment.toString(), sb.nonce), oldCommitment: a.commitment.toString() }
+  assert.equal((await h.call("/rebind", { sid: sb.sid, rebind: forged })).status, 400)
+  assert.equal((await h.call("/rebind", { sid: sb.sid, rebind: signRebind(a, 1, b.commitment.toString(), "pos:other:nonce") })).status, 400)
+  // valid signature, but the old leaf is gone on chain
+  h.members.clear()
+  assert.equal((await h.call("/rebind", { sid: sb.sid, rebind: signRebind(a, 1, b.commitment.toString(), sb.nonce) })).status, 200)
+  assert.equal((await h.present(sb, verdict({ attestation_hash: AH }))).status, 400)
+  // another group
+  h.members.add(a.commitment)
+  groupRef.id = 2
+  const sc = await h.session(b)
+  assert.equal((await h.call("/rebind", { sid: sc.sid, rebind: signRebind(a, 2, b.commitment.toString(), sc.nonce) })).status, 200)
+  const r = await h.present(sc, verdict({ attestation_hash: AH }))
+  assert.equal(r.status, 400)
+  assert.match((await h.call(`/result?sid=${sc.sid}`)).body.reason, /another group/)
   h.close()
 })
