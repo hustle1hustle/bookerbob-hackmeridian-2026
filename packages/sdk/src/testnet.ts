@@ -3,7 +3,7 @@
 import { Account, Address, Asset, BASE_FEE, Keypair, Operation, TransactionBuilder, contract, rpc, scValToNative } from "@stellar/stellar-sdk"
 
 const NULL_ACCOUNT = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF"
-import type { Chain, Disclosure, Dispute, Merchant, ProofEvent, ProofRequest, Prover, Review, Sdk, Stay, Stays, Wallet, WalletKind, WriteResult, ErrorName, Usdc } from "./types.ts"
+import type { Perk, Chain, Disclosure, Dispute, Merchant, ProofEvent, ProofRequest, Prover, Review, Sdk, Stay, Stays, Wallet, WalletKind, WriteResult, ErrorName, Usdc } from "./types.ts"
 import { getClient, views, write, proofArg, TESTNET, type NetworkConfig, type Signer } from "./contract.ts"
 import * as d from "./derive.ts"
 import { loadArtifacts, proveMembership, artifactsCached, DEFAULT_ARTIFACTS_URL } from "./prove.ts"
@@ -146,6 +146,33 @@ export function createTestnetSdk(opts: TestnetOptions = {}): Sdk {
     },
   }
 
+  // ---- perks: which policy groups this browser's stays belong to ----
+  const groupArg = (g: d.GroupRef) => ({ tag: g.kind === "merchant" ? "Merchant" : "Group", values: [g.id] })
+  const planClaims = async (merchant: number) => {
+    const c = await reader()
+    const pol = await views.policy(c, merchant)
+    if (!pol) return null
+    const m = await views.merchant(c, merchant)
+    const groups = await views.groups(c)
+    const mine = loadStays().map((s) => ({ s, id: identityOf(s) }))
+    const items: Perk[] = []
+    const claims: { group: d.GroupRef; identity: ReturnType<typeof identityOf>; leaves: bigint[] }[] = []
+    for (const it of pol.items) {
+      const leaves = it.group.kind === "merchant" ? await views.leaves(c, it.group.id) : await views.groupLeaves(c, it.group.id)
+      const hit = mine.find((x) => leaves.includes(x.id.commitment))
+      const label =
+        it.group.kind === "merchant"
+          ? it.group.id === merchant
+            ? m.kind === "hotel" ? "returning guest" : "returning customer"
+            : `customer of place ${it.group.id}`
+          : (groups.find((g) => g.id === it.group.id)?.name ?? `group ${it.group.id}`)
+      items.push({ group: it.group, label, bps: it.bps, eligible: !!hit })
+      if (hit) claims.push({ group: it.group, identity: hit.id, leaves })
+    }
+    const bps = Math.min(pol.maxBps, items.filter((i) => i.eligible).reduce((a, i) => a + i.bps, 0))
+    return { items, claims, maxBps: pol.maxBps, bps, price: m.price }
+  }
+
   // ---- prover ----
   const prover: Prover = {
     ready: artifactsCached,
@@ -174,6 +201,25 @@ export function createTestnetSdk(opts: TestnetOptions = {}): Sdk {
       }
       const artifacts = await loadArtifacts(artifactsUrl)
       const c = await reader()
+      if (req.kind === "context") {
+        if (!address) return yield { stage: "done", result: { error: "WalletNotConnected" } }
+        const plan = await planClaims(req.merchant)
+        if (!plan || plan.claims.length === 0) return yield { stage: "done", result: { error: "NotInTree" } }
+        yield { stage: "proving" }
+        const msg = d.discountMessage(address)
+        const claims = []
+        for (const cl of plan.claims) {
+          const mp = await proveMembership(cl.identity, cl.leaves, msg, d.ctxScope(req.merchant, cl.group, req.season), artifacts)
+          claims.push({ group: groupArg(cl.group), proof: proofArg(mp.proof), root: mp.root, nullifier: mp.nullifier })
+        }
+        yield { stage: "verifying" }
+        const w = await writer()
+        if (!w) return yield { stage: "done", result: { error: "WalletNotConnected" } }
+        const r = await write<bigint>(w, "book_with_context", { merchant: req.merchant, guest: address, season: req.season, amount: undefined, claims })
+        if (!r.ok) return yield { stage: "done", result: { error: r.error, message: r.message } }
+        const paid = BigInt(r.value as any)
+        return yield { stage: "done", result: { txHash: r.txHash, paid, saved: plan.price - paid, bps: plan.bps } }
+      }
       const leaves = await views.leaves(c, req.stay.merchant)
       const id = identityOf(req.stay)
       if (!leaves.includes(id.commitment)) return yield { stage: "done", result: { error: "NotInTree" } }
@@ -261,6 +307,19 @@ export function createTestnetSdk(opts: TestnetOptions = {}): Sdk {
     postReview: (stay, rating, text) => drain({ kind: "review", stay, rating, text }),
     async attest(reviewId) {
       return asResult(await post("/api/attest", { reviewId }))
+    },
+    async listGroups() {
+      return views.groups(await reader())
+    },
+    async perks(merchant) {
+      const p = await planClaims(merchant)
+      if (!p) return null
+      return { merchant, items: p.items, maxBps: p.maxBps, bps: p.bps, price: p.price, finalPrice: (p.price * BigInt(10_000 - p.bps)) / 10_000n }
+    },
+    async bookWithPerks(merchant, season) {
+      let last: any = { error: "Unknown" }
+      for await (const ev of prover.prove({ kind: "context", merchant, season })) if (ev.stage === "done") last = ev.result
+      return last
     },
     async faucet() {
       if (!address || !signer) return { error: "WalletNotConnected" }

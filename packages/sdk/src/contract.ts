@@ -107,6 +107,21 @@ export const views = {
     const v = await call(c, "leaf_index", { merchant, id_commitment: commitment })
     return v === undefined || v === null ? null : Number(v)
   },
+  groupLeaves: async (c: contract.Client, group: number): Promise<bigint[]> => ((await call(c, "get_group_leaves", { group })) as any[]).map(BigInt),
+  groups: async (c: contract.Client) =>
+    ((await call(c, "list_groups")) as Raw[]).map((g) => ({ id: Number(g.id), kind: String(g.kind), name: String(g.name), operator: String(g.operator), size: Number(g.size) })),
+  policy: async (c: contract.Client, merchant: number) => {
+    const p = await call(c, "get_policy", { merchant })
+    if (!p) return null
+    return {
+      maxBps: Number(p.max_bps),
+      items: (p.items as Raw[]).map((it) => ({ group: { kind: it.group.tag === "Merchant" ? ("merchant" as const) : ("group" as const), id: Number(it.group.values[0]) }, bps: Number(it.bps) })),
+    }
+  },
+  merchantChain: async (c: contract.Client, merchant: number): Promise<number | null> => {
+    const v = await call(c, "merchant_chain", { merchant })
+    return v === undefined || v === null ? null : Number(v)
+  },
   arbiter: async (c: contract.Client): Promise<string> => String(await call(c, "arbiter")),
   usdc: async (c: contract.Client): Promise<string> => String(await call(c, "usdc")),
 }

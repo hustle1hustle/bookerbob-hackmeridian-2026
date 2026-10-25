@@ -96,6 +96,11 @@ export function createMockSdk(opts: MockOptions = {}): Sdk {
       await sleep(700)
       yield { stage: "verifying" }
       await sleep(1500)
+      if (req.kind === "context") {
+        const p = await chain.perks(req.merchant)
+        if (!p || p.bps === 0) return yield { stage: "done", result: { error: "NotInTree" } }
+        return yield { stage: "done", result: { txHash: tx(), paid: p.finalPrice, saved: p.price - p.finalPrice, bps: p.bps } }
+      }
       const h = merchantOr(req.stay.merchant)
       const f = forced()
       if (f) return yield { stage: "done", result: { error: f } }
@@ -185,6 +190,29 @@ export function createMockSdk(opts: MockOptions = {}): Sdk {
     },
     bookWithDiscount: (stay, season) => drain({ kind: "discount", stay, season }),
     postReview: (stay, rating, text) => drain({ kind: "review", stay, rating, text }),
+    async listGroups() {
+      return [
+        { id: 0, kind: "chain", name: "BookerBob Lisbon network", operator: "GCHAINADMIN", size: 32 },
+        { id: 1, kind: "attested", name: "REP verified traveler", operator: "GREPATTESTER", size: 4 },
+      ]
+    },
+    async perks(merchant) {
+      const h = merchantOr(merchant)
+      if (!h || h.kind === "shop") return null
+      const own = myStays.some((s) => s.merchant === merchant && s.checkedIn)
+      const items = [
+        { group: { kind: "merchant" as const, id: merchant }, label: "returning guest", bps: 1000, eligible: own },
+        { group: { kind: "group" as const, id: 0 }, label: "BookerBob Lisbon network", bps: 500, eligible: myStays.some((s) => s.checkedIn) },
+        { group: { kind: "group" as const, id: 1 }, label: "REP verified traveler", bps: 500, eligible: false },
+      ]
+      const bps = Math.min(1500, items.filter((i) => i.eligible).reduce((a, i) => a + i.bps, 0))
+      return { merchant, items, maxBps: 1500, bps, price: h.price, finalPrice: (h.price * BigInt(10_000 - bps)) / 10_000n }
+    },
+    async bookWithPerks(merchant, season) {
+      let last: any = { error: "Unknown" }
+      for await (const ev of prover.prove({ kind: "context", merchant, season })) if (ev.stage === "done") last = ev.result
+      return last
+    },
     async faucet() {
       const nw = need()
       if (nw) return nw

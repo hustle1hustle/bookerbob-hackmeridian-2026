@@ -84,16 +84,50 @@ export interface Stay {
 export type ProofRequest =
   | { kind: "review"; stay: Stay; rating: 1 | 2 | 3 | 4 | 5; text: string }
   | { kind: "discount"; stay: Stay; season: number }
+  /** Stacked context claims at `merchant`: every policy group this browser qualifies for, one transaction. */
+  | { kind: "context"; merchant: number; season: number }
+
+/** A tree a perk is earned in: the merchant's own customers, or a context group (chain network, attested provider). */
+export type GroupRef = { kind: "merchant"; id: number } | { kind: "group"; id: number }
+
+export interface ContextGroup {
+  id: number
+  /** "chain" (filled at checkout by member places) or "attested" (filled by a context provider). */
+  kind: string
+  name: string
+  operator: string
+  size: number
+}
+
+/** One line of "your perks here". */
+export interface Perk {
+  group: GroupRef
+  label: string
+  bps: number
+  /** This browser holds a stay identity that is a member of the group. */
+  eligible: boolean
+}
+
+export interface Perks {
+  merchant: number
+  items: Perk[]
+  maxBps: number
+  /** Sum of eligible bps, capped at maxBps. */
+  bps: number
+  price: Usdc
+  finalPrice: Usdc
+}
 
 export type ReviewDone = { reviewId: number }
 export type DiscountDone = { paid: Usdc; saved: Usdc }
+export type ContextDone = DiscountDone & { bps: number }
 
 /** Real events the UI animates on. No fake progress. */
 export type ProofEvent =
   | { stage: "download"; loaded: number; total: number } // one-time proving files (~4 MB), skipped when cached
   | { stage: "proving" } // snarkjs in the browser, 0.3 to 1.5 s
   | { stage: "verifying" } // transaction submitted, Stellar verifies the Groth16 proof on chain
-  | { stage: "done"; result: WriteResult<ReviewDone | DiscountDone> }
+  | { stage: "done"; result: WriteResult<ReviewDone | DiscountDone | ContextDone> }
 
 export interface Chain {
   /** Views: free, no wallet. */
@@ -113,6 +147,12 @@ export interface Chain {
   postReview(stay: Stay, rating: 1 | 2 | 3 | 4 | 5, text: string): Promise<WriteResult<ReviewDone>>
   /** Arbiter (demo arbiter on testnet: the backend checks the disclosure, then attests). */
   attest(reviewId: number): Promise<WriteResult>
+  /** Context groups (chains, attested providers). */
+  listGroups(): Promise<ContextGroup[]>
+  /** "Your perks here": the merchant's policy and what this browser qualifies for. null when the place has no policy. */
+  perks(merchant: number): Promise<Perks | null>
+  /** Books with every eligible perk stacked (drains prover.prove({ kind: "context" })). */
+  bookWithPerks(merchant: number, season: number): Promise<WriteResult<DiscountDone & { bps: number }>>
   /** Test USDC for the connected wallet (adds the trustline first for a G-account). */
   faucet(): Promise<WriteResult>
   /** Connected wallet's test USDC balance, null when not connected. */

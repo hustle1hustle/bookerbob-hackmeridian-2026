@@ -18,6 +18,16 @@ export const reviewScope = (merchant: number): bigint => k(concat([toUtf8Bytes("
 export const discountScope = (merchant: number, season: number): bigint =>
   k(concat([toUtf8Bytes("pos/discount"), be4(merchant), be4(season)]))
 
+/** Which tree a context claim proves: a merchant's customer tree or a context group (matches GroupRef). */
+export type GroupRef = { kind: "merchant"; id: number } | { kind: "group"; id: number }
+
+/** Raw context-claim scope: keccak256("pos/ctx" || be32(merchant) || tag || be32(id) || be32(season)), tag 0 merchant, 1 group.
+ *  A claim on the booking merchant's own tree uses discountScope instead (shared nullifier with plain discounts). */
+export const ctxScope = (merchant: number, group: GroupRef, season: number): bigint =>
+  group.kind === "merchant" && group.id === merchant
+    ? discountScope(merchant, season)
+    : k(concat([toUtf8Bytes("pos/ctx"), be4(merchant), new Uint8Array([group.kind === "merchant" ? 0 : 1]), be4(group.id), be4(season)]))
+
 /** Raw review message: keccak256(be32(rating) || content_hash || disclosure_commit). Hex args with 0x. */
 export const reviewMessage = (rating: number, contentHash: string, disclosureCommit: string): bigint =>
   k(concat([be4(rating), contentHash, disclosureCommit]))
