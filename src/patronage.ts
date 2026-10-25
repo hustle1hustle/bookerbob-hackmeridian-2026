@@ -120,11 +120,14 @@ export async function decorate(checkout: any, s: Session | undefined) {
   if (s.claimed && !s.verified && !s.paid) {
     const subtotal = checkout.totals?.find((t: any) => t.type === "subtotal")?.amount ?? 0
     const p = await perks()
-    const bps = p ? Math.min(p.maxBps, p.items.reduce((a, it) => a + it.bps, 0)) : (await merchant()).discountBps
+    // Provisional = the returning-customer perk (what a past purchase here earns); stacked perks can raise
+    // it up to the cap, and the final code always equals what the contract applies for the proven claims.
+    const own = p?.items.find((it) => it.group.kind === "merchant" && it.group.id === MERCHANT)?.bps ?? (await merchant()).discountBps
+    const cap = p ? Math.min(p.maxBps, p.items.reduce((a, it) => a + it.bps, 0)) : own
     checkout.discounts ??= { codes: [], applied: [] }
     checkout.discounts.applied = [
       ...(checkout.discounts.applied ?? []),
-      { title: `context perks up to ${bps / 100}%`, amount: Math.floor((subtotal * bps) / 10_000), provisional: true, eligibility: NS },
+      { title: `returning customer ${own / 100}%, perks up to ${cap / 100}%`, amount: Math.floor((subtotal * own) / 10_000), provisional: true, eligibility: NS, up_to_bps: cap },
     ]
     checkout.messages = [
       ...(checkout.messages ?? []),
