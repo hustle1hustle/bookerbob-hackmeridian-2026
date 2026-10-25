@@ -11,19 +11,22 @@ export const EXT_VERSION = "2026-10-25"
 export const STELLAR_HANDLER_ID = "stellar.usdc"
 export const STELLAR_HANDLER_NS = "com.bookerbob.stellar_usdc"
 
-/** The store prices in AED; the core merchant holds one price in test USDC. Fixed demo rate. */
-export const STORE_TOTAL_FOR_PRICE = Number(process.env.UCP_STORE_PRICE_MINOR ?? 15000) // 150.00 AED
+/** The store prices in AED minor units; the chain in raw test USDC (7 decimals). Fixed demo rate:
+ *  150.00 AED = 40.80 USDC, so 1 fils = 27_200 raw. */
+export const RAW_PER_STORE_MINOR = BigInt(process.env.UCP_RAW_PER_STORE_MINOR ?? 27_200)
 
 export interface Session {
   checkoutId: string
   claimed: boolean
   season: number
   /** Set once a proof checked out against the contract (simulation). */
-  verified?: { guest: string; nullifier: string; root: string; amount: string; at: number }
+  verified?: { guest: string; nullifier: string; root: string; proof: { a: string; b: string; c: string }; at: number }
+  /** What the merchant admin co-signed for the Stellar rail. */
+  quote?: { payer: string; amount: string; orderRef: string; itemsMinor: number; at: number }
   code?: { code: string; id: string; endsAt: string }
   /** Fresh per-purchase commitment the buyer wants added to the merchant tree once paid. */
   nextCommitment?: string
-  paid?: { via: "stellar" | "card"; txHash?: string; order?: { id: string; name: string } | null; joinTx?: string; at: number }
+  paid?: { via: "stellar" | "card"; txHash?: string; order?: { id: string; name: string } | null; joinTx?: string; redeemTx?: string; at: number }
 }
 
 interface State {
@@ -84,7 +87,7 @@ export async function verificationAction(s: Session) {
 /** The extension object the business returns on every checkout response it has a session for. */
 export async function extensionView(s: Session) {
   if (s.paid) return { status: "joined", paid: s.paid, season: s.season }
-  if (s.verified && s.code) return { status: "verified", code: s.code.code, code_expires_at: s.code.endsAt, nullifier: s.verified.nullifier, payer: s.verified.guest, amount_usdc_raw: s.verified.amount, apply: { tool: "update_checkout", field: "checkout.discounts.codes" } }
+  if (s.verified && s.code) return { status: "verified", code: s.code.code, code_expires_at: s.code.endsAt, nullifier: s.verified.nullifier, payer: s.verified.guest, apply: { tool: "update_checkout", field: "checkout.discounts.codes" } }
   if (s.claimed) return { status: "verification_required", action: await verificationAction(s) }
   return { status: "not_claimed" }
 }

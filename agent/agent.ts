@@ -6,7 +6,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs"
 mkdirSync("evidence", { recursive: true })
 import { randomBytes, randomUUID } from "node:crypto"
 import { Asset, BASE_FEE, Keypair, Operation, TransactionBuilder, rpc } from "@stellar/stellar-sdk"
-import { NET, MERCHANT, bookWithDiscount, book, discountMessage, discountScope, leaves, loadArtifacts, proveMembership, stayIdentity } from "../src/core.ts"
+import { NET, MERCHANT, payQuote, discountMessage, discountScope, leaves, loadArtifacts, proveMembership, stayIdentity } from "../src/core.ts"
 
 const arg = (k: string, d?: string) => {
   const i = process.argv.indexOf(`--${k}`)
@@ -18,6 +18,7 @@ const FAUCET = process.env.CORE_API_URL ? `${process.env.CORE_API_URL.replace(/\
 const NS = "com.bookerbob.patronage"
 const WALLET = "agent/.buyer.json"
 const PAYERS = "agent/.payers.json"
+const USED = "agent/.payers-used.json"
 
 const t0 = Date.now()
 const say = (s: string) => console.log(`[${((Date.now() - t0) / 1000).toFixed(1).padStart(5)}s] ${s}`)
@@ -55,6 +56,9 @@ async function freshPayer(usdcIssuer: string): Promise<Keypair> {
     const secret = pool.shift()
     if (!secret) throw new Error("no faucet (CORE_API_URL) and no pre-made payers left: run scripts/make-payers.ts and fund them")
     writeFileSync(PAYERS, JSON.stringify(pool), { mode: 0o600 })
+    // keep spent payers (test funds may remain after a failed run)
+    const used: string[] = existsSync(USED) ? JSON.parse(readFileSync(USED, "utf8")) : []
+    writeFileSync(USED, JSON.stringify([...used, secret]), { mode: 0o600 })
     return Keypair.fromSecret(secret)
   }
   const kp = Keypair.random()
@@ -119,7 +123,6 @@ async function main() {
   })
   say(`checkout ${co.id.split("/").pop().slice(0, 8)} subtotal ${money(co.totals.find((t: any) => t.type === "subtotal").amount)}${returning ? `, provisional discount ${money(co.discounts.applied.find((d: any) => d.provisional)?.amount ?? 0)}` : ""}`)
 
-  let paid: { txHash: string; amount: bigint }
   if (returning) {
     const action = co[NS]?.action
     if (co[NS]?.status !== "verification_required" || !action) throw new Error(`no verification action: ${JSON.stringify(co[NS])}`)
@@ -150,11 +153,15 @@ async function main() {
     if (!applied) throw new Error(`code not applied: ${JSON.stringify(co.messages)}`)
     say(`code applied by the store: -${money(applied.amount)}`)
 
-    // 8. pay: one Stellar tx re-verifies the proof, burns the nullifier and moves test USDC
-    paid = await bookWithDiscount(payer, action.scope.season, p.proof, p.root, p.nullifier)
-  } else {
-    paid = await book(payer)
   }
+
+  // 8. the store co-signs the exact amount and order ref; the payer signs and sends. For a returning
+  //    customer this one Stellar tx re-verifies the proof, burns the nullifier and applies the discount.
+  co = await ucp("update_checkout", { id: co.id, checkout: { "com.bookerbob.stellar_usdc": { payer: payer.publicKey() } } })
+  const q = co["com.bookerbob.stellar_usdc"]?.quote
+  if (!q) throw new Error(`no payment quote: ${JSON.stringify(co["com.bookerbob.stellar_usdc"])}`)
+  say(`store co-signed ${q.function}: ${usdc(q.amount_raw)} before discount, pays ${usdc(q.pays_raw)}, order ref ${q.order_ref.slice(0, 8)}…`)
+  const paid = await payQuote(payer, q.tx_xdr)
   say(`paid ${usdc(paid.amount)} on Stellar, tx ${paid.txHash}`)
 
   // 9. complete with the Stellar payment as the credential
@@ -167,7 +174,7 @@ async function main() {
   w.purchases[key] = made + 1
   writeFileSync(WALLET, JSON.stringify(w), { mode: 0o600 })
   say(`order ${done.order?.label ?? "(not recorded in the store)"} completed. ${done.payment?.receipt?.explorer ?? ""}`)
-  say(`store saw: a valid proof, a fresh payer, a fresh customer code. Not who the buyer is, nor which past order.`)
+  say(returning ? "store saw: a valid proof, a fresh payer, a fresh customer code. Not who the buyer is, nor which past order." : "store saw: a fresh payer and a fresh customer code. Next time this buyer can prove it was here.")
 }
 
 main().then(() => process.exit(0)).catch((e) => {

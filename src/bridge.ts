@@ -4,11 +4,11 @@
 //   GET  /.well-known/ucp   business profile
 //   POST /mcp               UCP over MCP (JSON-RPC 2.0)
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
-import { randomBytes } from "node:crypto"
+import { createHash, randomBytes } from "node:crypto"
 import { Keypair } from "@stellar/stellar-sdk"
 import { SHOP, StoreError, createSingleUseCode, deactivateCode, recordPaidOrder, storeManifest, storeRpc, storeTool, ordersWithCode } from "./shopify.ts"
-import { MERCHANT, NET, insertCommitment, isAccount, merchant, readPayment, simulateDiscount, isSpent, contractError } from "./core.ts"
-import { EXT_VERSION, NS, STELLAR_HANDLER_ID, STELLAR_HANDLER_NS, STORE_TOTAL_FOR_PRICE, claims, decorate, openSession, save, session, st, type Session } from "./patronage.ts"
+import { MERCHANT, NET, insertCommitment, isAccount, merchant, readPayment, simulateDiscount, isSpent, contractError, quotePayment, redeem } from "./core.ts"
+import { EXT_VERSION, NS, STELLAR_HANDLER_ID, STELLAR_HANDLER_NS, RAW_PER_STORE_MINOR, claims, decorate, openSession, save, session, st, type Session } from "./patronage.ts"
 
 const PORT = Number(process.env.PORT ?? 8787)
 const PUBLIC_URL = (process.env.UCP_PUBLIC_URL ?? `http://localhost:${PORT}`).replace(/\/$/, "")
@@ -68,6 +68,7 @@ function forStore(args: any) {
   delete a.meta
   if (a.checkout) {
     delete a.checkout[NS]
+    delete a.checkout[STELLAR_HANDLER_NS]
     if (Array.isArray(a.checkout.context?.eligibility)) {
       a.checkout.context.eligibility = a.checkout.context.eligibility.filter((x: string) => x !== NS)
       if (!a.checkout.context.eligibility.length) delete a.checkout.context.eligibility
@@ -110,11 +111,51 @@ async function updateCheckout(args: any) {
       return out
     }
   }
-  // Only the extension changed: no store round trip needed beyond a read.
+  // Only the extensions changed: no store round trip needed beyond a read.
   const rest = forStore(args)
   const touchesStore = rest.checkout && Object.keys(rest.checkout).length > 0
   const co = touchesStore ? await storeTool("update_checkout", rest) : await storeTool("get_checkout", { id })
-  return decorate(co, s)
+  const out = await decorate(co, s)
+  const ask = args.checkout?.[STELLAR_HANDLER_NS]
+  if (ask?.payer) {
+    const q = s ? await quote(s, co, String(ask.payer)) : { error: "unknown checkout" }
+    out[STELLAR_HANDLER_NS] = q
+  }
+  return out
+}
+
+const orderRefOf = (s: Session) => createHash("sha256").update(`ucp:${SHOP}:${s.checkoutId}`).digest()
+
+/**
+ * Stellar rail: the merchant admin co-signs the pre-discount items amount and an order ref for this
+ * checkout; the payer signs and sends. The contract applies the discount, so the store's code and the
+ * chain cannot disagree on the percentage. Shipping stays off chain in this demo.
+ */
+async function quote(s: Session, co: any, payer: string) {
+  if (!ADMIN) return { error: "merchant admin key not configured" }
+  if (!isAccount(payer)) return { error: "payer must be a Stellar address" }
+  if (s.claimed && !s.verified) return { error: `resolve the ${NS} claim first` }
+  if (s.verified && payer !== s.verified.guest) return { error: "the payer must be the one the proof is bound to" }
+  if (s.verified && !(co.discounts?.codes ?? []).map((c: string) => c.toUpperCase()).includes(s.code!.code)) return { error: "apply the returning-customer code first" }
+  const itemsMinor = co?.totals?.find((t: any) => t.type === "subtotal")?.amount
+  if (!Number.isInteger(itemsMinor) || itemsMinor <= 0) return { error: "empty cart" }
+  const amount = BigInt(itemsMinor) * RAW_PER_STORE_MINOR
+  const orderRef = orderRefOf(s)
+  try {
+    const xdr = await quotePayment(ADMIN, {
+      guest: payer,
+      amount,
+      orderRef,
+      discount: s.verified ? { season: s.season, proof: s.verified.proof, root: BigInt(s.verified.root), nullifier: BigInt(s.verified.nullifier) } : undefined,
+    })
+    s.quote = { payer, amount: amount.toString(), orderRef: orderRef.toString("hex"), itemsMinor, at: Date.now() }
+    save()
+    const bps = s.verified ? (await merchant()).discountBps : 0
+    log(`checkout ${short(s.checkoutId)} quote co-signed: ${amount} raw${bps ? `, contract applies ${bps / 100}%` : ""}`)
+    return { quote: { tx_xdr: xdr, amount_raw: amount.toString(), pays_raw: ((amount * BigInt(10_000 - bps)) / 10_000n).toString(), order_ref: orderRef.toString("hex"), function: s.verified ? "book_with_discount_amount" : "book_amount" } }
+  } catch (e) {
+    return { error: `could not co-sign: ${contractError(e)}` }
+  }
 }
 
 async function verifyProof(s: Session, p: any): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -146,7 +187,7 @@ async function verifyProof(s: Session, p: any): Promise<{ ok: true } | { ok: fal
   const code = `BB-${randomBytes(6).toString("hex").toUpperCase()}`
   const bps = (await merchant()).discountBps
   const made = await createSingleUseCode(code, bps / 100, CODE_LIFE_SEC, `returning customer, proof checked on Stellar (${bps / 100}%)`)
-  s.verified = { guest: payer, nullifier: key, root: root.toString(), amount: sim.amount.toString(), at: Date.now() }
+  s.verified = { guest: payer, nullifier: key, root: root.toString(), proof, at: Date.now() }
   s.code = { code, id: made.id, endsAt: made.endsAt }
   st().nullifiers[key] = s.checkoutId
   save()
@@ -165,7 +206,16 @@ async function completeCheckout(args: any) {
   if (!stellar) {
     // Shopify test card path: the store completes; the bridge only records the join.
     const co = await storeTool("complete_checkout", { ...forStore(args), meta: { "idempotency-key": args.meta?.["idempotency-key"] } })
-    if (s && co?.status === "completed") await afterPaid(s, { via: "card", order: co.order ? { id: co.order.id, name: co.order.label ?? co.order.id } : null })
+    if (s && co?.status === "completed") {
+      await afterPaid(s, { via: "card", order: co.order ? { id: co.order.id, name: co.order.label ?? co.order.id } : null })
+      // The card paid; Stellar still burns the discount nullifier, so one discount per purchase per season holds across rails.
+      if (s.verified && ADMIN) {
+        const v = s.verified
+        const r = await redeem(ADMIN, { guest: v.guest, season: s.season, orderRef: orderRefOf(s), proof: v.proof, root: BigInt(v.root), nullifier: BigInt(v.nullifier) })
+        if (r.ok) (s.paid!.redeemTx = r.txHash), save(), log(`checkout ${short(s.checkoutId)} nullifier burned on Stellar via redeem, tx ${r.txHash.slice(0, 10)}`)
+        else log(`redeem failed: ${r.error}`)
+      }
+    }
     return decorate(co, s)
   }
   if (!s) return err("unknown_checkout", "this checkout was not created through this business endpoint")
@@ -182,21 +232,20 @@ async function completeCheckout(args: any) {
     return err("payment_invalid", `could not read the payment: ${contractError(e)}`)
   }
   if (paid.merchant !== MERCHANT) return err("payment_invalid", "payment went to another merchant")
+  // The tx must be the one co-signed for this checkout: same order ref, amount and payer.
+  if (!s.quote || paid.orderRef !== s.quote.orderRef || paid.quoted.toString() !== s.quote.amount || paid.guest !== s.quote.payer) {
+    return err("payment_invalid", "payment is not the co-signed quote for this checkout")
+  }
   if (s.verified) {
-    if (paid.fn !== "book_with_discount" || paid.nullifier?.toString() !== s.verified.nullifier || paid.guest !== s.verified.guest || paid.season !== s.season) {
-      return err("payment_invalid", "payment does not match the verified proof (payer, nullifier or season)")
+    if (paid.fn !== "book_with_discount_amount" || paid.nullifier?.toString() !== s.verified.nullifier || paid.season !== s.season) {
+      return err("payment_invalid", "payment does not match the verified proof (nullifier or season)")
     }
-  } else if (paid.fn !== "book") {
-    return err("payment_invalid", "a checkout without a verified claim is paid with book()")
+  } else if (paid.fn !== "book_amount") {
+    return err("payment_invalid", "a checkout without a verified claim is paid with book_amount()")
   }
-  // The store's items and the on-chain price describe the same thing: one item at the merchant
-  // price, and for a returning customer our code applied at the same percentage as the contract.
-  // Shipping is not part of the on-chain price (the Stellar path records the order without it).
+  // The cart must not have changed since the quote.
   const subtotal = co?.totals?.find((t: any) => t.type === "subtotal")?.amount
-  if (subtotal !== STORE_TOTAL_FOR_PRICE) return err("payment_invalid", `cart subtotal ${subtotal} is not the on-chain price item (${STORE_TOTAL_FOR_PRICE})`)
-  if (s.verified && !(co.discounts?.codes ?? []).map((c: string) => c.toUpperCase()).includes(s.code!.code)) {
-    return err("payment_invalid", "apply the returning-customer code (discounts.codes) before paying")
-  }
+  if (subtotal !== s.quote.itemsMinor) return err("payment_invalid", "the cart changed after the quote")
 
   st().usedTx[txHash] = s.checkoutId
   save()
@@ -205,7 +254,7 @@ async function completeCheckout(args: any) {
     order = await recordPaidOrder({
       lines: (co.line_items ?? []).map((l: any) => ({ variantId: l.item.id, quantity: l.quantity })),
       code: s.code?.code,
-      note: `Paid in test USDC on Stellar testnet, tx ${txHash}. Discount: ${s.verified ? "returning customer, proof verified on chain" : "none"}.`,
+      note: `Paid ${Number(paid.amount) / 1e7} test USDC on Stellar testnet, tx ${txHash}. Discount: ${s.verified ? "returning customer, proof verified on chain" : "none"}.`,
       tags: ["stellar-usdc", s.verified ? "patronage-proof" : "first-purchase"],
     })
   } catch (e) {

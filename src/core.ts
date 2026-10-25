@@ -5,6 +5,7 @@ import { getClient, views, write, proofArg, type NetworkConfig, type Signer, TES
 import { discountScope, discountMessage, semaphoreHash, stayIdentity } from "../.core/packages/sdk/src/derive.ts"
 import { proveMembership, loadArtifacts } from "../.core/packages/sdk/src/prove.ts"
 import type { SorobanProofHex } from "../.core/packages/sdk/src/convert.ts"
+import { contractId } from "../.core/packages/sdk/src/deployment.ts"
 
 export { discountScope, discountMessage, semaphoreHash, stayIdentity, proveMembership, loadArtifacts, views, proofArg }
 export type { SorobanProofHex }
@@ -12,9 +13,10 @@ export type { SorobanProofHex }
 export const NET: NetworkConfig = {
   ...TESTNET,
   rpcUrl: process.env.STELLAR_RPC_URL ?? TESTNET.rpcUrl,
-  contractId: process.env.PROOF_OF_STAY_CONTRACT_ID ?? "CBZ7I3VOQEMK5LKDZLCUJ4VU6KQX5WT747XN4KLGM23EIUCISTDX5MTL",
+  // From the core's config/testnet.json (env PROOF_OF_STAY_CONTRACT_ID overrides), never hardcoded.
+  contractId: contractId(),
 }
-export const MERCHANT = Number(process.env.UCP_MERCHANT_ID ?? 5)
+export const MERCHANT = Number(process.env.UCP_MERCHANT_ID)
 
 export const signerOf = (kp: Keypair): Signer => {
   const s = contract.basicNodeSigner(kp, NET.networkPassphrase)
@@ -49,7 +51,7 @@ export async function isSpent(season: number, nullifier: bigint): Promise<boolea
 export async function simulateDiscount(guest: string, season: number, proof: SorobanProofHex, root: bigint, nullifier: bigint): Promise<{ ok: true; amount: bigint } | { ok: false; error: string }> {
   const c: any = await getClient(NET, { publicKey: guest, signTransaction: async () => { throw new Error("simulation only") } })
   try {
-    const t = await c.book_with_discount({ merchant: MERCHANT, guest, season, proof: proofArg(proof), root, nullifier })
+    const t = await c.book_with_discount_amount({ merchant: MERCHANT, guest, season, amount: 1n, order_ref: Buffer.alloc(32), proof: proofArg(proof), root, nullifier })
     // A thrown host error surfaces either here or as a simulation error on the assembled tx.
     if (t.simulation && "error" in t.simulation) return { ok: false, error: contractError(t.simulation.error) }
     return { ok: true, amount: BigInt(t.result) }
@@ -66,12 +68,15 @@ export const contractError = (e: unknown): string => {
 
 /** What a paid booking on chain says, read back from the tx itself (not from the buyer). */
 export interface PaidOnChain {
-  fn: "book" | "book_with_discount"
+  fn: "book_amount" | "book_with_discount_amount"
   merchant: number
   guest: string
   amount: bigint
   season?: number
   nullifier?: bigint
+  /** Pre-discount amount the merchant admin co-signed; `amount` is what was paid. */
+  quoted: bigint
+  orderRef: string
   ledger: number
 }
 
@@ -94,28 +99,49 @@ export async function readPayment(txHash: string): Promise<PaidOnChain> {
   const target = Address.fromScAddress(call.contractAddress).toString()
   if (target !== NET.contractId) throw new Error("not the core contract")
   const fn = String(call.functionName)
-  if (fn !== "book" && fn !== "book_with_discount") throw new Error(`unexpected function ${fn}`)
+  if (fn !== "book_amount" && fn !== "book_with_discount_amount") throw new Error(`unexpected function ${fn}`)
   const args = call.args.map((a: any) => scValToNative(a))
   const amount = BigInt(scValToNative(r.returnValue))
-  const out: PaidOnChain = { fn, merchant: Number(args[0]), guest: String(args[1]), amount, ledger: r.ledger }
-  if (fn === "book_with_discount") {
+  const out: PaidOnChain = { fn, merchant: Number(args[0]), guest: String(args[1]), amount, ledger: r.ledger, quoted: 0n, orderRef: "" }
+  if (fn === "book_with_discount_amount") {
     out.season = Number(args[2])
-    out.nullifier = BigInt(args[5])
+    out.quoted = BigInt(args[3])
+    out.orderRef = Buffer.from(args[4]).toString("hex")
+    out.nullifier = BigInt(args[7])
+  } else {
+    out.quoted = BigInt(args[2])
+    out.orderRef = Buffer.from(args[3]).toString("hex")
   }
   return out
 }
 
 export const isAccount = (a: string) => StrKey.isValidEd25519PublicKey(a) || StrKey.isValidContract(a)
 
-/** Book on chain as the guest key (full price or discount). Returns tx hash and amount. */
-export async function book(guest: Keypair): Promise<{ txHash: string; amount: bigint }> {
-  const r = await write<bigint>(await clientAs(guest), "book", { merchant: MERCHANT, guest: guest.publicKey() })
-  if (!r.ok) throw new Error(r.error)
-  return { txHash: r.txHash, amount: BigInt(r.value as any) }
+/**
+ * The merchant admin co-signs a payment for one order: amount (pre-discount, raw USDC) and order_ref.
+ * Returns a tx the payer signs and submits; the contract applies the discount itself.
+ */
+export async function quotePayment(admin: Keypair, q: { guest: string; amount: bigint; orderRef: Buffer; discount?: { season: number; proof: SorobanProofHex; root: bigint; nullifier: bigint } }): Promise<string> {
+  const c: any = await getClient(NET, { publicKey: q.guest, signTransaction: async () => { throw new Error("payer signs") } })
+  const tx = q.discount
+    ? await c.book_with_discount_amount({ merchant: MERCHANT, guest: q.guest, season: q.discount.season, amount: q.amount, order_ref: q.orderRef, proof: proofArg(q.discount.proof), root: q.discount.root, nullifier: q.discount.nullifier })
+    : await c.book_amount({ merchant: MERCHANT, guest: q.guest, amount: q.amount, order_ref: q.orderRef })
+  if (tx.simulation && "error" in tx.simulation) throw new Error(contractError(tx.simulation.error))
+  await tx.signAuthEntries({ address: admin.publicKey(), signAuthEntry: signerOf(admin).signAuthEntry })
+  return tx.toXDR()
 }
 
-export async function bookWithDiscount(guest: Keypair, season: number, proof: SorobanProofHex, root: bigint, nullifier: bigint): Promise<{ txHash: string; amount: bigint }> {
-  const r = await write<bigint>(await clientAs(guest), "book_with_discount", { merchant: MERCHANT, guest: guest.publicKey(), season, proof: proofArg(proof), root, nullifier })
-  if (!r.ok) throw new Error(r.error)
-  return { txHash: r.txHash, amount: BigInt(r.value as any) }
+/** Payer side: sign the co-signed tx and send it. */
+export async function payQuote(payer: Keypair, txXdr: string): Promise<{ txHash: string; amount: bigint }> {
+  const c: any = await clientAs(payer)
+  const tx = c.txFromXDR(txXdr)
+  // Re-simulate with the merchant's signed auth entry in place, so footprint and fees cover its check.
+  await tx.simulate()
+  const sent = await tx.signAndSend()
+  return { txHash: sent.sendTransactionResponse?.hash ?? sent.getTransactionResponse?.txHash, amount: BigInt(sent.result) }
+}
+
+/** Card rail: burn the discount nullifier on chain without moving USDC (merchant admin only). */
+export async function redeem(admin: Keypair, r: { guest: string; season: number; orderRef: Buffer; proof: SorobanProofHex; root: bigint; nullifier: bigint }) {
+  return write(await clientAs(admin), "redeem", { merchant: MERCHANT, guest: r.guest, season: r.season, order_ref: r.orderRef, proof: proofArg(r.proof), root: r.root, nullifier: r.nullifier })
 }
