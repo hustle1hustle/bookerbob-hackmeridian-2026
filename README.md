@@ -56,6 +56,15 @@ new customer commitment. Not which leaf, not which past order, not that two purc
 - Card rail: when a human pays by test card through `continue_url`, the bridge calls `redeem()` so the
   discount nullifier still burns on Stellar: one discount per past purchase per season across rails.
 
+## Context perks
+
+The store's policy on chain mirrors the BookerBob places: its own returning customers 10%, the BookerBob
+Lisbon network 5%, REP verified travelers 5%, capped at 15%. The verification action lists every group;
+the agent proves each one it is in (with a still-unspent nullifier) and the payer signs one
+`book_with_context` with all claims and the merchant-co-signed amount. The store's single-use code carries
+the same capped percentage. Network membership comes from a real paid visit to a network place
+(`npm run visit`).
+
 ## Why payment settles in USDC on Stellar
 
 Shopify does not let a general-access agent complete checkout over the API: `complete_checkout` answers
@@ -74,6 +83,7 @@ Contract v2 `CBEGVNZF…L5EBY` (frozen id):
 | first purchase, `book_amount` 40.80 USDC co-signed by the store | [`3babdbf4…`](https://stellar.expert/explorer/testnet/tx/3babdbf4ad9b407bf6155bdc4afa7bc5408af7b2b3fb69bdad26a64938442fa5), `evidence/run-1-first-purchase.log` |
 | returning purchase, `book_with_discount_amount` with proof, 36.72 USDC | [`d61a94c0…`](https://stellar.expert/explorer/testnet/tx/d61a94c0d65637e2996eb2adb09c5159dcf69088e5eaba68f5ddee4bd5ae2623), `evidence/run-2-returning.log` (19 s end to end) |
 | returning purchase through the live bridge on Fly | [`c4507f45…`](https://stellar.expert/explorer/testnet/tx/c4507f4552838e942174e33db278774e0a1682b42371a716a7992e1cbaeb6bdb), `evidence/run-3-live-bridge.log` |
+| context perks stacked: returning customer 10% + BookerBob network 5% (cap 15%), `book_with_context` 34.68 USDC, Shopify order #1009 | [`5f4ff99f…`](https://stellar.expert/explorer/testnet/tx/5f4ff99fcd8b2724d233a51d50ead3e8992c99c518a5dea9399538ea822c3fb7), `evidence/run-5-context-perks.log`, `evidence/order-1009.json` |
 | replayed proof | `evidence/replay.log` |
 
 Earlier on v1 `CBZ7I3VO…5MTL` (`evidence/v1/`): full price [`a76bfa80…`](https://stellar.expert/explorer/testnet/tx/a76bfa80e5d1bba740ca3a8b1a2081bb7fb92247a611a11f035a66c3f95bc843), returning with proof 36.72 USDC [`eb0944c9…`](https://stellar.expert/explorer/testnet/tx/eb0944c9a5d27d67abf7d9809e088b95e4ae978e63b1be39599f8b97aeaf2490), replay refused `NullifierUsed`, forged proof refused `UnknownRoot`.
