@@ -75,21 +75,23 @@ the fallback.
   `https://rep-attest-tier.fly.dev`, code `tier-issuer.mjs` in REP-CORE/rep-context-mcp). It runs the full check
   off chain (REP's key, holder binding, nonce, revocation), spends that verdict once, and signs a 106-byte
   credential with its own P-256 key:
-  `"REPTIER1" | kid u8 | sha256("rep-verified-traveler") | tier u8 | commitment | iat u64 | exp u64 | jti 16B`.
+  `"REPTIER1" | kid u8 | sha256("<contract>:<group>") | tier u8 | commitment | iat u64 | exp u64 | jti 16B`.
   The tier byte is 1 ("qualified at the policy minimum") unless the issuer runs with `REP_TIER_BANDS=1`.
-- Contract (`contracts/proof_of_stay/src/tier.rs`): magic; the group hash and minimum tier pinned per group by the
-  admin (`set_tier_policy`); the issuer key pinned per group and kid (`set_tier_issuer`, rotation = pin a new
-  kid, then remove the old one with `None`); the commitment equals the `id_commitment` argument;
+- Contract (`contracts/proof_of_stay/src/tier.rs`): magic; bytes [9..41) equal `tier_audience(group)` =
+  sha256("<contract strkey>:<group id>"), so a credential works in one group of one deployment and a pending join
+  cannot be front-run elsewhere; the minimum tier per group (`set_tier_policy`); the issuer key pinned per group
+  and kid (`set_tier_issuer`, rotation = pin a new kid, then remove the old one with `None`); the commitment
+  equals the `id_commitment` argument;
   `iat - 60 <= now < exp` and `exp - iat <= 3600`; a single-use `jti`; one `secp256r1_verify` over sha256(cred)
   (S normalized to low form, which the host requires).
 - On the ledger: the 106-byte credential and its signature. No spend, dates, source, verdict or device key.
 - Open: one REP presentation mints one credential, but a notarized session can yield several presentations, so
   sybil resistance per account needs a stable account id from REP.
 - Cost: about 3.4M CPU instructions (under 1% of the 400M per-tx limit); the wasm is 53 KB.
-- Tests: `cargo test` in `contracts/proof_of_stay` (`test_tier.rs`: valid, high S, the issuer's own test vector,
-  forged signature, another commitment, another group, bad magic, unknown kid, tier below policy, expired, not yet
-  valid, too long-lived, replay, replay with S flipped, key rotation and removal, unconfigured group). Fixtures:
-  `fixtures/gen-tier.mjs`, throwaway keys. Testnet smoke on a throwaway instance: valid join
+- Tests: `cargo test` in `contracts/proof_of_stay` (`test_tier.rs`, credentials signed in the test with p256: valid,
+  high S, the issuer's own test vector (signature layout), forged signature, another commitment, another group or
+  deployment, bad magic, unknown kid, tier below policy, expired, not yet
+  valid, too long-lived, replay, replay with S flipped, key rotation and removal, unconfigured group). Testnet smoke on a throwaway instance (layout before the audience binding): valid join
   [`bf1675f8…`](https://stellar.expert/explorer/testnet/tx/bf1675f8a5ff62ba432b4e94ececa15902ad83414d34941c6ed57ebd67e20504),
   replay `#22`, forged `Error(Crypto)`.
 - An earlier version verified the full REP verdict (JWS + KB-JWT) in the contract; it worked, but would have
@@ -99,7 +101,7 @@ Turn it on (testnet, after review):
 
 ```
 scripts/rep-onchain.sh upgrade        # admin: new wasm through upgrade(), storage and contract ID stay
-scripts/rep-onchain.sh set-tier       # admin: pins kid 1 from the live tier issuer and the group 1 policy
+scripts/rep-onchain.sh set-tier       # admin: pins kid 1 from the live tier issuer and the group 1 policy, prints the audience
 fly secrets set --app <backend app> REP_ONCHAIN=1 REP_RELAYER_SECRET="$(stellar keys show <any funded key>)" > /dev/null
 ```
 

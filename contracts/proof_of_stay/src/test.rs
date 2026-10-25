@@ -411,12 +411,22 @@ fn redeem_for_another_guest_fails() {
     assert_eq!(err.err().unwrap().unwrap(), Error::InvalidProof.into());
 }
 
-const WASM: &[u8] = include_bytes!("../target/wasm32v1-none/release/proof_of_stay.wasm");
+/// The built contract, read at run time so `cargo test` compiles on a fresh clone. The upgrade tests need
+/// `stellar contract build` first; without the wasm they say so and skip.
+fn wasm() -> Option<std::vec::Vec<u8>> {
+    let p = concat!(env!("CARGO_MANIFEST_DIR"), "/target/wasm32v1-none/release/proof_of_stay.wasm");
+    let w = std::fs::read(p).ok();
+    if w.is_none() {
+        std::eprintln!("skipped: run `stellar contract build` first to test upgrade() with the built wasm");
+    }
+    w
+}
 
 #[test]
 fn upgrade_by_admin_keeps_state() {
+    let Some(w) = wasm() else { return };
     let c = setup();
-    let hash = c.env.deployer().upload_contract_wasm(WASM);
+    let hash = c.env.deployer().upload_contract_wasm(w.as_slice());
     let root_before = c.client.get_root(&0);
     let admin = c.client.admin();
     c.client.upgrade(&hash);
@@ -426,8 +436,9 @@ fn upgrade_by_admin_keeps_state() {
 
 #[test]
 fn upgrade_by_non_admin_is_refused() {
+    let Some(w) = wasm() else { return };
     let c = setup();
-    let hash = c.env.deployer().upload_contract_wasm(WASM);
+    let hash = c.env.deployer().upload_contract_wasm(w.as_slice());
     let stranger = Address::generate(&c.env);
     let args = (hash.clone(),).into_val(&c.env);
     c.env.mock_auths(&[MockAuth {
@@ -519,9 +530,9 @@ fn chain_group_mirrors_checkouts_and_roots_match_js() {
 #[test]
 fn stacked_claims_are_capped() {
     let g = gsetup();
-    std_policy(&g);
-    let cs = claims(&g, &[claim(&g, "self", GroupRef::Merchant(0)), claim(&g, "chain", GroupRef::Group(0)), claim(&g, "attested", GroupRef::Group(1))]);
-    // 10% + 5% + 5% = 20%, capped at 15%
+    policy(&g, &[(GroupRef::Merchant(0), 1000), (GroupRef::Group(0), 500), (GroupRef::Group(1), 1000)], 1500);
+    let cs = claims(&g, &[claim(&g, "self", GroupRef::Merchant(0)), claim(&g, "attested", GroupRef::Group(1))]);
+    // 10% + 10% = 20%, capped at 15%
     let paid = g.c.client.book_with_context(&0, &g.guest, &1, &None, &cs);
     assert_eq!(paid, 850_000_000);
     std::println!("book_with_context x3 cpu={}", g.c.env.cost_estimate().budget().cpu_instruction_cost());
@@ -613,4 +624,80 @@ fn create_group_needs_contract_admin() {
     let args = (Symbol::new(&g.c.env, "attested"), stranger.clone(), SString::from_str(&g.c.env, "x")).into_val(&g.c.env);
     g.c.env.mock_auths(&[MockAuth { address: &stranger, invoke: &MockAuthInvoke { contract: &g.c.client.address, fn_name: "create_group", args, sub_invokes: &[] } }]);
     assert!(g.c.client.try_create_group(&Symbol::new(&g.c.env, "attested"), &stranger, &SString::from_str(&g.c.env, "x")).is_err());
+}
+
+// ---- audit fixes: season from the ledger (C1), one nullifier per stay per merchant (M1), chain enrollment (M2) ----
+
+use crate::{SeasonCfg, SEASON_EPOCH, SEASON_LEN};
+use soroban_sdk::testutils::Ledger;
+
+#[test]
+fn season_comes_from_the_ledger() {
+    let c = setup();
+    let (guest, season, proof, root, nf) = discount_args(&c);
+    fund(&c, &guest);
+    assert_eq!(season, 1);
+    // a caller-chosen future season is refused, so the same stay cannot renew its discount at will
+    assert_eq!(c.client.try_book_with_discount(&0, &guest, &2, &proof, &root, &nf).err().unwrap().unwrap(), Error::BadSeason.into());
+    // season 1 runs from before the epoch to epoch + 91 days
+    c.env.ledger().set_timestamp(SEASON_EPOCH + SEASON_LEN - 1);
+    assert_eq!(c.client.current_season(), 1);
+    c.client.book_with_discount(&0, &guest, &1, &proof, &root, &nf);
+    // next season the stay earns a new discount, but only under the new season number
+    c.env.ledger().set_timestamp(SEASON_EPOCH + SEASON_LEN);
+    assert_eq!(c.client.current_season(), 2);
+    assert_eq!(c.client.try_book_with_discount(&0, &guest, &1, &proof, &root, &nf).err().unwrap().unwrap(), Error::BadSeason.into());
+}
+
+#[test]
+fn every_discount_path_checks_the_season() {
+    let g = gsetup();
+    std_policy(&g);
+    let s = claim(&g, "self", GroupRef::Merchant(0));
+    let order = BytesN::from_array(&g.c.env, &[5u8; 32]);
+    let bad: soroban_sdk::Error = Error::BadSeason.into();
+    assert_eq!(g.c.client.try_book_with_context(&0, &g.guest, &3, &None, &claims(&g, &[s.clone()])).err().unwrap().unwrap(), bad);
+    assert_eq!(g.c.client.try_book_with_discount_amount(&0, &g.guest, &3, &1_000_000, &order, &s.proof, &s.root, &s.nullifier).err().unwrap().unwrap(), bad);
+    assert_eq!(g.c.client.try_redeem(&0, &g.guest, &3, &order, &s.proof, &s.root, &s.nullifier).err().unwrap().unwrap(), bad);
+}
+
+#[test]
+fn season_clock_is_admin_set() {
+    let c = setup();
+    c.env.ledger().set_timestamp(SEASON_EPOCH + 10 * SEASON_LEN);
+    assert_eq!(c.client.current_season(), 11);
+    c.client.set_season(&SeasonCfg { epoch: SEASON_EPOCH, len: 1000 * SEASON_LEN });
+    assert_eq!(c.client.current_season(), 1);
+    assert!(c.client.try_set_season(&SeasonCfg { epoch: 0, len: 0 }).is_err());
+}
+
+#[test]
+fn chain_claim_at_a_member_shares_the_own_discount() {
+    let g = gsetup();
+    std_policy(&g);
+    // a plain discount with the stay, then the same stay as a network member at the same place: refused
+    let s = claim(&g, "self", GroupRef::Merchant(0));
+    g.c.client.book_with_discount(&0, &g.guest, &1, &s.proof, &s.root, &s.nullifier);
+    let err = g.c.client.try_book_with_context(&0, &g.guest, &1, &None, &claims(&g, &[claim(&g, "chain", GroupRef::Group(0))]));
+    assert_eq!(err.err().unwrap().unwrap(), Error::NullifierUsed.into());
+}
+
+#[test]
+fn self_and_chain_for_one_stay_in_one_booking_is_refused() {
+    let g = gsetup();
+    std_policy(&g);
+    let cs = claims(&g, &[claim(&g, "self", GroupRef::Merchant(0)), claim(&g, "chain", GroupRef::Group(0))]);
+    assert_eq!(g.c.client.try_book_with_context(&0, &g.guest, &1, &None, &cs).err().unwrap().unwrap(), Error::NullifierUsed.into());
+}
+
+#[test]
+fn chain_enrollment_never_blocks_checkout() {
+    let g = gsetup();
+    // a leaf already in the chain group (backfilled by the chain admin) is skipped, the checkout goes through
+    let cm = U256::from_u32(&g.c.env, 777);
+    g.c.client.add_member(&0, &cm);
+    let before = g.c.client.get_group(&0).tree.size;
+    g.c.client.checkout(&0, &cm);
+    assert_eq!(g.c.client.get_group(&0).tree.size, before);
+    assert_eq!(g.c.client.leaf_index(&0, &cm), Some(g.c.client.get_merchant(&0).tree.size - 1));
 }

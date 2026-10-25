@@ -2,7 +2,7 @@
 // (.core = public repo, pinned commit; see PRIOR_WORK.md) and the deployed contract by id.
 import { Keypair, contract, rpc, scValToNative, xdr, Address, StrKey, TransactionBuilder } from "@stellar/stellar-sdk"
 import { getClient, views, write, proofArg, type NetworkConfig, type Signer, TESTNET } from "../../packages/sdk/src/contract.ts"
-import { discountScope, discountMessage, semaphoreHash, stayIdentity, ctxScope, type GroupRef } from "../../packages/sdk/src/derive.ts"
+import { discountScope, discountMessage, semaphoreHash, stayIdentity, ctxScope, currentSeason as sdkCurrentSeason, type GroupRef } from "../../packages/sdk/src/derive.ts"
 import { proveMembership, loadArtifacts } from "../../packages/sdk/src/prove.ts"
 import type { SorobanProofHex } from "../../packages/sdk/src/convert.ts"
 import { contractId } from "../../packages/sdk/src/deployment.ts"
@@ -77,7 +77,8 @@ export async function simulateContext(guest: string, season: number, claims: Cla
 }
 
 /** Season = calendar quarter, e.g. 20264 for Oct-Dec 2026: one discount per past purchase per quarter. */
-export const currentSeason = (d = new Date()) => d.getUTCFullYear() * 10 + Math.floor(d.getUTCMonth() / 3) + 1
+// the contract accepts only its own current season (2026-10-01 epoch, 91 days), so the store uses the same clock
+export const currentSeason = (d = new Date()) => sdkCurrentSeason(Math.floor(d.getTime() / 1000))
 
 /** Merchant admin inserts a buyer's fresh commitment after a paid order. */
 export async function insertCommitment(admin: Keypair, commitment: bigint) {

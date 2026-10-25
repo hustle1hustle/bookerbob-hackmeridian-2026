@@ -8,7 +8,7 @@
 //! cred, 106 bytes, big-endian:
 //!   [0..8)    magic "REPTIER1"
 //!   [8]       kid, pinned per group by the contract admin to a SEC-1 P-256 key
-//!   [9..41)   group hash, sha256 of the group's name at the issuer (e.g. "rep-verified-traveler")
+//!   [9..41)   audience: sha256("<contract strkey>:<group id>"), so a credential works in one group of one contract
 //!   [41]      tier, 1..
 //!   [42..74)  id_commitment
 //!   [74..82)  iat, unix seconds
@@ -31,10 +31,32 @@ pub const MAX_LIFE: u64 = 3600;
 #[derive(Clone)]
 #[contracttype]
 pub struct TierPolicy {
-    /// Expected bytes [9..41) of the credential.
-    pub group_hash: BytesN<32>,
     /// Lowest tier admitted (1 = any qualified holder).
     pub min_tier: u32,
+}
+
+/// sha256("<this contract's strkey>:<group decimal>"): binds a credential to one group of one deployment, so a
+/// pending join cannot be front-run into another group or replayed on another contract.
+pub fn audience(env: &Env, group: u32) -> [u8; 32] {
+    let id = env.current_contract_address().to_string();
+    let mut buf = [0u8; 56 + 1 + 10];
+    let n = id.len() as usize;
+    id.copy_into_slice(&mut buf[..n]);
+    buf[n] = b':';
+    let mut digits = [0u8; 10];
+    let mut i = digits.len();
+    let mut g = group;
+    loop {
+        i -= 1;
+        digits[i] = b'0' + (g % 10) as u8;
+        g /= 10;
+        if g == 0 {
+            break;
+        }
+    }
+    let d = &digits[i..];
+    buf[n + 1..n + 1 + d.len()].copy_from_slice(d);
+    env.crypto().sha256(&Bytes::from_slice(env, &buf[..n + 1 + d.len()])).to_array()
 }
 
 pub struct Checked {
@@ -53,12 +75,12 @@ fn be_u64(b: &[u8]) -> u64 {
 }
 
 /// Format and policy checks that need no key. Returns the kid; the caller looks up the key and verifies.
-pub fn check(env: &Env, policy: &TierPolicy, commitment: &U256, cred: &BytesN<CRED_LEN>) -> Checked {
+pub fn check(env: &Env, group: u32, policy: &TierPolicy, commitment: &U256, cred: &BytesN<CRED_LEN>) -> Checked {
     let c = cred.to_array();
     if &c[0..8] != MAGIC {
         fail(env, Error::RepMalformed);
     }
-    if c[9..41] != policy.group_hash.to_array() {
+    if c[9..41] != audience(env, group) {
         fail(env, Error::RepIssuer);
     }
     if c[41] == 0 || (c[41] as u32) < policy.min_tier {
