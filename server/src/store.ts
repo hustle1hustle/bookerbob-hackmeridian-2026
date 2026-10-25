@@ -3,7 +3,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs"
 import { join } from "node:path"
 import type { DisclosurePackage } from "@bookerbob/pos-sdk"
 
-export interface ReviewMeta { text: string; txHash: string; time: number }
+export interface ReviewMeta { text: string; txHash: string; time: number; demoActivity?: boolean }
 export interface Dispute { id: number; merchant: number; pkg: DisclosurePackage; openedAt: number; attestTx?: string }
 interface Db { reviews: Record<string, ReviewMeta>; disputes: Dispute[] }
 

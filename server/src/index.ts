@@ -100,7 +100,7 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
     return json(res, 200, rs.map((r) => {
       const meta = store.review(r.id)
       const text = meta && contentHash(meta.text).slice(2) === r.contentHash ? meta.text : null
-      return { ...r, text, txHash: meta?.txHash ?? null, time: meta?.time ?? null }
+      return { ...r, text, txHash: meta?.txHash ?? null, time: meta?.time ?? null, demoActivity: meta?.demoActivity ?? false }
     }))
   }
   // The disclosure package stays server-side (the arbiter's side); the public queue gets status only.
@@ -130,7 +130,7 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
     const r = await ops.postReview({ merchant: b.merchant, rating: b.rating, text: b.text, disclosureCommit: b.disclosureCommit.replace(/^0x/, ""), proof: b.proof, root: BigInt(b.root), nullifier: BigInt(b.nullifier) })
     if (!r.ok) return fail(res, r)
     const id = Number(r.value)
-    store.putReview(id, { text: b.text, txHash: r.txHash, time: Date.now() })
+    store.putReview(id, { text: b.text, txHash: r.txHash, time: Date.now(), ...(b.label === "demo-activity" ? { demoActivity: true } : {}) })
     return json(res, 200, { txHash: r.txHash, reviewId: id })
   }
   if (path === "/api/checkout") {

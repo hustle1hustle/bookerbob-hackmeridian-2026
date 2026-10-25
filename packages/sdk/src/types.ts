@@ -65,6 +65,8 @@ export interface Review {
   time: number | null
   /** Transaction that verified the proof, for the "proof verified on Stellar" link. null if not indexed. */
   txHash: string | null
+  /** Posted by the scripted testnet demo activity (scripts/live-fill.ts); show the label "testnet demo activity". */
+  demoActivity?: boolean
 }
 
 /** A stay (or visit, order) this browser holds a per-stay Semaphore identity for. Local only, never on chain. */
