@@ -63,7 +63,10 @@ export async function simulateDiscount(guest: string, season: number, proof: Sor
 const ERRORS = ["", "MerchantNotFound", "TreeFull", "BadLeaf", "DuplicateLeaf", "UnknownRoot", "NullifierUsed", "NonCanonical", "InvalidProof", "BadRating", "ReviewNotFound", "BadParams"]
 export const contractError = (e: unknown): string => {
   const m = String((e as any)?.message ?? e).match(/Error\(Contract, #(\d+)\)/)
-  return m ? ERRORS[Number(m[1])] ?? `Contract#${m[1]}` : String((e as any)?.message ?? e).slice(0, 200)
+  if (m) return ERRORS[Number(m[1])] ?? `Contract#${m[1]}`
+  // Bytes that are not curve points fail inside the host before the pairing check.
+  if (/Error\((WasmVm|Crypto), /.test(String((e as any)?.message ?? e))) return "InvalidProof (malformed curve points)"
+  return String((e as any)?.message ?? e).slice(0, 200)
 }
 
 /** What a paid booking on chain says, read back from the tx itself (not from the buyer). */
