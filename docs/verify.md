@@ -29,7 +29,7 @@ GATED (login): official rules https://app.hackmeridian.com/portal/rules and subm
 - Tree cost: 16 Poseidon hashes ~17-23M CPU native (measure in wasm). Depth 10 insert = 10 hashes.
 - Storage: nullifiers as PERSISTENT entries (temporary entries expire and reopen double spend). Testnet min persistent TTL ~7 days: extend TTL on instance, roots, tree nodes before judging (26-28 Oct and after).
 - USDC testnet: issuer GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5, SAC CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA. Faucet https://faucet.circle.com (needs trustline). Own asset: `stellar contract asset deploy --asset CODE:G... --network testnet`.
-- Tooling for agents: stellar-dev-skill (skills/zk-proofs), stellar-docs MCP, Raven MCP.
+- Tooling for agents: stellar-dev-skill (skills/zk-proofs), stellar-docs MCP, Raven MCP. Full Raven write-up (and how it relates to passkeys): [`docs/raven.md`](raven.md).
 ## Semaphore v4: verified against source (semaphore main dbab555, packages 4.14.5)
 
 CRIT: the circuit does not bound merkleProofLength. depth > MAX_DEPTH yields root = 0 with a valid proof for any secret (binary-merkle-root.circom header). The contract must accept only roots in its own root history and never root 0.
