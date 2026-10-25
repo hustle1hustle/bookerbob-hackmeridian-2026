@@ -57,10 +57,8 @@ export function parseQuery(text: string): Query {
 const USDC = 10_000_000
 export const priceUsdc = (p: Merchant) => Number(p.price) / USDC
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2))
-const noun = (kind: string, n: number) => {
-  const base = kind === "hotel" ? "proven stay" : kind === "shop" ? "proven purchase" : "proven visit"
-  return n === 1 ? base : base + "s"
-}
+// the count here is reviews; "proven stays" means checked-in leaves of the tree everywhere else
+const noun = (_kind: string, n: number) => (n === 1 ? "proven review" : "proven reviews")
 
 /** Rank places for a query. Places that miss the kind or price filter are left out. */
 export function rank(places: Merchant[], reviews: Review[], query: Query | string): Ranked[] {

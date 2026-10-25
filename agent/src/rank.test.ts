@@ -59,7 +59,7 @@ test("kind and price filters leave places out", () => {
 test("reason line reads like the handoff", () => {
   const ps = [place(0, "hotel", 110)]
   const rs = [review(0, 5, true), review(0, 4, true), review(0, 5)]
-  assert.equal(rank(ps, rs, "hotel under 120")[0].reason, "4.7 from 3 proven stays, 2 verified, under 120 USDC")
+  assert.equal(rank(ps, rs, "hotel under 120")[0].reason, "4.7 from 3 proven reviews, 2 verified, under 120 USDC")
   assert.equal(pickHeadline(parseQuery("hotel under 120")), "best proven hotel rating under 120 USDC")
 })
 
