@@ -1,5 +1,6 @@
 // App shell: role switcher, connect, banners, footer. Plain on purpose; the designed shell drops in here.
-import { useState, type ReactNode } from "react"
+import { useEffect, useState, type ReactNode } from "react"
+import { autoOnce } from "./demo"
 import { errorCopy, formatUsdc, type WalletKind } from "@bookerbob/pos-sdk"
 import { useWriteFlow } from "./flows"
 import { sdk } from "./sdk"
@@ -29,6 +30,10 @@ type ConnectState = { status: "idle" } | { status: "choosing" } | { status: "con
 export function FaucetButton() {
   const flow = useWriteFlow("faucet")
   const run = () => flow.run(() => sdk.chain.faucet())
+  const runFlow = flow.run
+  useEffect(() => {
+    if (sdk.wallet.address && autoOnce("faucet")) void runFlow(() => sdk.chain.faucet())
+  }, [runFlow])
   return (
     <span className="row">
       <button type="button" className="secondary" onClick={run} disabled={flow.state.status === "submitting"}>
@@ -120,7 +125,7 @@ export function Shell({ children }: { children: ReactNode }) {
       <header className="top">
         <div className="wrap">
           <a className="brand" href="#/">
-            BookerBob · proof of stay
+            BookerBob <span className="muted">· Proof of Loyalty</span> <span className="small muted">everywhere you go</span>
           </a>
           <RoleSwitcher role={role} />
           <ConnectButton />
@@ -145,7 +150,7 @@ export function Shell({ children }: { children: ReactNode }) {
       </main>
       <footer>
         <div className="wrap">
-          <span>private by default, accountable when needed.</span>
+          <span>BookerBob · Proof of Loyalty, everywhere you go.</span>
           <a href="#/about">what each party sees</a>
           <a href={sdk.chain.explorerContract()} target="_blank" rel="noreferrer">
             contract on stellar.expert

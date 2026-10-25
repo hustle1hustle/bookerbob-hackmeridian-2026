@@ -23,7 +23,7 @@ export function Explainer({ compact }: { compact?: boolean }) {
   return (
     <section>
       <h2>what each party sees</h2>
-      {!compact && <p className="muted">private by default, accountable when needed. one proof, checked on Stellar, decides what each side learns.</p>}
+      <p className="muted">private by default, accountable when needed.{!compact && " one proof, checked on Stellar, decides what each side learns."}</p>
       <div className="sees">
         {parties.map((p) => (
           <div key={p.who} className="card">
