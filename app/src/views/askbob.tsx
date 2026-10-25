@@ -7,12 +7,16 @@ import { Stars, TxLink } from "../ui"
 
 export function AskHero() {
   return (
-    <header>
-      <h1>BookerBob.</h1>
-      <p>
-        <strong>Google for agentic commerce.</strong> Proof of loyalty, everywhere you go.
+    <div className="hero-copy">
+      <span className="label hero-eb">proof of loyalty · everywhere you go</span>
+      <h1 className="statement">
+        BookerBob. <em>Google for agentic commerce.</em>
+      </h1>
+      <p className="hero-sub">Proof of loyalty, everywhere you go. Bob ranks places by reviews nobody can buy, and your proven stays unlock perks wherever you book.</p>
+      <p className="hero-proof">
+        <span>live on Stellar testnet.</span>
       </p>
-    </header>
+    </div>
   )
 }
 
@@ -29,15 +33,16 @@ export interface AskBoxProps {
 export function AskBox({ value, onChange, onAsk, onExample, examples, sources, busy }: AskBoxProps) {
   return (
     <form
-      className="card section"
+      className="card ask-bob"
       role="search"
       onSubmit={(e) => {
         e.preventDefault()
         onAsk()
       }}
     >
-      <label htmlFor="ask-bob">
-        <strong>ask bob</strong>
+      <span className="label">ask bob</span>
+      <label htmlFor="ask-bob" className="sr">
+        ask bob
       </label>
       <div className="row" style={{ marginTop: 8 }}>
         <input id="ask-bob" type="search" value={value} onChange={(e) => onChange(e.target.value)} placeholder="hotel in lisbon under 120" style={{ flex: 1, minWidth: 200 }} />

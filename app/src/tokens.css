@@ -1,49 +1,15 @@
-/* Minimal neutral tokens. The designed visual layer replaces these values; component CSS reads only these names. */
+/* Bridge: app components keep --bg/--ink names; values follow REP Labs (light only). */
 :root {
-  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  --bg: #ffffff;
-  --surface: #f6f6f6;
-  --line: #d9d9d9;
-  --ink: #1a1a1a;
-  --ink-2: #555555;
-  --link: #1f4fa3;
+  --font: var(--sans);
+  --bg: var(--paper);
+  --surface: var(--paper-2);
+  --line: var(--rule);
+  --link: var(--accent);
   --ok: #1e6b3a;
   --warn: #8a4b00;
-  --focus: #1f4fa3;
-  --btn: #1a1a1a;
-  --btn-ink: #ffffff;
-  --radius: 8px;
+  --focus: var(--accent);
+  --btn: var(--ink);
+  --btn-ink: var(--paper);
+  --radius: 3px;
   color-scheme: light;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #161616;
-    --surface: #212121;
-    --line: #3a3a3a;
-    --ink: #ededed;
-    --ink-2: #b0b0b0;
-    --link: #8fb4f0;
-    --ok: #7fcf98;
-    --warn: #f0b768;
-    --focus: #8fb4f0;
-    --btn: #ededed;
-    --btn-ink: #161616;
-    color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --bg: #161616;
-  --surface: #212121;
-  --line: #3a3a3a;
-  --ink: #ededed;
-  --ink-2: #b0b0b0;
-  --link: #8fb4f0;
-  --ok: #7fcf98;
-  --warn: #f0b768;
-  --focus: #8fb4f0;
-  --btn: #ededed;
-  --btn-ink: #161616;
-  color-scheme: dark;
 }

@@ -2,10 +2,11 @@
   "name": "proof-of-stay",
   "private": true,
   "type": "module",
-  "workspaces": ["packages/sdk", "server", "scripts", "app", "agent"],
+  "workspaces": ["packages/sdk", "packages/pass_connect", "packages/verify_onchain_zk", "server", "scripts", "app", "agent"],
   "scripts": {
     "test:sdk": "node packages/sdk/src/smoke.test.ts",
     "typecheck": "tsc -p packages/sdk && tsc -p server",
+    "typecheck:modules": "tsc -p packages/pass_connect && tsc -p packages/verify_onchain_zk",
     "seed": "node scripts/seed.ts",
     "server": "node server/src/index.ts"
   },

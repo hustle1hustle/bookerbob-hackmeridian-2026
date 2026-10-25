@@ -100,7 +100,26 @@ export function createTestnetSdk(opts: TestnetOptions = {}): Sdk {
         setWallet(kp.publicKey(), "local", { publicKey: kp.publicKey(), signTransaction: s.signTransaction, signAuthEntry: s.signAuthEntry })
         return kp.publicKey()
       }
-      throw new Error("passkey wallet is not available yet; use Freighter or a demo key")
+      if (k === "passkey") {
+        const { connectPasskey, PassConnectException } = await import("../../pass_connect/src/index.ts")
+        try {
+          const { session, seed } = await connectPasskey({
+            rpName: "BookerBob",
+            friendbotUrl: "https://friendbot.stellar.org",
+            storage: store,
+          })
+          const kp = Keypair.fromRawEd25519Seed(Buffer.from(seed))
+          const s = contract.basicNodeSigner(kp, c.networkPassphrase)
+          setWallet(session.address, "passkey", { publicKey: kp.publicKey(), signTransaction: s.signTransaction, signAuthEntry: s.signAuthEntry })
+          store.setItem("pos.pass_binding", session.binding)
+          return session.address
+        } catch (e) {
+          if (e instanceof PassConnectException && e.code === "UserCancelled") throw new Error("UserRejected")
+          if (e instanceof PassConnectException && e.code === "PasskeyUnsupported") throw new Error("passkey is not supported in this browser")
+          throw e instanceof Error ? e : new Error("passkey connect failed")
+        }
+      }
+      throw new Error("unknown wallet kind")
     },
     disconnect() {
       setWallet(null, null, null)

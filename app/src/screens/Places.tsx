@@ -6,6 +6,7 @@ import { useAsync } from "../store"
 import { Empty, Loading } from "../ui"
 import { PlaceList } from "../views/places"
 import { Explainer } from "../views/explainer"
+import { PassConnectPanel } from "../views/PassConnect"
 
 const usdc = (p: Place) => Number(p.price) / 10 ** USDC_DECIMALS
 
@@ -35,7 +36,9 @@ export function PlacesScreen() {
 
       {data && data.length > 0 && (
         <section className="section">
-          <p className="muted">every rating here comes from a guest who proved they stayed. nobody, including us, knows which guest wrote what.</p>
+          <span className="label">places</span>
+          <h2>proven reviews only</h2>
+          <p className="muted">every rating comes from a guest who proved they stayed. nobody, including us, knows which guest wrote what.</p>
           <PlaceList
             places={shown}
             kinds={kinds}
@@ -51,6 +54,7 @@ export function PlacesScreen() {
           />
         </section>
       )}
+      <PassConnectPanel merchantId={data?.[0]?.id ?? 0} />
       <div className="section">
         <Explainer compact />
       </div>
