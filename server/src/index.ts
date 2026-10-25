@@ -25,7 +25,7 @@ import { checkDisclosure } from "../../packages/sdk/src/disclosure.ts"
 import { federatedSearch } from "./search/index.ts"
 import { placesAdapter } from "./search/places.ts"
 import { ucpAdapter } from "./search/ucp.ts"
-import { opsApi, opsClient } from "./ops.ts" // importing installs the error hooks
+import { opsApi, opsClient, record as opsRecord, scrub as opsScrub, RELEASE } from "./ops.ts" // importing installs the error hooks
 import { jmprAdapter } from "./search/jmpr.ts"
 import { PayerService } from "./payer.ts"
 import { findJoinTx } from "./joins.ts"
@@ -248,6 +248,8 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
     const ok = isInt(b.merchant) && isInt(b.rating) && typeof b.text === "string" && b.text.length <= 1000 && isHex(b.disclosureCommit, 64) && isDec(b.root) && isDec(b.nullifier) && b.proof && isHex(b.proof.a, 128) && isHex(b.proof.b, 256) && isHex(b.proof.c, 128)
     if (!ok) return fail(res, { error: "BadParams" })
     const r = await ops.postReview({ merchant: b.merchant, rating: b.rating, text: b.text, disclosureCommit: b.disclosureCommit.replace(/^0x/, ""), proof: b.proof, root: BigInt(b.root), nullifier: BigInt(b.nullifier) })
+    // a second review from the same stay is a normal outcome, not a server error
+    if (!r.ok && r.error === "NullifierUsed") return json(res, 409, { error: "NullifierUsed", message: "this stay already has a review" })
     if (!r.ok) return fail(res, r)
     const id = Number(r.value)
     store.putReview(id, { text: b.text, txHash: r.txHash, time: Date.now(), ...(b.label === "demo-activity" ? { demoActivity: true } : {}) })
@@ -335,7 +337,11 @@ createServer(async (req, res) => {
     if (path.startsWith("/artifacts/") && (await serveArtifact(req, res, path, process.env.DATA_DIR ?? join(ROOT, ".data")))) return
     serveStatic(res, path)
   } catch (e) {
-    json(res, 500, { error: "Unknown", message: String((e as any)?.message ?? e).slice(0, 200) })
+    // diagnosable 5xx: error name, message and the top 5 stack frames, scrubbed (no body, no addresses or commitments)
+    const err = e as any
+    const frames = String(err?.stack ?? "").split("\n").slice(1, 6).map((l) => l.trim()).join("\n")
+    opsRecord({ source: "server", kind: `500 ${err?.name ?? "Error"}`, message: opsScrub(err?.message ?? e), stack: opsScrub(frames, 2000), path: opsScrub(path, 200), release: RELEASE })
+    json(res, 500, { error: "Unknown", message: String(err?.message ?? e).slice(0, 200) })
   }
 }).listen(Number(process.env.PORT ?? 8080), () => {
   warmArtifacts(process.env.DATA_DIR ?? join(ROOT, ".data")).catch((e) => console.error("artifacts warm failed", String(e)))
