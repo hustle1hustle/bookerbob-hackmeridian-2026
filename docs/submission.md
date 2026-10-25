@@ -29,7 +29,7 @@ Customers prove on Stellar that they were customers of a place, with a zero-know
 | Poseidon permutation (CAP-0075) via `soroban-poseidon`: the contract keeps the LeanIMT tree itself, root equal to the Semaphore JS library byte for byte | `src/tree.rs` | tree insert (checkout) 1.1M instructions |
 | USDC through a Stellar Asset Contract: proof check and payment in one tx | `book_with_discount`, `book_with_context`, `book_with_discount_amount` | `book_with_discount` 31.7M instructions, `book` 1.1M |
 | keccak256 host function: Semaphore's `hash(x) >> 8` for scope and message | `src/lib.rs` | |
-| Native P-256 (`secp256r1_verify`): the contract verifies a REP tier credential signed by the REP tier issuer, so a group can be joined without a trusted operator key | `add_member_with_tier`, `src/tier.rs`, **off on the live deployment until the admin upgrade** | about 3.4M instructions, under 1% of the limit (unit-test budget) |
+| Native P-256 (`secp256r1_verify`): the contract verifies a REP tier credential signed by the REP tier issuer, so a group can be joined without a trusted operator key | `add_member_with_tier`, `src/tier.rs`, **off on the live deployment until the admin upgrade** | 7.1M instructions including the group insert, 1.8% of the limit ([`43d46b5e…`](https://stellar.expert/explorer/testnet/tx/43d46b5e8ba297e61c3916b09c15fe45add4491418d49434c8dc813500dc2372), upgraded mirror of the live contract) |
 
 Fees on writes are dominated by storage rent (TTL extended about 29 days so the demo survives judging), not compute. Source: `docs/bench.md`.
 
@@ -91,7 +91,7 @@ Video link: _TBD_
 
 ## Facts not verified while drafting
 
-- The P-256 REP cost is from the unit-test budget and a throwaway testnet instance, not the live contract (the path is off there).
+- The P-256 REP cost (7.1M CPU incl. the group insert) is from a testnet tx on an upgraded mirror of the live contract, not the live contract itself (the path is off there until the admin upgrade).
 - "Every commit during the hackathon" relies on `PRIOR_WORK.md`; the first commit is at 11:52 UTC, after the 09:00 Lisbon start.
 
 Confirmed by the team: live URL `stellarbob2026.xyz`; no OpenZeppelin relayer; passkey wording; `38bd6a7f…` is `add_member(1, commitment)` by the REP attester at 14:31:22 UTC; the redesign is Claude Design output.
