@@ -57,13 +57,13 @@ Example testnet transactions (seed run, all real proofs):
 
 | Step | Tx |
 |---|---|
-| deploy | [`0172e855…`](https://stellar.expert/explorer/testnet/tx/0172e855a39a61503f0e1fe25a74567ebc8dc2d5cd1c0e1eb2425d784435469b) |
-| checkout (leaf into the on-chain Poseidon tree) | [`5adc7373…`](https://stellar.expert/explorer/testnet/tx/5adc7373f98a2e8ccf291364a6eb80788860cb697b4badad662d77584dc16cca) |
-| anonymous review (Groth16 verified on chain) | [`c6a4736a…`](https://stellar.expert/explorer/testnet/tx/c6a4736a5244a803e5ad20f9785e03e155eaacc392f4550058ca412229d33bad) |
-| full-price booking (USDC) | [`5178f2ad…`](https://stellar.expert/explorer/testnet/tx/5178f2ad2934fb8c537362559e75f8336ed6bcd5d7b0cc604e6f59b959ad4925) |
-| returning-guest booking (proof + USDC in one tx, 110 to 93.5 USDC) | [`6630cb3d…`](https://stellar.expert/explorer/testnet/tx/6630cb3d8d1d7c2f5ae983cce0f367dd57c6ec618c4d71a6cdaf275e444b2743) |
-| arbiter attestation | [`7fe480b5…`](https://stellar.expert/explorer/testnet/tx/7fe480b5e350af050cf67b29a156f0305a97a7f4f9ee00e73b1fb0556ee9cf92) |
-| golden proof gate: valid proof `true` / tampered input `false` | [`0dd755b0…`](https://stellar.expert/explorer/testnet/tx/0dd755b03eeac00f386d3c1ed417c4ce583a645569aa98e1dc4c00d446e2b5f4) / [`e11f22c4…`](https://stellar.expert/explorer/testnet/tx/e11f22c424bbf6a743bcc68fded6a646dffee1c8756ff8d6830f05d4bab3d58a) |
+| deploy (v2) | [`28e9b1e0…`](https://stellar.expert/explorer/testnet/tx/28e9b1e0b3475d8d3d87ab0f36172943f22463b0d887cac892d4e959c99efc17) |
+| checkout (leaf into the on-chain Poseidon tree) | [`07163e0a…`](https://stellar.expert/explorer/testnet/tx/07163e0a259c693c186d67ca5df6794bcb30f2be700065002d1ed48f0af6f0b9) |
+| anonymous review (Groth16 verified on chain) | [`86c01995…`](https://stellar.expert/explorer/testnet/tx/86c01995cc6e8d084ff55d17e5ac750160d295a3dc8ec83221587a16e01129b8) |
+| full-price booking (USDC) | [`c078b6fa…`](https://stellar.expert/explorer/testnet/tx/c078b6fa9261998bd998d918c06aa9246f92899a2a0fd4908186952cd5911eab) |
+| returning-guest booking (proof + USDC in one tx, 110 to 93.5 USDC) | [`bacf4990…`](https://stellar.expert/explorer/testnet/tx/bacf4990eb6ed224e82dd54f55c02787fc63bc9cd80a3fd7342e31753e6376dd) |
+| arbiter attestation | [`6e50a72e…`](https://stellar.expert/explorer/testnet/tx/6e50a72e6d869186785e0d3eb42db551b2f94f8c9e0dd6a58fc576440a957ebf) |
+| golden proof gate: valid proof `true` / tampered input `false` | [`0637fea7…`](https://stellar.expert/explorer/testnet/tx/0637fea7161f51651e9d6323e22f936cf807f17cbd36dba159c174065366e6ad) / [`b97d19f0…`](https://stellar.expert/explorer/testnet/tx/b97d19f03aa2fa3509cddfafc30c468da752342d74e5ca8a12223c1a2d424b97) |
 
 More in [docs/testnet.md](docs/testnet.md).
 
