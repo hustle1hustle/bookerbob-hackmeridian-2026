@@ -6,6 +6,8 @@
 //   POST /api/faucet                       mints test USDC to an address
 //   GET  /api/disputes  POST /api/disputes  dispute packages for the arbiter
 //   POST /api/attest                       demo arbiter: checks the disclosure, then attest_review
+//   POST /api/loyalty/attest               verify_onchain_zk: relayer posts claim digest (testnet tx)
+//   GET  /api/passport/lookup?address=     Stellar Passport score (PASSPORT_API_KEY optional)
 //   POST /api/context/attest               context provider hook (stub)
 //   POST /api/payer/open|activate|feebump   fresh payer per booking, sponsored and fee-bumped by BookerBob
 //   GET  /api/search?q=                    Ask Bob: federated search over source adapters, ranked by proven reviews
@@ -122,6 +124,20 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
     if (!d) return json(res, 404, { error: "ReviewNotFound" })
     return json(res, 200, { check: await checkStored(d) })
   }
+  // Stellar Passport lookup: PASSPORT_API_KEY stays on the server (keyless works without it).
+  if (req.method === "GET" && path === "/api/passport/lookup") {
+    const address = String(new URL(req.url ?? "", "http://x").searchParams.get("address") ?? "")
+    if (!/^[GC][A-Z2-7]{55}$/.test(address)) return fail(res, { error: "BadParams", message: "address required" })
+    const { fetchPassport } = await import("../../packages/verify_onchain_zk/src/index.ts")
+    return json(
+      res,
+      200,
+      await fetchPassport(address, {
+        passportApiKey: process.env.PASSPORT_API_KEY || undefined,
+        passportBaseUrl: process.env.PASSPORT_BASE_URL || undefined,
+      }),
+    )
+  }
   if (req.method !== "POST") return json(res, 404, { error: "NotFound" })
   if (limited(req)) return json(res, 429, { error: "RateLimited" })
   const b = await body(req)
@@ -174,6 +190,25 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
       return json(res, 200, { txHash: await ops.mintUsdc(b.address, FAUCET_AMOUNT) })
     } catch (e) {
       return fail(res, { error: b.address.startsWith("G") ? "NoTrustline" : "Unknown", message: String(e).slice(0, 200) })
+    }
+  }
+  if (path === "/api/loyalty/attest") {
+    const ok =
+      typeof b.address === "string" &&
+      /^[GC][A-Z2-7]{55}$/.test(b.address) &&
+      typeof b.digest === "string" &&
+      /^(0x)?[0-9a-f]{64}$/i.test(b.digest) &&
+      isInt(b.rating) &&
+      b.rating <= 100 &&
+      isInt(b.tier) &&
+      b.tier >= 1 &&
+      b.tier <= 5
+    if (!ok) return fail(res, { error: "BadParams" })
+    try {
+      const txHash = await ops.attestLoyalty(b.address, b.digest)
+      return json(res, 200, { txHash, digest: String(b.digest).replace(/^0x/, "").toLowerCase() })
+    } catch (e) {
+      return fail(res, { error: "AttestFailed", message: String((e as Error)?.message ?? e).slice(0, 200) })
     }
   }
   if (path === "/api/disputes") {

@@ -40,8 +40,9 @@ await sdk.wallet.connect("passkey") // packages/sdk/src/testnet.ts
 
 ## Design (app)
 
-- Header connect chooser: **passkey** button (enabled).
-- Home panel `PassConnectPanel`: connect + hand-off to `verify_onchain_zk`.
+- Header connect chooser: **passkey** / Freighter / demo key.
+- Home panel `PassConnectPanel`: passkey **or** Freighter → on connect auto-runs `verify_onchain_zk.verifyOnConnect` (score + loyalty claim + clickable testnet attest tx).
+- The loyalty-claim verdict also shows the **Stellar Passport builder bonus** (`inspect.passport`): `+N · <rankName> · <scf_tier>` with a GitHub link when keyless-matched, or "no linked builder profile (bonus 0)". Passport off / API down never breaks the score (see `verify_onchain_zk.md` § Passport bonus).
 
 ## Phase 2 hook
 
