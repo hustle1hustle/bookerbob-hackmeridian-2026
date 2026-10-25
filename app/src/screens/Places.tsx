@@ -82,8 +82,9 @@ export function PlacesScreen() {
 
       {!query && data && data.length > 0 && (
         <section className="section">
-          <h2>places with proven reviews</h2>
-          <p className="muted">every rating here comes from a guest who proved they stayed. nobody, including us, knows which guest wrote what.</p>
+          <span className="label">places</span>
+          <h2>proven reviews only</h2>
+          <p className="muted">every rating comes from a guest who proved they stayed. nobody, including us, knows which guest wrote what.</p>
           <PlaceList
             places={shown}
             kinds={kinds}

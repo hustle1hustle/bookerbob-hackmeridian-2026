@@ -1,4 +1,4 @@
-// App shell: role switcher, connect, banners, footer. Plain on purpose; the designed shell drops in here.
+// App shell in REP Labs layout: mark, nav, paper. Bind points unchanged.
 import { useEffect, useState, type ReactNode } from "react"
 import { autoOnce } from "./demo"
 import { errorCopy, formatUsdc, type WalletKind } from "@bookerbob/pos-sdk"
@@ -14,13 +14,15 @@ const roles: { id: Role; label: string; to: string }[] = [
 
 export function RoleSwitcher({ role }: { role: Role }) {
   return (
-    <nav className="roles" aria-label="view as">
+    <ul className="nav" aria-label="view as">
       {roles.map((r) => (
-        <a key={r.id} href={r.to} aria-current={role === r.id ? "page" : undefined}>
-          {r.label}
-        </a>
+        <li key={r.id}>
+          <a href={r.to} aria-current={role === r.id ? "page" : undefined}>
+            {r.label}
+          </a>
+        </li>
       ))}
-    </nav>
+    </ul>
   )
 }
 
@@ -39,7 +41,11 @@ export function FaucetButton() {
       <button type="button" className="secondary" onClick={run} disabled={flow.state.status === "submitting"}>
         {flow.state.status === "submitting" ? "minting" : "get test USDC"}
       </button>
-      {flow.state.status === "success" && <span className="small" role="status">added</span>}
+      {flow.state.status === "success" && (
+        <span className="small" role="status">
+          added
+        </span>
+      )}
       {flow.state.status === "error" && <span className="small">{flow.state.copy}</span>}
       {flow.state.status === "needsWallet" && <span className="small">connect first</span>}
     </span>
@@ -50,7 +56,7 @@ function Balance() {
   const address = useWallet()
   const bal = useAsync(() => sdk.chain.balance(), [address])
   if (bal.data == null) return null
-  return <span className="small">{formatUsdc(bal.data)} USDC</span>
+  return <span className="small mono">{formatUsdc(bal.data)} USDC</span>
 }
 
 const kindName: Record<string, string> = { local: "demo key", freighter: "Freighter", passkey: "passkey" }
@@ -73,7 +79,7 @@ export function ConnectButton() {
 
   if (address)
     return (
-      <div className="row">
+      <div className="row connect-slot">
         <span className="small">
           {address.slice(0, 4)}…{address.slice(-4)} <span className="muted">({kindName[sdk.wallet.kind ?? ""] ?? sdk.wallet.kind})</span>
         </span>
@@ -94,15 +100,15 @@ export function ConnectButton() {
 
   const busy = st.status === "connecting"
   return (
-    <div className="row" role="group" aria-label="connect with">
+    <div className="row connect-slot" role="group" aria-label="connect with">
       <button type="button" onClick={() => connect("local")} disabled={busy}>
-        {busy && st.kind === "local" ? "creating your demo key" : "demo key in this browser"}
+        {busy && st.kind === "local" ? "creating your demo key" : "demo key"}
       </button>
       <button type="button" className="secondary" onClick={() => connect("freighter")} disabled={busy}>
         {busy && st.kind === "freighter" ? "waiting for Freighter" : "Freighter"}
       </button>
       <button type="button" className="secondary" disabled title="coming soon">
-        passkey (coming soon)
+        passkey
       </button>
       {!busy && (
         <button type="button" className="secondary" onClick={() => setSt({ status: "idle" })}>
@@ -114,50 +120,87 @@ export function ConnectButton() {
   )
 }
 
+declare global {
+  interface Window {
+    BookerBobMyc?: { boot: () => void }
+  }
+}
+
 export function Shell({ children }: { children: ReactNode }) {
-  const { role } = useRoute()
+  const { role, path } = useRoute()
   const address = useWallet()
+  const home = (path[0] ?? "") === ""
+
+  // myc.js boots on first paint; React mounts the hero canvas later — re-run once it exists.
+  useEffect(() => {
+    const t = window.setTimeout(() => window.BookerBobMyc?.boot(), 40)
+    return () => window.clearTimeout(t)
+  }, [home])
+
   return (
-    <>
+    <div className="app-shell">
       <a className="skip" href="#main">
         skip to content
       </a>
-      <header className="top">
+
+      <div className={home ? "hero" : "app-head"}>
+        {home && <canvas className="hero-field" aria-hidden="true" />}
         <div className="wrap">
-          <a className="brand" href="#/">
-            BookerBob <span className="muted">· Proof of Loyalty</span> <span className="small muted">everywhere you go</span>
-          </a>
-          <RoleSwitcher role={role} />
-          <ConnectButton />
+          <header className="site-head">
+            <a className="mark" href="#/">
+              <b>Booker</b>Bob
+            </a>
+            <div className="head-actions">
+              <RoleSwitcher role={role} />
+              <ConnectButton />
+            </div>
+          </header>
         </div>
-      </header>
-      <div className="banner">
-        <div className="wrap">demo data on Stellar testnet. the places are fictional; every review is a real proof checked on chain.</div>
       </div>
-      {!address && (
+
+      <div className="app-body">
         <div className="banner">
-          <div className="wrap">read-only. every place, rating and review is visible. connect to book, review or check someone in.</div>
+          <div className="wrap">demo data on Stellar testnet · fictional places · every review is a real proof on chain</div>
         </div>
-      )}
-      {role === "guest" && (
-        <nav className="wrap row small" aria-label="guest" style={{ paddingTop: 12 }}>
-          <a href="#/">places</a>
-          <a href="#/stays">my stays</a>
-        </nav>
-      )}
-      <main id="main" className="wrap">
-        {children}
-      </main>
-      <footer>
+        {!address && (
+          <div className="banner">
+            <div className="wrap">read-only without a wallet · connect to book, review or check someone in</div>
+          </div>
+        )}
+        {role === "guest" && (
+          <div className="wrap">
+            <nav className="guest-sub" aria-label="guest">
+              <a href="#/" aria-current={(path[0] ?? "") === "" ? "page" : undefined}>
+                places
+              </a>
+              <a href="#/stays" aria-current={path[0] === "stays" ? "page" : undefined}>
+                my stays
+              </a>
+              <a href="#/about">what each party sees</a>
+            </nav>
+          </div>
+        )}
+        <main id="main" className="wrap app-main">
+          {children}
+        </main>
+      </div>
+
+      <footer className="site-foot">
         <div className="wrap">
-          <span>BookerBob · Proof of Loyalty, everywhere you go.</span>
+          <span className="mark-mini">
+            <b>Booker</b>Bob
+          </span>
+          <span>Proof of Loyalty · everywhere you go</span>
           <a href="#/about">what each party sees</a>
           <a href={sdk.chain.explorerContract()} target="_blank" rel="noreferrer">
             contract on stellar.expert
           </a>
-          <span className="muted">sdk: {sdk.mode}</span>
+          <a href="https://stellarbob2026.xyz/" target="_blank" rel="noreferrer">
+            stellarbob2026.xyz
+          </a>
+          <span className="muted mono">sdk {sdk.mode}</span>
         </div>
       </footer>
-    </>
+    </div>
   )
 }
