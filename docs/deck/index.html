@@ -33,7 +33,7 @@
 <section class="s">
   <div class="lbl">HackMeridian 2026 · Stellar · Lisbon</div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:72px;margin-top:170px;align-items:start">
-    <div><h1>BookerBob.</h1><div class="sub">Google for agentic commerce.</div></div>
+    <div><h1>BookerBob.</h1><div class="sub">Google for agentic commerce.</div><p class="cap" style="margin-top:40px;color:var(--accent)">applied zero-knowledge for agentic commerce</p></div>
     <img class="shot" src="img/hero.jpg" style="width:100%;margin-top:10px" alt="live site">
   </div>
 </section>
@@ -54,9 +54,41 @@
   </svg>
 </section>
 
+<!-- applied zk -->
+<section class="s">
+  <div class="lbl">Applied zero-knowledge</div><div class="no">03</div>
+  <h2>Applied zero-knowledge.</h2>
+  <svg viewBox="0 0 1680 460" width="1680" height="460" style="margin-top:70px">
+    <defs><marker id="zk" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#121211"/></marker></defs>
+    <rect x="0" y="40" width="520" height="300" fill="#F6F5F1" stroke="#121211"/>
+    <text x="40" y="120" font-size="28" fill="#6B685F" font-family="Geist Mono">STATEMENT</text>
+    <text x="40" y="210" font-size="52" fill="#121211">"I'm a regular</text><text x="40" y="275" font-size="52" fill="#121211">at this hotel."</text>
+    <rect x="640" y="90" width="400" height="200" fill="#121211"/>
+    <text x="840" y="170" font-size="28" fill="#8C897F" text-anchor="middle" font-family="Geist Mono">ZERO-KNOWLEDGE</text>
+    <text x="840" y="235" font-size="60" fill="#ECEAE3" text-anchor="middle">proof</text>
+    <rect x="1160" y="40" width="520" height="300" fill="#F4C430" stroke="#121211"/>
+    <text x="1200" y="120" font-size="28" fill="#121211" font-family="Geist Mono">VERIFIER</text>
+    <text x="1200" y="210" font-size="56" fill="#121211">Stellar</text>
+    <path d="M1210 270 l26 26 52 -60" fill="none" stroke="#1D3BD1" stroke-width="10"/><text x="1310" y="295" font-size="40" fill="#121211">true</text>
+    <g stroke="#121211" stroke-width="4"><line x1="520" y1="190" x2="630" y2="190" marker-end="url(#zk)"/><line x1="1040" y1="190" x2="1150" y2="190" marker-end="url(#zk)"/></g>
+    <text x="840" y="430" font-size="52" font-weight="500" text-anchor="middle" fill="#121211">the fact is proven. the identity is not.</text>
+  </svg>
+</section>
+
+<!-- zk facts -->
+<section class="s dark">
+  <div class="lbl">Applied zero-knowledge, concretely</div><div class="no">04</div>
+  <div style="margin-top:120px;display:grid;gap:56px">
+    <div style="display:grid;grid-template-columns:120px 1fr;align-items:baseline"><span class="fig" style="font-size:96px;color:#8EA0FF">1</span><span style="font-size:56px;letter-spacing:-.03em;color:var(--bg)">Semaphore v4 Groth16 proofs, made in your browser in ~0.3&nbsp;s</span></div>
+    <div style="display:grid;grid-template-columns:120px 1fr;align-items:baseline"><span class="fig" style="font-size:96px;color:#8EA0FF">2</span><span style="font-size:56px;letter-spacing:-.03em;color:var(--bg)">verified natively on Stellar (BN254, Poseidon)</span></div>
+    <div style="display:grid;grid-template-columns:120px 1fr;align-items:baseline"><span class="fig" style="font-size:96px;color:#8EA0FF">3</span><span style="font-size:56px;letter-spacing:-.03em;color:var(--bg)">one proof, one use (nullifiers)</span></div>
+  </div>
+  <aside class="notes">Browser proving 0.29 to 0.42 s per proof once the 4.1 MB proving files are cached (measured in the UX audit). Groth16 check 7.8% of a transaction. A nullifier per scope and season makes a second use fail.</aside>
+</section>
+
 <!-- 3 discovery is power -->
 <section class="s dark">
-  <div class="lbl">Discovery is the new power</div><div class="no">03</div>
+  <div class="lbl">Discovery is the new power</div><div class="no">05</div>
   <h2 style="color:var(--bg)">Whoever ranks for the agent wins.</h2>
   <p class="cap" style="margin-top:56px">What agents rank on today:</p>
   <svg viewBox="0 0 1680 300" width="1680" height="300" style="margin-top:40px">
@@ -69,7 +101,7 @@
 
 <!-- 4 the problem for agents -->
 <section class="s">
-  <div class="lbl">The problem for agents</div><div class="no">04</div>
+  <div class="lbl">The problem for agents</div><div class="no">06</div>
   <h2>Real signal is fake, or locked.</h2>
   <svg viewBox="0 0 1680 520" width="1680" height="520" style="margin-top:70px">
     <rect x="0" y="0" width="780" height="500" fill="#F6F5F1" stroke="#121211"/>
@@ -85,7 +117,7 @@
 
 <!-- 5 why cryptography -->
 <section class="s">
-  <div class="lbl">Why cryptography</div><div class="no">05</div>
+  <div class="lbl">Why cryptography</div><div class="no">07</div>
   <h2>Proof of real behavior.</h2>
   <svg viewBox="0 0 1680 420" width="1680" height="420" style="margin-top:80px">
     <g fill="none" stroke="#121211" stroke-width="6">
@@ -100,12 +132,12 @@
 
 <!-- flywheel -->
 <section class="s">
-  <div class="lbl">The core loop</div><div class="no">06</div>
+  <div class="lbl">The core loop</div><div class="no">08</div>
   <svg viewBox="0 0 1680 760" width="1680" height="760" style="margin-top:10px">
     <defs><marker id="fw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#121211"/></marker></defs>
-    <path d="M958 135 A290 290 0 0 1 1105 282" fill="none" stroke="#121211" stroke-width="5" marker-end="url(#fw)"/><path d="M1105 518 A290 290 0 0 1 958 665" fill="none" stroke="#121211" stroke-width="5" marker-end="url(#fw)"/><path d="M722 665 A290 290 0 0 1 575 518" fill="none" stroke="#121211" stroke-width="5" marker-end="url(#fw)"/><path d="M575 282 A290 290 0 0 1 722 135" fill="none" stroke="#121211" stroke-width="5" marker-end="url(#fw)"/><rect x="650" y="40" width="380" height="140" fill="#121211" stroke="#121211"/><text x="840" y="104" font-size="42" text-anchor="middle" fill="#ECEAE3">agent ranks</text><text x="840" y="150" font-size="30" text-anchor="middle" fill="#B4B1A8">on proofs</text><rect x="940" y="330" width="380" height="140" fill="#F6F5F1" stroke="#121211"/><text x="1130" y="394" font-size="42" text-anchor="middle" fill="#121211">agent buys</text><text x="1130" y="440" font-size="30" text-anchor="middle" fill="#4A4842">stays, shops</text><rect x="650" y="620" width="380" height="140" fill="#F4C430" stroke="#121211"/><text x="840" y="684" font-size="42" text-anchor="middle" fill="#121211">a new proof</text><text x="840" y="730" font-size="30" text-anchor="middle" fill="#4A4842">joins the groups</text><rect x="360" y="330" width="380" height="140" fill="#F6F5F1" stroke="#121211"/><text x="550" y="394" font-size="42" text-anchor="middle" fill="#121211">better ranking</text><text x="550" y="440" font-size="30" text-anchor="middle" fill="#4A4842">for everyone</text>
+    <path d="M958 135 A290 290 0 0 1 1105 282" fill="none" stroke="#121211" stroke-width="5" marker-end="url(#fw)"/><path d="M1105 518 A290 290 0 0 1 958 665" fill="none" stroke="#121211" stroke-width="5" marker-end="url(#fw)"/><path d="M722 665 A290 290 0 0 1 575 518" fill="none" stroke="#121211" stroke-width="5" marker-end="url(#fw)"/><path d="M575 282 A290 290 0 0 1 722 135" fill="none" stroke="#121211" stroke-width="5" marker-end="url(#fw)"/><rect x="650" y="40" width="380" height="140" fill="#121211" stroke="#121211"/><text x="840" y="104" font-size="42" text-anchor="middle" fill="#ECEAE3">agent ranks</text><text x="840" y="150" font-size="30" text-anchor="middle" fill="#B4B1A8">on zero-knowledge proofs</text><rect x="940" y="330" width="380" height="140" fill="#F6F5F1" stroke="#121211"/><text x="1130" y="394" font-size="42" text-anchor="middle" fill="#121211">agent buys</text><text x="1130" y="440" font-size="30" text-anchor="middle" fill="#4A4842">stays, shops</text><rect x="650" y="620" width="380" height="140" fill="#F4C430" stroke="#121211"/><text x="840" y="684" font-size="42" text-anchor="middle" fill="#121211">a new proof</text><text x="840" y="730" font-size="30" text-anchor="middle" fill="#4A4842">joins the groups</text><rect x="360" y="330" width="380" height="140" fill="#F6F5F1" stroke="#121211"/><text x="550" y="394" font-size="42" text-anchor="middle" fill="#121211">better ranking</text><text x="550" y="440" font-size="30" text-anchor="middle" fill="#4A4842">for everyone</text>
   </svg>
-  <p class="cap" style="position:absolute;left:120px;right:120px;bottom:80px;color:var(--ink);font-size:44px">Agents rank on proofs, and add new ones every time they buy.</p>
+  <p class="cap" style="position:absolute;left:120px;right:120px;bottom:80px;color:var(--ink);font-size:44px">Agents rank on zero-knowledge proofs, and add new ones every time they buy.</p>
   <aside class="notes">Every stay or purchase adds the buyer to the place's customer group and the network group, and opens one review. The proof base grows with use, for every agent.</aside>
 </section>
 
@@ -116,14 +148,14 @@
     <div style="background:var(--surface);border-left:1px solid var(--ink);display:flex;align-items:center;justify-content:center"><img class="shot" src="img/proofs.jpg" style="height:760px" alt="your proofs"></div>
   </div>
   <div style="position:absolute;left:0;right:0;bottom:0;height:180px;background:var(--ink);display:flex;align-items:center;padding:0 120px">
-    <p class="cap" style="color:var(--bg);font-size:52px">Agents rank on proofs, and add new ones every time they buy.</p>
+    <p class="cap" style="color:var(--bg);font-size:52px">Agents rank on zero-knowledge proofs, and add new ones every time they buy.</p>
   </div>
   <aside class="notes">Ask Bob federates our places, UCP stores and JMPR hotels; ranks by proven reviews only; perks per user from the proofs this browser holds.</aside>
 </section>
 
 <!-- 7 portable context -->
 <section class="s">
-  <div class="lbl">Portable context</div><div class="no">07</div>
+  <div class="lbl">Portable context</div><div class="no">09</div>
   <div style="display:grid;grid-template-columns:1.15fr .85fr;gap:72px;align-items:start;margin-top:20px">
     <svg viewBox="0 0 1000 820" width="1000" height="820">
       <defs><marker id="m7" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#121211"/></marker></defs>
@@ -132,7 +164,7 @@
       <rect x="0" y="340" width="440" height="130" fill="#F6F5F1" stroke="#121211"/><text x="36" y="422" font-size="44" fill="#121211">Stellar wallet tier</text>
       <rect x="0" y="500" width="440" height="130" fill="#F6F5F1" stroke="#121211"/><text x="36" y="582" font-size="44" fill="#121211">BookerBob network</text>
       <rect x="0" y="660" width="440" height="110" fill="none" stroke="#121211" stroke-dasharray="8 8"/><text x="36" y="730" font-size="36" fill="#4A4842">more to go</text>
-      <rect x="600" y="340" width="400" height="200" fill="#121211"/><text x="640" y="430" font-size="48" fill="#ECEAE3">your agent</text><text x="640" y="490" font-size="32" fill="#B4B1A8">carries the proofs</text>
+      <rect x="600" y="340" width="400" height="200" fill="#121211"/><text x="640" y="430" font-size="48" fill="#ECEAE3">your agent</text><text x="640" y="490" font-size="32" fill="#B4B1A8">carries zero-knowledge proofs</text>
       <g stroke="#121211" stroke-width="4"><line x1="440" y1="245" x2="590" y2="380" marker-end="url(#m7)"/><line x1="440" y1="405" x2="590" y2="430" marker-end="url(#m7)"/><line x1="440" y1="565" x2="590" y2="490" marker-end="url(#m7)"/></g>
     </svg>
     <img class="shot" src="img/connect.jpg" style="width:100%;margin-top:120px" alt="connect">
@@ -142,37 +174,37 @@
 
 <!-- 8 agent checkout -->
 <section class="s dark">
-  <div class="lbl">Agent checkout over UCP</div><div class="no">08</div>
+  <div class="lbl">Agent checkout over UCP</div><div class="no">10</div>
   <h2 style="color:var(--bg)">An agent shops a real Shopify store.</h2>
   <div style="margin-top:80px;font-family:var(--mono);font-size:40px;line-height:1.55;color:#ECEAE3">
     <div>store offers perks · proofs bind the payer</div>
-    <div>2 proofs · <span style="color:#8EA0FF">15% off</span> · verified on Stellar</div>
+    <div>2 zero-knowledge proofs · <span style="color:#8EA0FF">15% off</span> · verified on Stellar</div>
     <div>code applied by the store · <span style="color:#F4C430">-22.50 AED</span></div>
     <div>paid <span style="color:#F4C430">34.68 USDC</span> on Stellar · order #1012</div>
   </div>
-  <p class="cap" style="margin-top:72px">Agents rank on proofs, and add new ones every time they buy. The store never learns who bought.</p>
+  <p class="cap" style="margin-top:72px">Agents rank on zero-knowledge proofs, and add new ones every time they buy. The store never learns who bought.</p>
   <aside class="notes">UCP context.eligibility + a verification action; the contract checks the claims; the store mints a single-use code; book_with_context pays in test USDC; order #1012 PAID in Shopify with the tx in its note.</aside>
 </section>
 
 <!-- 9 reviews -->
 <section class="s">
-  <div class="lbl">And reviews nobody can buy</div><div class="no">09</div>
+  <div class="lbl">And reviews nobody can buy</div><div class="no">11</div>
   <div style="display:grid;grid-template-columns:.8fr 1.2fr;gap:72px;align-items:center;margin-top:60px">
-    <div><h2 style="font-size:96px">One stay, one review.</h2><p class="cap" style="margin-top:40px">The same proof. The author stays anonymous.</p></div>
+    <div><h2 style="font-size:96px">One stay, one review.</h2><p class="cap" style="margin-top:40px">The same zero-knowledge proof. The author stays anonymous.</p></div>
     <img class="shot" src="img/reviews.jpg" style="width:100%" alt="proven reviews">
   </div>
 </section>
 
 <!-- where stellar works 1 -->
 <section class="s">
-  <div class="lbl">Where Stellar does the work · 1/2</div><div class="no">10</div>
+  <div class="lbl">Where Stellar does the work · 1/2</div><div class="no">12</div>
   <h2 style="font-size:88px">One journey, on chain.</h2>
-  <div style="margin-top:44px;border-top:1px solid var(--rule)"><div style="display:grid;grid-template-columns:60px 90px 1fr 1fr 220px;gap:28px;align-items:center;padding:22px 0;border-bottom:1px solid var(--rule-soft)"><span style="font-family:var(--mono);font-size:28px;color:var(--ink-3)">01</span><svg width="60" height="60" viewBox="0 0 60 60"><g fill="none" stroke="#121211" stroke-width="4"><circle cx="30" cy="10" r="7"/><circle cx="12" cy="44" r="7"/><circle cx="48" cy="44" r="7"/><path d="M26 16 L15 38 M34 16 L45 38"/></g></svg><span style="font-size:40px;letter-spacing:-.02em">join a place's customers</span><span style="font-size:32px;color:var(--ink-2)">Poseidon tree insert</span><a href="https://stellar.expert/explorer/testnet/tx/4d6f751b2bea3406bddd5d09e8501ae4e7f240eeb6c08b16139298b8470b4580" style="font-family:var(--mono);font-size:26px;color:var(--accent);text-decoration:none">4d6f751b…</a></div><div style="display:grid;grid-template-columns:60px 90px 1fr 1fr 220px;gap:28px;align-items:center;padding:22px 0;border-bottom:1px solid var(--rule-soft)"><span style="font-family:var(--mono);font-size:28px;color:var(--ink-3)">02</span><svg width="60" height="60" viewBox="0 0 60 60"><g fill="none" stroke="#121211" stroke-width="4"><circle cx="18" cy="22" r="10"/><circle cx="42" cy="22" r="10"/><path d="M2 54 a16 14 0 0 1 32 0 M26 54 a16 14 0 0 1 32 0"/></g></svg><span style="font-size:40px;letter-spacing:-.02em">context from an attester</span><span style="font-size:32px;color:var(--ink-2)">member of a group</span><a href="https://stellar.expert/explorer/testnet/tx/38bd6a7f38987c745624d363124c27f7a0e2bd8764b2051e3afdbe5474c34106" style="font-family:var(--mono);font-size:26px;color:var(--accent);text-decoration:none">38bd6a7f…</a></div><div style="display:grid;grid-template-columns:60px 90px 1fr 1fr 220px;gap:28px;align-items:center;padding:22px 0;border-bottom:1px solid var(--rule-soft)"><span style="font-family:var(--mono);font-size:28px;color:var(--ink-3)">03</span><svg width="60" height="60" viewBox="0 0 60 60"><g fill="none" stroke="#121211" stroke-width="4"><circle cx="18" cy="30" r="12"/><path d="M30 30 h26 M48 30 v10 M56 30 v8"/></g></svg><span style="font-size:40px;letter-spacing:-.02em">REP credential check</span><span style="font-size:32px;color:var(--ink-2)">P-256, under 2% · built, tested</span><a href="https://stellar.expert/explorer/testnet/tx/43d46b5e8ba297e61c3916b09c15fe45add4491418d49434c8dc813500dc2372" style="font-family:var(--mono);font-size:26px;color:var(--accent);text-decoration:none">43d46b5e…</a></div><div style="display:grid;grid-template-columns:60px 90px 1fr 1fr 220px;gap:28px;align-items:center;padding:22px 0;border-bottom:1px solid var(--rule-soft)"><span style="font-family:var(--mono);font-size:28px;color:var(--ink-3)">04</span><svg width="60" height="60" viewBox="0 0 60 60"><g fill="none" stroke="#121211" stroke-width="4"><path d="M30 4 l22 8 v18 c0 14 -10 20 -22 24 c-12 -4 -22 -10 -22 -24 v-18 z"/><path d="M19 30 l8 8 14 -16" stroke="#1D3BD1"/></g></svg><span style="font-size:40px;letter-spacing:-.02em">discount proof verified</span><span style="font-size:32px;color:var(--ink-2)">BN254 Groth16, 7.8%</span><a href="https://stellar.expert/explorer/testnet/tx/7ad074395e8e73bc7131abe01779e188c768862196c505d471505a697efd9762" style="font-family:var(--mono);font-size:26px;color:var(--accent);text-decoration:none">7ad07439…</a></div><div style="display:grid;grid-template-columns:60px 90px 1fr 1fr 220px;gap:28px;align-items:center;padding:22px 0;border-bottom:1px solid var(--rule-soft)"><span style="font-family:var(--mono);font-size:28px;color:var(--ink-3)">05</span><svg width="60" height="60" viewBox="0 0 60 60"><g fill="none" stroke="#121211" stroke-width="4"><circle cx="30" cy="30" r="24"/><path d="M13 47 L47 13"/></g></svg><span style="font-size:40px;letter-spacing:-.02em">no reuse</span><span style="font-size:32px;color:var(--ink-2)">nullifier stored, replay refused</span><a href="https://stellar.expert/explorer/testnet/tx/7ad074395e8e73bc7131abe01779e188c768862196c505d471505a697efd9762" style="font-family:var(--mono);font-size:26px;color:var(--accent);text-decoration:none">7ad07439…</a></div></div>
+  <div style="margin-top:44px;border-top:1px solid var(--rule)"><div style="display:grid;grid-template-columns:60px 90px 1fr 1fr 220px;gap:28px;align-items:center;padding:22px 0;border-bottom:1px solid var(--rule-soft)"><span style="font-family:var(--mono);font-size:28px;color:var(--ink-3)">01</span><svg width="60" height="60" viewBox="0 0 60 60"><g fill="none" stroke="#121211" stroke-width="4"><circle cx="30" cy="10" r="7"/><circle cx="12" cy="44" r="7"/><circle cx="48" cy="44" r="7"/><path d="M26 16 L15 38 M34 16 L45 38"/></g></svg><span style="font-size:40px;letter-spacing:-.02em">join a place's customers</span><span style="font-size:32px;color:var(--ink-2)">Poseidon tree insert</span><a href="https://stellar.expert/explorer/testnet/tx/4d6f751b2bea3406bddd5d09e8501ae4e7f240eeb6c08b16139298b8470b4580" style="font-family:var(--mono);font-size:26px;color:var(--accent);text-decoration:none">4d6f751b…</a></div><div style="display:grid;grid-template-columns:60px 90px 1fr 1fr 220px;gap:28px;align-items:center;padding:22px 0;border-bottom:1px solid var(--rule-soft)"><span style="font-family:var(--mono);font-size:28px;color:var(--ink-3)">02</span><svg width="60" height="60" viewBox="0 0 60 60"><g fill="none" stroke="#121211" stroke-width="4"><circle cx="18" cy="22" r="10"/><circle cx="42" cy="22" r="10"/><path d="M2 54 a16 14 0 0 1 32 0 M26 54 a16 14 0 0 1 32 0"/></g></svg><span style="font-size:40px;letter-spacing:-.02em">context from an attester</span><span style="font-size:32px;color:var(--ink-2)">member of a group</span><a href="https://stellar.expert/explorer/testnet/tx/38bd6a7f38987c745624d363124c27f7a0e2bd8764b2051e3afdbe5474c34106" style="font-family:var(--mono);font-size:26px;color:var(--accent);text-decoration:none">38bd6a7f…</a></div><div style="display:grid;grid-template-columns:60px 90px 1fr 1fr 220px;gap:28px;align-items:center;padding:22px 0;border-bottom:1px solid var(--rule-soft)"><span style="font-family:var(--mono);font-size:28px;color:var(--ink-3)">03</span><svg width="60" height="60" viewBox="0 0 60 60"><g fill="none" stroke="#121211" stroke-width="4"><circle cx="18" cy="30" r="12"/><path d="M30 30 h26 M48 30 v10 M56 30 v8"/></g></svg><span style="font-size:40px;letter-spacing:-.02em">REP credential check</span><span style="font-size:32px;color:var(--ink-2)">P-256, under 2% · built, tested</span><a href="https://stellar.expert/explorer/testnet/tx/43d46b5e8ba297e61c3916b09c15fe45add4491418d49434c8dc813500dc2372" style="font-family:var(--mono);font-size:26px;color:var(--accent);text-decoration:none">43d46b5e…</a></div><div style="display:grid;grid-template-columns:60px 90px 1fr 1fr 220px;gap:28px;align-items:center;padding:22px 0;border-bottom:1px solid var(--rule-soft)"><span style="font-family:var(--mono);font-size:28px;color:var(--ink-3)">04</span><svg width="60" height="60" viewBox="0 0 60 60"><g fill="none" stroke="#121211" stroke-width="4"><path d="M30 4 l22 8 v18 c0 14 -10 20 -22 24 c-12 -4 -22 -10 -22 -24 v-18 z"/><path d="M19 30 l8 8 14 -16" stroke="#1D3BD1"/></g></svg><span style="font-size:40px;letter-spacing:-.02em">zero-knowledge proof verified</span><span style="font-size:32px;color:var(--ink-2)">BN254 Groth16, 7.8%</span><a href="https://stellar.expert/explorer/testnet/tx/7ad074395e8e73bc7131abe01779e188c768862196c505d471505a697efd9762" style="font-family:var(--mono);font-size:26px;color:var(--accent);text-decoration:none">7ad07439…</a></div><div style="display:grid;grid-template-columns:60px 90px 1fr 1fr 220px;gap:28px;align-items:center;padding:22px 0;border-bottom:1px solid var(--rule-soft)"><span style="font-family:var(--mono);font-size:28px;color:var(--ink-3)">05</span><svg width="60" height="60" viewBox="0 0 60 60"><g fill="none" stroke="#121211" stroke-width="4"><circle cx="30" cy="30" r="24"/><path d="M13 47 L47 13"/></g></svg><span style="font-size:40px;letter-spacing:-.02em">no reuse</span><span style="font-size:32px;color:var(--ink-2)">nullifier stored, replay refused</span><a href="https://stellar.expert/explorer/testnet/tx/7ad074395e8e73bc7131abe01779e188c768862196c505d471505a697efd9762" style="font-family:var(--mono);font-size:26px;color:var(--accent);text-decoration:none">7ad07439…</a></div></div>
 </section>
 
 <!-- where stellar works 2 -->
 <section class="s">
-  <div class="lbl">Where Stellar does the work · 2/2</div><div class="no">11</div>
+  <div class="lbl">Where Stellar does the work · 2/2</div><div class="no">13</div>
   <h2 style="font-size:88px">Atomic, and free for the guest.</h2>
   <div style="margin-top:44px;border-top:1px solid var(--rule)"><div style="display:grid;grid-template-columns:60px 90px 1fr 1fr 220px;gap:28px;align-items:center;padding:22px 0;border-bottom:1px solid var(--rule-soft)"><span style="font-family:var(--mono);font-size:28px;color:var(--ink-3)">06</span><svg width="60" height="60" viewBox="0 0 60 60"><g fill="none" stroke="#121211" stroke-width="4"><circle cx="30" cy="30" r="24" fill="#F4C430"/><text x="30" y="40" font-size="28" text-anchor="middle" stroke="none" fill="#121211">$</text></g></svg><span style="font-size:40px;letter-spacing:-.02em">pay in the same tx</span><span style="font-size:32px;color:var(--ink-2)">USDC via the asset contract</span><a href="https://stellar.expert/explorer/testnet/tx/7ad074395e8e73bc7131abe01779e188c768862196c505d471505a697efd9762" style="font-family:var(--mono);font-size:26px;color:var(--accent);text-decoration:none">7ad07439…</a></div><div style="display:grid;grid-template-columns:60px 90px 1fr 1fr 220px;gap:28px;align-items:center;padding:22px 0;border-bottom:1px solid var(--rule-soft)"><span style="font-family:var(--mono);font-size:28px;color:var(--ink-3)">07</span><svg width="60" height="60" viewBox="0 0 60 60"><g fill="none" stroke="#121211" stroke-width="4"><rect x="8" y="24" width="44" height="30"/><path d="M4 24 h52 M30 24 v30 M30 24 c-10 -18 -22 -6 0 0 c10 -18 22 -6 0 0"/></g></svg><span style="font-size:40px;letter-spacing:-.02em">no fees for the guest</span><span style="font-size:32px;color:var(--ink-2)">fresh payer, fee-bumped</span><a href="https://stellar.expert/explorer/testnet/tx/2cad0d43d72c15623be6c383175885a0ceb69e3749872d68cc238c297230d3d5" style="font-family:var(--mono);font-size:26px;color:var(--accent);text-decoration:none">2cad0d43…</a></div><div style="display:grid;grid-template-columns:60px 90px 1fr 1fr 220px;gap:28px;align-items:center;padding:22px 0;border-bottom:1px solid var(--rule-soft)"><span style="font-family:var(--mono);font-size:28px;color:var(--ink-3)">08</span><svg width="60" height="60" viewBox="0 0 60 60"><g fill="none" stroke="#121211" stroke-width="4"><path d="M4 8 h10 l8 32 h28 l6 -22 h-38"/><circle cx="24" cy="50" r="4"/><circle cx="46" cy="50" r="4"/></g></svg><span style="font-size:40px;letter-spacing:-.02em">agent checkout over UCP</span><span style="font-size:32px;color:var(--ink-2)">Shopify order carries the tx</span><a href="https://stellar.expert/explorer/testnet/tx/19254e2f16af0c6b4282d9d3403d9cb7cab129647552490af533b6e0e15a9a09" style="font-family:var(--mono);font-size:26px;color:var(--accent);text-decoration:none">19254e2f…</a></div><div style="display:grid;grid-template-columns:60px 90px 1fr 1fr 220px;gap:28px;align-items:center;padding:22px 0;border-bottom:1px solid var(--rule-soft)"><span style="font-family:var(--mono);font-size:28px;color:var(--ink-3)">09</span><svg width="60" height="60" viewBox="0 0 60 60"><g fill="none" stroke="#121211" stroke-width="4"><path d="M30 4 l8 16 18 3 -13 12 3 18 -16 -8 -16 8 3 -18 -13 -12 18 -3z"/></g></svg><span style="font-size:40px;letter-spacing:-.02em">one stay, one review</span><span style="font-size:32px;color:var(--ink-2)">proof verified, nullifier spent</span><a href="https://stellar.expert/explorer/testnet/tx/86c01995cc6e8d084ff55d17e5ac750160d295a3dc8ec83221587a16e01129b8" style="font-family:var(--mono);font-size:26px;color:var(--accent);text-decoration:none">86c01995…</a></div></div>
   <aside class="notes">Every hash links to stellar.expert (testnet). The REP P-256 credential check is built and tested on testnet (an upgraded mirror of the live contract, final layout); it goes live with the contract upgrade. Replays are refused in simulation (NullifierUsed) before any tx.</aside>
@@ -180,10 +212,10 @@
 
 <!-- 10 why stellar -->
 <section class="s dark">
-  <div class="lbl">Why Stellar</div><div class="no">12</div>
+  <div class="lbl">Why Stellar</div><div class="no">14</div>
   <h2 style="color:var(--bg)">ZK is native here.</h2>
   <div style="display:grid;grid-template-columns:repeat(4,1fr);margin-top:100px;border-top:1px solid #ECEAE3">
-    <div style="padding:40px 32px 0 0"><div class="fig" style="font-size:112px;color:var(--bg)">BN254</div><div class="figl" style="color:#B4B1A8">proof check<br><b style="color:var(--bg)">7.8% of a tx</b></div></div>
+    <div style="padding:40px 32px 0 0"><div class="fig" style="font-size:112px;color:var(--bg)">BN254</div><div class="figl" style="color:#B4B1A8">zero-knowledge proof check<br><b style="color:var(--bg)">7.8% of a tx</b></div></div>
     <div style="padding:40px 32px 0 32px;border-left:1px solid rgba(236,234,227,.2)"><div class="fig" style="font-size:112px;color:var(--bg)">Poseidon</div><div class="figl" style="color:#B4B1A8">customer trees</div></div>
     <div style="padding:40px 32px 0 32px;border-left:1px solid rgba(236,234,227,.2)"><div class="fig" style="font-size:112px;color:#8EA0FF">P-256</div><div class="figl" style="color:#B4B1A8">REP credential check<br><b style="color:var(--bg)">under 2% of a tx</b></div></div>
     <div style="padding:40px 0 0 32px;border-left:1px solid rgba(236,234,227,.2)"><div class="fig" style="font-size:112px;color:#F4C430">USDC</div><div class="figl" style="color:#B4B1A8">paid in the same tx</div></div>
@@ -194,11 +226,11 @@
 <!-- 11 stack -->
 
 <section class="s">
-  <div class="lbl">The stack</div><div class="no">13</div>
+  <div class="lbl">The stack</div><div class="no">15</div>
   <svg viewBox="0 0 1680 760" width="1680" height="760" style="margin-top:56px">
     <defs><marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#121211"/></marker></defs>
     <rect x="0" y="150" width="420" height="300" fill="#F6F5F1" stroke="#121211"/>
-    <text x="40" y="250" font-size="52" fill="#121211">Browser</text><text x="40" y="320" font-size="32" fill="#4A4842">ZK prover, wallet</text><text x="40" y="370" font-size="32" fill="#4A4842">fresh payer</text>
+    <text x="40" y="250" font-size="52" fill="#121211">Browser</text><text x="40" y="320" font-size="32" fill="#4A4842">zero-knowledge prover</text><text x="40" y="370" font-size="32" fill="#4A4842">fresh payer</text>
     <rect x="620" y="150" width="420" height="300" fill="#F6F5F1" stroke="#121211"/>
     <text x="660" y="250" font-size="52" fill="#121211">BookerBob</text><text x="660" y="320" font-size="32" fill="#4A4842">relay, co-sign</text><text x="660" y="370" font-size="32" fill="#4A4842">Ask Bob search</text>
     <rect x="1240" y="150" width="440" height="300" fill="#121211"/>
@@ -215,7 +247,7 @@
 
 <!-- 12 privacy -->
 <section class="s">
-  <div class="lbl">Who sees what</div><div class="no">14</div>
+  <div class="lbl">Who sees what</div><div class="no">16</div>
   <h2>Private by default.</h2>
   <div style="margin-top:80px;display:grid;grid-template-columns:1fr 1fr;gap:28px 80px;font-size:48px;letter-spacing:-.02em">
     <div><span style="color:var(--ink-3)">the place</span><br>an order, a proven badge</div>
@@ -228,7 +260,7 @@
 
 <!-- 13 roadmap -->
 <section class="s dark">
-  <div class="lbl">Next</div><div class="no">15</div>
+  <div class="lbl">Next</div><div class="no">17</div>
   <h2 style="color:var(--bg)">Any place you were a customer.</h2>
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:48px;margin-top:140px;font-size:52px;letter-spacing:-.03em;color:var(--bg)">
     <div>UCP stores<div class="figl" style="color:#B4B1A8">live with one</div></div>
@@ -240,7 +272,7 @@
 
 <!-- 14 team -->
 <section class="s">
-  <div class="lbl">Team</div><div class="no">16</div>
+  <div class="lbl">Team</div><div class="no">18</div>
   <h1 style="margin-top:140px">BookerBob.</h1>
   <div class="sub">Built in Lisbon, for Stellar.</div>
   <p class="cap" style="margin-top:72px;color:var(--ink)">ETHGlobal Lisbon: 2nd World AgentKit, 2nd The Graph.</p>
