@@ -125,20 +125,25 @@ html,body{margin:0;padding:0;background:#EDEBE5}
 
 <sc-if value="{{ vHome }}" hint-placeholder-val="{{ true }}">
 <section data-screen-label="01 Home" style="border-bottom:1px solid var(--rule)">
-  <div style="max-width:1360px;margin:0 auto;padding:clamp(44px,7vw,104px) clamp(16px,4vw,48px) clamp(40px,5vw,72px);display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,480px),1fr));gap:clamp(36px,5vw,80px);align-items:center">
+  <div style="max-width:1360px;margin:0 auto;padding:clamp(32px,5vw,72px) clamp(16px,4vw,48px) clamp(40px,5vw,72px);display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,480px),1fr));gap:clamp(28px,4vw,64px);align-items:center">
     <div style="animation:bb-in .7s cubic-bezier(.2,.7,0,1) both">
-      <h1 style="margin:0;font-size:clamp(56px,8.2vw,136px);font-weight:500;letter-spacing:-.06em;line-height:.84">BookerBob.</h1>
-      <p style="margin:16px 0 0;font-size:clamp(34px,4.4vw,72px);font-weight:500;letter-spacing:-.055em;line-height:.92;color:var(--ink-3);max-width:14ch">Google for agentic commerce.</p>
-      <p style="margin:30px 0 0;font-size:clamp(22px,2.2vw,32px);letter-spacing:-.03em;line-height:1.1">Proof of loyalty, everywhere you go.</p>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:22px">
-        <sc-for list="{{ heroKinds }}" as="k" hint-placeholder-count="3">
-          <button onClick="{{ k.onClick }}" style="appearance:none;border:1px solid var(--ink);background:transparent;color:var(--ink);font-size:15px;letter-spacing:-.01em;height:38px;padding:0 14px;display:inline-flex;align-items:center;gap:10px;cursor:pointer;transition:background .15s,color .15s" style-hover="background:var(--ink);color:var(--bg)">{{ k.label }}<span style="font-family:var(--mono);font-size:11px;opacity:.6">{{ k.count }}</span></button>
-        </sc-for>
+      <h1 style="margin:0;font-size:clamp(48px,6.4vw,104px);font-weight:500;letter-spacing:-.06em;line-height:.84">BookerBob.</h1>
+      <p style="margin:12px 0 0;font-size:clamp(28px,3.4vw,52px);font-weight:500;letter-spacing:-.055em;line-height:.92;color:var(--ink-3);max-width:16ch">Google for agentic commerce.</p>
+      <p style="margin:18px 0 0;font-size:clamp(19px,1.7vw,24px);letter-spacing:-.03em;line-height:1.15">Proof of loyalty, everywhere you go.</p>
+      <!-- bb:composer: Ask Bob as the hero, a person prompts an agent -->
+      <div style="margin-top:28px;border:1px solid var(--ink);background:var(--surface);box-shadow:var(--shadow-hard)">
+        <label for="bb-ask" style="display:flex;align-items:center;gap:10px;padding:14px 18px 0;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)"><span style="width:22px;height:22px;background:var(--ink);color:var(--bg);display:grid;place-items:center;font-size:11px;font-weight:600;letter-spacing:0">b</span>ask bob</label>
+        <textarea id="bb-ask" ref="{{ composerRef }}" rows="3" value="{{ rankInput }}" onInput="{{ onRankInput }}" onKeyDown="{{ onRankKey }}" onFocus="{{ onComposerFocus }}" onBlur="{{ onComposerBlur }}" placeholder="{{ composerPh }}" aria-label="ask bob" spellcheck="false" style="display:block;width:100%;min-height:calc(3 * 1.25em + 24px);resize:none;border:0;background:transparent;color:var(--ink);font-family:var(--sans);font-size:clamp(22px,2.3vw,32px);font-weight:500;letter-spacing:-.03em;line-height:1.25;padding:10px 18px 14px;outline:none"></textarea>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;padding:0 12px 12px 18px">
+          <span style="font-size:13px;color:var(--ink-3)">bob ranks by proven reviews only. enter to send.</span>
+          <button onClick="{{ askBob }}" disabled="{{ rankBusy }}" aria-label="send to bob" style="appearance:none;border:1px solid var(--ink);background:var(--ink);color:var(--bg);font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;font-size:12px;font-weight:500;height:46px;padding:0 20px;display:inline-flex;align-items:center;gap:22px;cursor:pointer;opacity:{{ rankBtnOp }}">{{ rankBtn }}<span>→</span></button>
+        </div>
       </div>
-      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:36px">
-        <button onClick="{{ scrollToRank }}" style="appearance:none;border:1px solid var(--ink);background:var(--ink);color:var(--bg);font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;height:50px;padding:0 22px;display:inline-flex;align-items:center;gap:28px;cursor:pointer;transition:background .15s,border-color .15s,color .15s" style-hover="background:var(--accent);border-color:var(--accent);color:var(--accent-ink)">see the ranking<span>↓</span></button>
-        <button onClick="{{ goAgent }}" style="appearance:none;border:1px solid var(--ink);background:transparent;color:var(--ink);font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;height:50px;padding:0 22px;display:inline-flex;align-items:center;gap:28px;cursor:pointer;transition:background .15s,color .15s" style-hover="background:var(--ink);color:var(--bg)">watch bob shop<span>→</span></button>
+      <div style="display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;margin-top:12px">
+        <span style="font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)">try</span>
+        <sc-for list="{{ rankTries }}" as="q" hint-placeholder-count="4"><button onClick="{{ q.onClick }}" style="appearance:none;border:1px solid var(--rule-soft);background:transparent;color:var(--ink-2);font-family:var(--mono);font-size:11.5px;height:30px;padding:0 10px;cursor:pointer" style-hover="border-color:var(--ink);color:var(--ink)">{{ q.label }}</button></sc-for>
       </div>
+      <p style="margin:16px 0 0;font-size:14px;color:var(--ink-2)">or <button onClick="{{ goAgent }}" style="appearance:none;border:0;border-bottom:1px solid var(--ink);background:none;color:var(--ink);font:inherit;padding:0;cursor:pointer">watch bob shop at a real store →</button></p>
     </div>
     <figure style="margin:0;animation:bb-fade 1.2s .2s ease both">
       <div style="border:1px solid var(--rule);background:var(--surface);display:flex;justify-content:center;overflow:hidden;padding:clamp(20px,3vw,40px) 8px">
@@ -146,12 +151,36 @@ html,body{margin:0;padding:0;background:#EDEBE5}
       </div>
       <figcaption style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 20px;margin-top:12px;font-family:var(--mono);font-size:11px;color:var(--ink-3)"><span>{{ hero.caption }}</span><span><span style="color:var(--accent)">@</span> is you. nobody knows which.</span></figcaption>
     </figure>
+    <sc-if value="{{ convo.has }}" hint-placeholder-val="{{ false }}">
+      <div ref="{{ convoRef }}" aria-live="polite" style="grid-column:1/-1;display:flex;flex-direction:column;gap:14px;scroll-margin-top:80px">
+        <div style="align-self:flex-end;max-width:min(640px,88%);background:var(--ink);color:var(--bg);padding:14px 18px;font-size:clamp(18px,1.7vw,22px);letter-spacing:-.02em;line-height:1.3;animation:bb-in .3s ease both">{{ convo.q }}</div>
+        <div style="align-self:flex-start;max-width:min(760px,94%);display:grid;grid-template-columns:32px minmax(0,1fr);gap:12px;align-items:start;animation:bb-in .3s ease both">
+          <span style="width:32px;height:32px;background:var(--ink);color:var(--bg);display:grid;place-items:center;font-family:var(--mono);font-size:14px;font-weight:600">b</span>
+          <div style="border:1px solid var(--rule);background:var(--surface);padding:14px 18px;font-size:clamp(18px,1.7vw,22px);letter-spacing:-.02em;line-height:1.35">{{ convo.reply }}<sc-if value="{{ convo.thinking }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;width:9px;height:18px;margin-left:4px;background:var(--ink);vertical-align:-3px;animation:bb-blink 1s steps(1) infinite"></span></sc-if></div>
+        </div>
+        <sc-if value="{{ convo.hasCards }}" hint-placeholder-val="{{ false }}">
+          <ol style="list-style:none;margin:0 0 0 44px;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:12px">
+            <sc-for list="{{ convo.cards }}" as="c" hint-placeholder-count="3">
+              <li style="animation:bb-in .45s cubic-bezier(.2,.7,0,1) both;animation-delay:{{ c.delay }}">
+                <button onClick="{{ c.onOpen }}" style="appearance:none;width:100%;height:100%;text-align:left;border:1px solid var(--ink);background:var(--bg);color:var(--ink);padding:16px;display:flex;flex-direction:column;gap:10px;cursor:pointer" style-hover="background:var(--surface)">
+                  <span style="display:flex;justify-content:space-between;align-items:baseline;gap:10px"><span style="font-family:var(--mono);font-size:12px;color:{{ c.rankColor }}">{{ c.rank }}</span><span style="font-size:34px;letter-spacing:-.05em;line-height:.9">{{ c.score }}<span style="font-family:var(--mono);font-size:11px;color:var(--ink-3);letter-spacing:0">/10</span></span></span>
+                  <span style="font-size:22px;font-weight:500;letter-spacing:-.035em;line-height:1.05">{{ c.name }}</span>
+                  <span style="font-size:13px;line-height:1.4;color:var(--ink-2)">{{ c.meta }}</span>
+                  <sc-if value="{{ c.deal }}" hint-placeholder-val="{{ true }}"><span style="align-self:flex-start;background:var(--deal);color:var(--deal-ink);font-family:var(--mono);font-size:12px;font-weight:600;padding:5px 9px">{{ c.deal }}</span></sc-if>
+                </button>
+              </li>
+            </sc-for>
+          </ol>
+          <p style="margin:0 0 0 44px;font-size:14px;color:var(--ink-2)">{{ convo.more }} <button onClick="{{ scrollToRank }}" style="appearance:none;border:0;border-bottom:1px solid var(--ink);background:none;color:var(--ink);font:inherit;padding:0;cursor:pointer">see the full ranking ↓</button></p>
+        </sc-if>
+      </div>
+    </sc-if>
   </div>
 </section>
 
 <section ref="{{ rankRef }}" data-screen-label="02 Ranking" style="border-bottom:1px solid var(--rule)">
   <div style="max-width:1360px;margin:0 auto;padding:clamp(44px,6vw,96px) clamp(16px,4vw,48px)">
-    <h2 style="margin:0;font-size:clamp(46px,6.6vw,108px);font-weight:500;letter-spacing:-.06em;line-height:.86;max-width:11ch">reviews nobody can buy.</h2>
+    <h2 style="margin:0;font-size:clamp(30px,3.6vw,56px);font-weight:500;letter-spacing:-.05em;line-height:.95;max-width:16ch">reviews nobody can buy.</h2>
 
     <div role="tablist" aria-label="kind of place" style="display:flex;gap:clamp(20px,3vw,40px);margin-top:clamp(28px,4vw,48px);border-bottom:1px solid var(--rule);overflow-x:auto">
       <sc-for list="{{ cats }}" as="c" hint-placeholder-count="3">
@@ -159,21 +188,6 @@ html,body{margin:0;padding:0;background:#EDEBE5}
       </sc-for>
     </div>
 
-    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px 18px;margin-top:20px;padding:14px 16px;border:1px solid var(--rule);background:var(--surface)">
-      <span style="width:32px;height:32px;flex:none;background:var(--ink);color:var(--bg);display:grid;place-items:center;font-family:var(--mono);font-size:14px;font-weight:600">b</span>
-      <input value="{{ rankInput }}" onInput="{{ onRankInput }}" onKeyDown="{{ onRankKey }}" placeholder="{{ rankQuery }}" aria-label="ask bob" spellcheck="false" autocomplete="off" style="flex:1 1 260px;min-width:0;height:38px;border:0;border-bottom:1px solid var(--rule-soft);background:transparent;color:var(--ink);font-family:var(--mono);font-size:14px;outline-offset:4px">
-      <button onClick="{{ askBob }}" disabled="{{ rankBusy }}" style="appearance:none;border:1px solid var(--ink);background:var(--ink);color:var(--bg);font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;height:38px;padding:0 16px;display:inline-flex;align-items:center;gap:16px;cursor:pointer;transition:background .15s,border-color .15s,color .15s" style-hover="background:var(--accent);border-color:var(--accent);color:var(--accent-ink)">{{ rankBtn }}<span>→</span></button>
-    </div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;margin-top:10px">
-      <span style="font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)">try</span>
-      <sc-for list="{{ rankTries }}" as="q" hint-placeholder-count="4"><button onClick="{{ q.onClick }}" style="appearance:none;border:1px solid var(--rule-soft);background:transparent;color:var(--ink-2);font-family:var(--mono);font-size:11.5px;height:28px;padding:0 10px;cursor:pointer" style-hover="border-color:var(--ink);color:var(--ink)">{{ q.label }}</button></sc-for>
-    </div>
-    <sc-if value="{{ rankHasLines }}" hint-placeholder-val="{{ false }}">
-      <ol style="list-style:none;margin:0;padding:10px 16px 4px 66px;font-family:var(--mono);font-size:12.5px;line-height:1.5">
-        <sc-for list="{{ rankLines }}" as="l" hint-placeholder-count="0"><li style="padding:4px 0;color:{{ l.color }};animation:bb-in .35s ease both">{{ l.t }}</li></sc-for>
-        <sc-if value="{{ rankBusy }}" hint-placeholder-val="{{ false }}"><li style="padding:4px 0"><span style="display:inline-block;width:8px;height:14px;background:var(--ink);vertical-align:-2px;animation:bb-blink 1s steps(1) infinite"></span></li></sc-if>
-      </ol>
-    </sc-if>
 
     <sc-if value="{{ rankShow }}" hint-placeholder-val="{{ true }}">
       <ol style="list-style:none;margin:clamp(20px,3vw,32px) 0 0;padding:0;border-bottom:1px solid var(--rule)">
@@ -1007,6 +1021,21 @@ class Component extends DCLogic {
   heroRef = el => { this.heroEl = el; if (el) el.innerHTML = this.renderTree(2.2); };
   proofRef = el => { this.proofEl = el; if (el) el.textContent = this.renderField(performance.now() / 1000); };
   rankRef = el => { this.rankEl = el; };
+  composerRef = el => { this.composerEl = el; };
+  convoRef = el => { this.convoEl = el; };
+  // bring the conversation into view below the sticky header (taller on phones)
+  scrollConvo = () => { const el = this.convoEl; if (!el) return; const h = (document.querySelector('header') || {}).offsetHeight || 64; window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - h - 16, behavior: this.reduced ? 'auto' : 'smooth' }); };
+  // the composer's placeholder types itself, with a blinking caret (static under reduced motion, or once focused)
+  PH = 'a quiet room in lisbon under 120, best proven rating';
+  typePh(ts) {
+    const el = this.composerEl; if (!el || !el.isConnected) return;
+    const full = this.state.rankRes ? 'ask bob something else' : this.PH;
+    if (this.reduced || this.phFocus || el.value) { if (el.placeholder !== full) el.placeholder = full; return; }
+    if (this.phStart == null || this.phFor !== full) { this.phStart = ts; this.phFor = full; }
+    const n = Math.min(full.length, Math.floor((ts - this.phStart) / 45)), caret = Math.floor(ts / 530) % 2 ? '▍' : ' ';
+    const v = full.slice(0, n) + caret;
+    if (el.placeholder !== v) el.placeholder = v;
+  }
   dialogRef = el => { this.dialogEl = el; };
 
   componentDidMount() {
@@ -1093,6 +1122,7 @@ class Component extends DCLogic {
     this.last = ts;
     if (this.heroEl && this.heroEl.isConnected) this.heroEl.innerHTML = this.renderTree(this.reduced ? 2.2 : ts / 1000);
     if (this.proofEl && this.proofEl.isConnected) this.proofEl.textContent = this.renderField(ts / 1000);
+    this.typePh(ts);
   };
   buildTree() {
     const N = [{ x: 0, y: -1, z: 0, l: 0 }], E = [], o = [0, 0.82, 0.62, 0.42, 0.3, 0.2];
@@ -1236,9 +1266,11 @@ class Component extends DCLogic {
   RANK_Q = { hotel: 'a quiet room in lisbon, best proven rating', 'café': 'coffee nearby', shop: 't-shirt under 50 usdc', restaurant: 'restaurant dinner' };
   askBob = async (q0) => {
     if (this.state.rank === 'thinking' || !this.m || !this.m.search) return;
-    const q = (typeof q0 === 'string' ? q0 : this.state.rankQ).trim() || this.RANK_Q[this.state.kind] || 'best hotel';
+    const q = (typeof q0 === 'string' ? q0 : ((this.composerEl && this.composerEl.value) || this.state.rankQ)).trim() || this.PH;
     const seq = (this.rankSeq = (this.rankSeq || 0) + 1);
-    this.setState({ rank: 'thinking', rankQ: q, rankLog: [`searching proven reviews for "${q}"`] });
+    this.setState({ rank: 'thinking', rankQ: '', rankAsked: q, rankLog: [`searching proven reviews for "${q}"`] });
+    if (this.composerEl) this.composerEl.value = '';
+    requestAnimationFrame(this.scrollConvo);
     let res = null;
     try { res = await this.m.search(q); } catch (e) { console.error(e); }
     if (seq !== this.rankSeq) return;
@@ -1249,6 +1281,7 @@ class Component extends DCLogic {
       `${this.plural(res.results.length, 'result')}, ${proven.length} with proven reviews. only those are ranked: by proven rating, weighted by how many reviews back it.`,
       top ? `top: ${top.title.toLowerCase()}, ${(top.provenRating * 2).toFixed(1)}` : 'nothing proven here yet. no rank without proof.'];
     this.setState({ rank: 'done', kind, rankRes: res, rankLog: log });
+    requestAnimationFrame(this.scrollConvo);
   };
   setKind(kind) { clearTimeout(this.rankT); this.rankSeq = (this.rankSeq || 0) + 1; this.setState({ kind, rank: 'idle', rankStep: 0, rankRes: null, rankLog: [] }); }
   scrollToRank = () => { if (this.rankEl) window.scrollTo({ top: this.rankEl.getBoundingClientRect().top + window.scrollY - 64, behavior: this.reduced ? 'auto' : 'smooth' }); };
@@ -1292,6 +1325,18 @@ class Component extends DCLogic {
     const ucpRow = (r, i) => ({ rank: String(i + 1).padStart(2, '0'), rankColor: i === 0 ? 'var(--accent)' : 'var(--ink)', isTop: false, name: r.title,
       meta: `REP Store on Shopify · ${this.money(r.price)} usdc · ${this.plural(r.reviewCount, 'proven review')}`, score: r.provenRating != null ? (r.provenRating * 2).toFixed(1) : '', deal: '', delay: this.reduced ? '0ms' : i * 90 + 'ms',
       onOpen: () => { if (r.variantId && this.m.store && this.m.store.choose) this.m.store.choose(r.variantId); this.goAgent(); } });
+    const convo = (() => {
+      const q = s.rankAsked; if (!q) return { has: false, q: '', reply: '', thinking: false, hasCards: false, cards: [], more: '' };
+      if (s.rank === 'thinking') return { has: true, q, reply: 'reading proven reviews', thinking: true, hasCards: false, cards: [], more: '' };
+      if (!res) return { has: true, q, reply: 'the search did not answer. ask me again.', thinking: false, hasCards: false, cards: [], more: '' };
+      const rows = res.results.filter(r => r.provenRating != null), ext = res.results.filter(r => r.source !== 'places' && r.source !== 'ucp');
+      const kinds = [...new Set(rows.map(r => r.kind))], n = rows.length;
+      const noun = kinds.length === 1 ? ({ hotel: ['stay', 'stays'], 'café': ['café', 'cafés'], restaurant: ['restaurant', 'restaurants'], shop: ['shop or product', 'shops and products'] }[kinds[0]] || ['place', 'places']) : ['result', 'results'];
+      const top = Math.min(3, n);
+      const reply = !n ? 'nothing here has a proven review yet, so I won\'t rank any of it.'
+        : `I ranked ${n} ${n === 1 ? noun[0] : noun[1]} by proven reviews only.${ext.length ? ` ${ext.length} more from ${ext[0].source} have no proven reviews, so I left them out.` : ''} ${n === 1 ? 'here it is' : n <= 3 ? 'here they are, best first' : `here are the top ${top}`}, with your perks.`;
+      return { has: true, q, reply, thinking: false, hasCards: n > 0, cards: [], more: n > top ? `${n - top} more ranked below.` : '' };
+    })();
     const fromRes = res ? (() => {
       const rows = res.results.filter(r => r.provenRating != null), un = res.results.filter(r => r.provenRating == null && r.source === 'places');
       return {
@@ -1308,12 +1353,15 @@ class Component extends DCLogic {
       heroKinds: kinds.map(([k, label]) => ({ label, count: s.ready ? String(count(k)) : '', onClick: () => pickKind(k) })),
       scrollToRank: this.scrollToRank,
       cats: kinds.map(([k, label]) => ({ label, count: s.ready ? String(count(k)) : '', on: s.kind === k, line: s.kind === k ? 'var(--ink)' : 'transparent', fg: s.kind === k ? 'var(--ink)' : 'var(--ink-3)', onClick: () => this.setKind(k) })),
-      rankQuery: queries[s.kind] || '', rankInput: s.rankQ, onRankInput: e => this.setState({ rankQ: e.target.value }), onRankKey: e => { if (e.key === 'Enter') { e.preventDefault(); const v = e.target.value; this.setState({ rankQ: v }); this.askBob(v); } },
+      rankQuery: queries[s.kind] || '', rankInput: s.rankQ, onRankInput: e => this.setState({ rankQ: e.target.value }), onRankKey: e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.askBob(e.target.value); } },
+      composerRef: this.composerRef, convoRef: this.convoRef, composerPh: this.PH, onComposerFocus: () => { this.phFocus = true; }, onComposerBlur: () => { this.phFocus = false; this.phStart = null; },
+      rankBtnOp: s.rank === 'thinking' ? 0.45 : 1,
       rankTries: ['hotel in lisbon under 120', 'best hotel', 'coffee nearby', 'restaurant dinner', 't-shirt under 50 usdc', 'hoodie'].map(q => ({ label: q, onClick: () => this.askBob(q) })),
-      askBob: () => this.askBob(), rankBusy: s.rank === 'thinking', rankBtn: s.rank === 'thinking' ? 'ranking' : s.rank === 'done' ? 'again' : 'ask bob',
+      askBob: () => this.askBob(), rankBusy: s.rank === 'thinking', rankBtn: s.rank === 'thinking' ? 'bob is reading' : 'ask bob',
       rankSkeleton: s.ready ? [] : [{ w: '62%' }, { w: '48%' }, { w: '55%' }], skAnim: this.reduced ? 'none' : 'bb-pulse 1.6s ease-in-out infinite',
       rankHasLines: !s.ready || shown > 0 || s.rank === 'thinking', rankLines: !s.ready ? [{ t: 'reading the proven reviews', color: 'var(--ink-3)' }] : lines.map((t, i) => ({ t, color: s.rank === 'done' && i === 2 ? 'var(--accent)' : 'var(--ink-2)' })),
       rankShow: s.rank !== 'thinking',
+      convo: { ...convo, cards: convo.hasCards && fromRes ? fromRes.ranked.slice(0, 3).map(r => ({ ...r, deal: r.deal || '' })) : [] },
       ...(fromRes || {}),
       ...(fromRes ? {} : { ranked: ranked.map((P, i) => ({
         rank: String(i + 1).padStart(2, '0'), rankColor: i === 0 ? 'var(--accent)' : 'var(--ink)', isTop: i === 0 && ranked.length > 1, name: P.name,
