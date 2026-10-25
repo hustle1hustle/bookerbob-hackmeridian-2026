@@ -6,6 +6,8 @@
 //   POST /api/faucet                       mints test USDC to an address
 //   GET  /api/disputes  POST /api/disputes  dispute packages for the arbiter
 //   POST /api/attest                       demo arbiter: checks the disclosure, then attest_review
+//   POST /api/loyalty/attest               verify_onchain_zk: relayer posts claim digest (testnet tx)
+//   GET  /api/passport/lookup?address=     Stellar Passport score (PASSPORT_API_KEY optional)
 //   POST /api/context/attest               context provider hook (stub)
 //   POST /api/payer/open|activate|feebump   fresh payer per booking, sponsored and fee-bumped by BookerBob
 //   GET  /api/catalog  POST /api/quote  POST /api/cosign   demo catalog, server-computed totals, admin co-sign
@@ -23,6 +25,7 @@ import { checkDisclosure } from "../../packages/sdk/src/disclosure.ts"
 import { federatedSearch } from "./search/index.ts"
 import { placesAdapter } from "./search/places.ts"
 import { ucpAdapter } from "./search/ucp.ts"
+import { opsApi, opsClient } from "./ops.ts" // importing installs the error hooks
 import { jmprAdapter } from "./search/jmpr.ts"
 import { PayerService } from "./payer.ts"
 import { loadCatalog, Quotes } from "./catalog.ts"
@@ -98,6 +101,7 @@ async function checkStored(d: { pkg?: import("@bookerbob/pos-sdk").DisclosurePac
 }
 
 async function api(req: IncomingMessage, res: ServerResponse, path: string) {
+  if (path.startsWith("/api/ops/")) return opsApi(req, res, path)
   if (path.startsWith("/api/rep/")) return (await import("./rep.ts")).repApi(req, res, path)
   const read = await ops.read()
   let m: RegExpMatchArray | null
@@ -137,6 +141,20 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
     const d = store.disputes().find((x) => x.id === id)
     if (!d) return json(res, 404, { error: "ReviewNotFound" })
     return json(res, 200, { check: await checkStored(d) })
+  }
+  // Stellar Passport lookup: PASSPORT_API_KEY stays on the server (keyless works without it).
+  if (req.method === "GET" && path === "/api/passport/lookup") {
+    const address = String(new URL(req.url ?? "", "http://x").searchParams.get("address") ?? "")
+    if (!/^[GC][A-Z2-7]{55}$/.test(address)) return fail(res, { error: "BadParams", message: "address required" })
+    const { fetchPassport } = await import("../../packages/verify_onchain_zk/src/index.ts")
+    return json(
+      res,
+      200,
+      await fetchPassport(address, {
+        passportApiKey: process.env.PASSPORT_API_KEY || undefined,
+        passportBaseUrl: process.env.PASSPORT_BASE_URL || undefined,
+      }),
+    )
   }
   if (req.method !== "POST") return json(res, 404, { error: "NotFound" })
   if (limited(req)) return json(res, 429, { error: "RateLimited" })
@@ -227,6 +245,25 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
       return fail(res, { error: b.address.startsWith("G") ? "NoTrustline" : "Unknown", message: String(e).slice(0, 200) })
     }
   }
+  if (path === "/api/loyalty/attest") {
+    const ok =
+      typeof b.address === "string" &&
+      /^[GC][A-Z2-7]{55}$/.test(b.address) &&
+      typeof b.digest === "string" &&
+      /^(0x)?[0-9a-f]{64}$/i.test(b.digest) &&
+      isInt(b.rating) &&
+      b.rating <= 100 &&
+      isInt(b.tier) &&
+      b.tier >= 1 &&
+      b.tier <= 5
+    if (!ok) return fail(res, { error: "BadParams" })
+    try {
+      const txHash = await ops.attestLoyalty(b.address, b.digest)
+      return json(res, 200, { txHash, digest: String(b.digest).replace(/^0x/, "").toLowerCase() })
+    } catch (e) {
+      return fail(res, { error: "AttestFailed", message: String((e as Error)?.message ?? e).slice(0, 200) })
+    }
+  }
   if (path === "/api/disputes") {
     const p = b.pkg
     if (!p || !isInt(p.reviewId) || !isInt(p.merchant) || !isDec(p.commitment) || !isDec(p.dk)) return fail(res, { error: "BadParams" })
@@ -270,6 +307,7 @@ createServer(async (req, res) => {
       return res.end()
     }
     if (path.startsWith("/api/")) return await api(req, res, path)
+    if (path === "/ops.js") return opsClient(res)
     serveStatic(res, path)
   } catch (e) {
     json(res, 500, { error: "Unknown", message: String((e as any)?.message ?? e).slice(0, 200) })

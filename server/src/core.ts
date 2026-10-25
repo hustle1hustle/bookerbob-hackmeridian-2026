@@ -1,6 +1,6 @@
 // BookerBob backend operations on testnet: demo merchant desk (checkout), review relayer, demo arbiter, test USDC faucet.
 // Keys come from the environment only; nothing here is committed with secrets.
-import { Asset, BASE_FEE, Keypair, Operation, TransactionBuilder, contract, nativeToScVal, rpc, Address } from "@stellar/stellar-sdk"
+import { Asset, BASE_FEE, Keypair, Memo, Operation, TransactionBuilder, contract, nativeToScVal, rpc, Address } from "@stellar/stellar-sdk"
 import { getClient, views, write, proofArg, bytes32Arg, type NetworkConfig, type Signer, type WriteOutcome } from "../../packages/sdk/src/contract.ts"
 import { contentHash } from "../../packages/sdk/src/derive.ts"
 import type { SorobanProofHex } from "../../packages/sdk/src/convert.ts"
@@ -112,6 +112,35 @@ export class Ops {
     const { asset } = await this.usdcAsset()
     return this.submitClassic(holder, Operation.changeTrust({ asset }))
   }
+  /**
+   * Loyalty attest (verify_onchain_zk): relayer pays 1 stroop to `address` with memo.hash = claim digest.
+   * Creates a clickable testnet tx linked to the guest account. Classic payment — not a Soroban invoke.
+   */
+  async attestLoyalty(address: string, digestHex: string): Promise<string> {
+    const hex = digestHex.replace(/^0x/, "").toLowerCase()
+    if (!/^[0-9a-f]{64}$/.test(hex)) throw new Error("digest must be 32-byte hex")
+    if (!/^[GC][A-Z2-7]{55}$/.test(address)) throw new Error("bad address")
+    const s = this.server()
+    const source = this.keys.relayer
+    const acct = await s.getAccount(source.publicKey())
+    const digest = Buffer.from(hex, "hex")
+    const tx = new TransactionBuilder(acct, { fee: BASE_FEE, networkPassphrase: this.net.networkPassphrase })
+      .addOperation(Operation.payment({ destination: address, asset: Asset.native(), amount: "0.0000001" }))
+      .addMemo(Memo.hash(digest))
+      .setTimeout(60)
+      .build()
+    tx.sign(source)
+    const sent = await s.sendTransaction(tx)
+    if (sent.status === "ERROR") throw new Error(`loyalty attest send failed ${JSON.stringify(sent.errorResult)}`)
+    for (let i = 0; i < 30; i++) {
+      const r = await s.getTransaction(sent.hash)
+      if (r.status === "SUCCESS") return sent.hash
+      if (r.status === "FAILED") throw new Error(`loyalty attest failed ${sent.hash}`)
+      await new Promise((ok) => setTimeout(ok, 1000))
+    }
+    throw new Error(`loyalty attest timeout ${sent.hash}`)
+  }
+
   /** Faucet: issuer mints test USDC to `to` (G-address needs a trustline first; C-address does not). */
   async mintUsdc(to: string, amount: bigint): Promise<string> {
     const { sac } = await this.usdcAsset()

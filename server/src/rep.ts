@@ -124,7 +124,8 @@ export function createRep(deps: RepDeps) {
       }
       if (req.method === "GET" && sub.startsWith("/result")) {
         expire()
-        const sid = new URL(path, "http://x").searchParams.get("sid") ?? ""
+        // index.ts routes on the pathname only; the query lives on req.url
+        const sid = new URL(req.url ?? path, "http://x").searchParams.get("sid") ?? ""
         const s = sessions.get(sid)
         if (!s) return json(res, 404, { error: "unknown session" })
         const status = s.status === "presented" ? "pending" : s.status

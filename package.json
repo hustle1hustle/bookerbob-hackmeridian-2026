@@ -14,6 +14,7 @@
   ],
   "scripts": {
     "test:sdk": "node packages/sdk/src/smoke.test.ts",
+    "test:verify": "node --experimental-strip-types --test packages/verify_onchain_zk/src/index.test.ts",
     "typecheck": "tsc -p packages/sdk && tsc -p server",
     "typecheck:modules": "tsc -p packages/pass_connect && tsc -p packages/verify_onchain_zk",
     "seed": "node scripts/seed.ts",
