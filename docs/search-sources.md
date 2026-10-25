@@ -33,6 +33,6 @@ An adapter returns hits; if a hit maps to a merchant in the contract (`merchantI
 |---|---|---|---|
 | `places` | `places.ts` | always | merchants in the contract (hotels, cafés, restaurants, shops), minus those served by UCP |
 | `ucp` | `ucp.ts` | `UCP_BRIDGE_URL` (default the BookerBob UCP bridge) | products from merchants selling over UCP; `extra` carries productId, variantId, store price |
-| `jmpr` | `jmpr.ts` | `JMPR_ENABLED=1` | stub today: real hotels and sandbox bookings from JMPR; implementing it is this one file |
+| `jmpr` | `jmpr.ts` | on unless `JMPR_ENABLED=0` | real Lisbon hotels from JMPR, from a static snapshot `server/data/jmpr-lisbon.json` (built on a Mac by `node scripts/jmpr-snapshot.ts`, 8 JMPR calls); the public site makes zero JMPR calls and holds no JMPR token. Tagged "JMPR hotels", pre-tax nightly "from" prices, "no proven reviews yet" |
 
 Adding a source: one file exporting a `SearchAdapter`, one line in `server/src/index.ts`, one env flag.

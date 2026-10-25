@@ -60,7 +60,7 @@ const UCP_MERCHANTS = new Set((process.env.UCP_MERCHANTS ?? "5").split(",").filt
 const adapters = [
   placesAdapter(async () => (await snapshot()).merchants, UCP_MERCHANTS),
   ucpAdapter(process.env.UCP_BRIDGE_URL ?? "https://bookerbob-ucp-bridge.fly.dev"),
-  jmprAdapter(process.env.JMPR_ENABLED === "1"),
+  jmprAdapter(process.env.JMPR_ENABLED !== "0"), // static snapshot, zero JMPR calls
 ]
 
 const json = (res: ServerResponse, code: number, body: unknown) => {

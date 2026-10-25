@@ -1,0 +1,472 @@
+{
+ "source": "JMPR (jmpr.world) hotel_search, Lisbon",
+ "fetchedAt": "2026-10-25T14:44:55.586Z",
+ "note": "Pre-tax nightly 'from' prices for comparison, lowest seen across the windows; never a quote. Bookable rates come from JMPR hotel_rooms.",
+ "windows": [
+  "2026-11-13..2026-11-15",
+  "2026-11-27..2026-11-29",
+  "2026-12-11..2026-12-13",
+  "2027-01-15..2027-01-17"
+ ],
+ "hotels": [
+  {
+   "hotelId": "01JS4S9EKX1XGD7XW52C4E6X7F",
+   "name": "Doubletree Lisbon Fontana Park",
+   "area": "Rua Eng Vieira da Silva 2\nLisbon 1050-105\nPT",
+   "stars": 0,
+   "priceFrom": 92,
+   "currency": "USD",
+   "elitePerks": [],
+   "imageUrl": null,
+   "lat": 38.731296,
+   "lon": -9.143975,
+   "seen": "2027-01-15..2027-01-17"
+  },
+  {
+   "hotelId": "01JS4S9EM27TG70RWRD913HYWN",
+   "name": "Mama Shelter Lisboa",
+   "area": "LISBOA PT",
+   "stars": 0,
+   "priceFrom": 100,
+   "currency": "USD",
+   "elitePerks": [],
+   "imageUrl": null,
+   "lat": 38.7209,
+   "lon": -9.1524,
+   "seen": "2026-12-11..2026-12-13"
+  },
+  {
+   "hotelId": "01JS4S9EKQD4KJ83KMAG6R7ETV",
+   "name": "Sofitel Lisbon Liberdade",
+   "area": "AVENIDA DA LIBERDADE 127\nLISBOA 1269-038 PT",
+   "stars": 5,
+   "priceFrom": 152,
+   "currency": "USD",
+   "elitePerks": [
+    "Daily Breakfast",
+    "Room upgrade (subject to availability)",
+    "Early Check In (subject to availability)",
+    "Late Check Out (subject to availability)",
+    "Welcome Amenity",
+    "USD100 Hotel Credit"
+   ],
+   "imageUrl": "https://storage.googleapis.com/hotel-resource/01JS4S9EKQD4KJ83KMAG6R7ETV/001",
+   "lat": 38.71891,
+   "lon": -9.14508,
+   "seen": "2026-12-11..2026-12-13"
+  },
+  {
+   "hotelId": "01JS4S9EKQD4KJ83KMADT8181P",
+   "name": "Intercontinental Lisbon",
+   "area": "RUA CASTILHO  149\nLISBON 1099-034 PT",
+   "stars": 5,
+   "priceFrom": 165,
+   "currency": "USD",
+   "elitePerks": [
+    "Daily Breakfast",
+    "Room upgrade (subject to availability)",
+    "Early Check In (subject to availability)",
+    "Late Check Out (subject to availability)",
+    "Welcome Amenity",
+    "USD100 Hotel Credit"
+   ],
+   "imageUrl": "https://storage.googleapis.com/hotel-resource/01JS4S9EKQD4KJ83KMADT8181P/001",
+   "lat": 38.7267,
+   "lon": -9.155,
+   "seen": "2026-12-11..2026-12-13"
+  },
+  {
+   "hotelId": "tbo_holidays:1552630",
+   "name": "Martinhal Lisbon Chiado",
+   "area": "Rua das Flores, 44, 1200-195 Lisbon",
+   "stars": 5,
+   "priceFrom": 171,
+   "currency": "USD",
+   "elitePerks": [],
+   "imageUrl": "https://www.tboholidays.com//imageresource.aspx?img=FbrGPTrju5e5v0qrAGTD8pPBsj8/wYA5F3wAmN3NGLVXXq1oIJfAs6VBYpvEK7AexC4Mk0uplUVV61AQqdZSPaM4rMQvyN857HlFIaSC+qiuVUoToA7YHg==",
+   "lat": 38.70878,
+   "lon": -9.14356,
+   "seen": "2027-01-15..2027-01-17"
+  },
+  {
+   "hotelId": "tbo_holidays:1387367",
+   "name": "Palácio do Governador - Lisbon Hotel & Spa",
+   "area": "Rua Bartolomeu Dias, 117, 1400-030 Lisboa",
+   "stars": 5,
+   "priceFrom": 174,
+   "currency": "USD",
+   "elitePerks": [],
+   "imageUrl": "https://www.tboholidays.com//imageresource.aspx?img=FbrGPTrju5e5v0qrAGTD8pPBsj8/wYA5F3wAmN3NGLXtFlkXnlJdiLgmoCu5fFnBVz2FvcRodIwY/kgB5LGK0KILh8hNwJW0HkuOvR+ZB+XfSfl9Y+w5Tw==",
+   "lat": 38.694795,
+   "lon": -9.214822,
+   "seen": "2027-01-15..2027-01-17"
+  },
+  {
+   "hotelId": "tbo_holidays:1356233",
+   "name": "The Vintage Hotel & Spa - Lisbon",
+   "area": "Rua Rodrigo da Fonseca, 2,",
+   "stars": 5,
+   "priceFrom": 180,
+   "currency": "USD",
+   "elitePerks": [],
+   "imageUrl": "https://www.tboholidays.com//imageresource.aspx?img=FbrGPTrju5e5v0qrAGTD8pPBsj8/wYA5F3wAmN3NGLVCqtcGqXzZNNp1MAi5dh7zUgNeBWO60Sm8VsRE6o/xC87Ali7CdpJQkU7gAYco9u0=",
+   "lat": 38.719999,
+   "lon": -9.150513,
+   "seen": "2026-12-11..2026-12-13"
+  },
+  {
+   "hotelId": "01JS4S9EKS83W1NRXX7ZE8VKC1",
+   "name": "Convent Square Lisbon，Vignette Collection",
+   "area": "RUA DOM ANT O DE ALM",
+   "stars": 5,
+   "priceFrom": 181,
+   "currency": "USD",
+   "elitePerks": [
+    "Daily Breakfast",
+    "Room upgrade (subject to availability)",
+    "Early Check In (subject to availability)",
+    "Late Check Out (subject to availability)",
+    "Welcome Amenity",
+    "USD100 Hotel Credit"
+   ],
+   "imageUrl": "https://storage.googleapis.com/hotel-resource/01JS4S9EKS83W1NRXX7ZE8VKC1/001",
+   "lat": 38.7143,
+   "lon": -9.1386,
+   "seen": "2027-01-15..2027-01-17"
+  },
+  {
+   "hotelId": "01JS4S9EKR36S2CE0B9D1V9MEY",
+   "name": "The One Palacio Da Anunciada",
+   "area": "RUA DAS PORTAS DE SA",
+   "stars": 5,
+   "priceFrom": 182,
+   "currency": "USD",
+   "elitePerks": [
+    "Daily Breakfast",
+    "Room upgrade (subject to availability)",
+    "Early Check In (subject to availability)",
+    "Late Check Out (subject to availability)",
+    "USD100 Hotel Credit"
+   ],
+   "imageUrl": "https://storage.googleapis.com/hotel-resource/01JS4S9EKR36S2CE0B9D1V9MEY/001",
+   "lat": 38.7169,
+   "lon": -9.1431,
+   "seen": "2027-01-15..2027-01-17"
+  },
+  {
+   "hotelId": "01K4CKEXTQ4T4M30SFVPRBKB7W",
+   "name": "Epic Sana Marques Hotel",
+   "area": "AVENIDA FONTES",
+   "stars": 5,
+   "priceFrom": 184,
+   "currency": "USD",
+   "elitePerks": [],
+   "imageUrl": "https://www.tboholidays.com//imageresource.aspx?img=FbrGPTrju5e/HYusSxssYNGz+r+daGo8+nI8f2/HFw9QwX+47gOd8n0vhhPU+r1v7r1KOvIDg7V7ZkrfIlbnHRGZtG5h3Jqe9+FMncJaAWxu08NA7HP91tyylePPNaIUK0xzWsX7cIaK0To7eGqysUl9U9RPzZQhs15mydeVqgH7NyoE0rRctwEqJ0MVUmq3Mcya1BSDyQk=",
+   "lat": 38.727455,
+   "lon": -9.14844,
+   "seen": "2027-01-15..2027-01-17"
+  },
+  {
+   "hotelId": "01JS4S9EKX1XGD7XW52P6PVQZ6",
+   "name": "Altis Avenida Hotel Lif",
+   "area": "Rua 1 de Dezembro 120\nLisbon 1200-360 PT",
+   "stars": 0,
+   "priceFrom": 185,
+   "currency": "USD",
+   "elitePerks": [],
+   "imageUrl": "https://www.tboholidays.com//imageresource.aspx?img=FbrGPTrju5e5v0qrAGTD8pPBsj8/wYA5F3wAmN3NGLVCqtcGqXzZNK1rRzcEodNSesPKI2Zfk4wXzbhO399qwNu3BGTVKSmtu3xRqfBPYo4=",
+   "lat": 38.715288,
+   "lon": -9.14094,
+   "seen": "2026-12-11..2026-12-13"
+  },
+  {
+   "hotelId": "01JS4S9EKS83W1NRXX8FFZNSK5",
+   "name": "Myriad By Sana",
+   "area": "CAIS DAS NAUS LOTE",
+   "stars": 5,
+   "priceFrom": 190,
+   "currency": "USD",
+   "elitePerks": [
+    "Daily Breakfast",
+    "Room upgrade (subject to availability)",
+    "Early Check In (subject to availability)",
+    "Late Check Out (subject to availability)",
+    "USD100 Hotel Credit"
+   ],
+   "imageUrl": "https://storage.googleapis.com/hotel-resource/01JS4S9EKS83W1NRXX8FFZNSK5/001",
+   "lat": 38.7747,
+   "lon": -9.0915,
+   "seen": "2026-11-27..2026-11-29"
+  },
+  {
+   "hotelId": "01JS4S9EKQD4KJ83KMA9FGVCWR",
+   "name": "Pestana Palace Lisboa - Hotel & National Monument",
+   "area": "Rua Jau, 54 1300-314 Lisbon, Portugal",
+   "stars": 5,
+   "priceFrom": 192,
+   "currency": "USD",
+   "elitePerks": [
+    "Daily Breakfast",
+    "Room upgrade (subject to availability)",
+    "Early Check In (subject to availability)",
+    "Late Check Out (subject to availability)"
+   ],
+   "imageUrl": "https://storage.googleapis.com/hotel-resource/01JS4S9EKQD4KJ83KMA9FGVCWR/001",
+   "lat": 38.7037,
+   "lon": -9.1868,
+   "seen": "2027-01-15..2027-01-17"
+  },
+  {
+   "hotelId": "01JS4S9EKQD4KJ83KMA594RE18",
+   "name": "Pousada De Lisboa",
+   "area": "Praca do Comercio 31 34\nLisbon 1100-148 PT",
+   "stars": 5,
+   "priceFrom": 192,
+   "currency": "USD",
+   "elitePerks": [
+    "Daily Breakfast",
+    "Room upgrade (subject to availability)",
+    "Early Check In (subject to availability)",
+    "Late Check Out (subject to availability)",
+    "USD100 Restaurant Credit"
+   ],
+   "imageUrl": "https://storage.googleapis.com/hotel-resource/01JS4S9EKQD4KJ83KMA594RE18/001",
+   "lat": 38.708302,
+   "lon": -9.137942,
+   "seen": "2027-01-15..2027-01-17"
+  },
+  {
+   "hotelId": "01JS4S9EKS83W1NRXWE0277RVH",
+   "name": "Hyatt Regency Lisbon",
+   "area": "Rua da Junqueira, 63, Lisbon, Portugal, 1300-343",
+   "stars": 5,
+   "priceFrom": 194,
+   "currency": "USD",
+   "elitePerks": [
+    "Daily Breakfast",
+    "Room upgrade (subject to availability)",
+    "Early Check In (subject to availability)",
+    "Welcome Amenity",
+    "USD100 Hotel Credit"
+   ],
+   "imageUrl": "https://storage.googleapis.com/hotel-resource/01JS4S9EKS83W1NRXWE0277RVH/001",
+   "lat": 38.6983,
+   "lon": -9.1875,
+   "seen": "2027-01-15..2027-01-17"
+  },
+  {
+   "hotelId": "01JS4S9EKQD4KJ83KMAA6B2X9E",
+   "name": "Tivoli Avenida Liberdade",
+   "area": "AVENIDADE DA LIBERDADE 185\nLISBON 1269 050 PT",
+   "stars": 5,
+   "priceFrom": 231,
+   "currency": "USD",
+   "elitePerks": [
+    "Daily Breakfast",
+    "Room upgrade (subject to availability)",
+    "Early Check In (subject to availability)",
+    "Late Check Out (subject to availability)",
+    "Welcome Amenity",
+    "USD100 Hotel Credit"
+   ],
+   "imageUrl": "https://storage.googleapis.com/hotel-resource/01JS4S9EKQD4KJ83KMAA6B2X9E/001",
+   "lat": 38.721181,
+   "lon": -9.147255,
+   "seen": "2027-01-15..2027-01-17"
+  },
+  {
+   "hotelId": "tbo_holidays:5007519",
+   "name": "Palácio Ludovice Wine Experience Hotel",
+   "area": "R. de Sao Pedro de Alcantara 39, 1250-237 Lisboa,",
+   "stars": 5,
+   "priceFrom": 240,
+   "currency": "USD",
+   "elitePerks": [],
+   "imageUrl": "https://www.tboholidays.com//imageresource.aspx?img=FbrGPTrju5e5v0qrAGTD8pPBsj8/wYA5F3wAmN3NGLXiAW8jYPkL+jsmQLbXjC3ZxNbgZXaJJmS+ADmECHiPoVtMir1t+G5mjDoyNgUsy3JPBL+SEmM0dw==",
+   "lat": 38.713827,
+   "lon": -9.143872,
+   "seen": "2027-01-15..2027-01-17"
+  },
+  {
+   "hotelId": "tbo_holidays:1260182",
+   "name": "Altis Belem Hotel & Spa, Member of Design Hotels",
+   "area": "Doca do Bom Sucesso, 1400-038 Lisboa,",
+   "stars": 5,
+   "priceFrom": 251,
+   "currency": "USD",
+   "elitePerks": [],
+   "imageUrl": "https://www.tboholidays.com//imageresource.aspx?img=FbrGPTrju5e5v0qrAGTD8pPBsj8/wYA5F3wAmN3NGLVydclVdmtcN5TaUNkb9NEedodjbjHvkuAJybzWeEILKjzj25Q2aT+6kFAddPK9yCg=",
+   "lat": 38.69347,
+   "lon": -9.20971,
+   "seen": "2026-12-11..2026-12-13"
+  },
+  {
+   "hotelId": "01JS4S9EKR36S2CE0BPN605K0Q",
+   "name": "Memmo Principe Real",
+   "area": "RUA D PEDRO V 56 J",
+   "stars": 5,
+   "priceFrom": 266,
+   "currency": "USD",
+   "elitePerks": [
+    "Daily Breakfast",
+    "Room upgrade (subject to availability)",
+    "Early Check In (subject to availability)",
+    "Late Check Out (subject to availability)",
+    "Suite Benefit"
+   ],
+   "imageUrl": "https://storage.googleapis.com/hotel-resource/01JS4S9EKR36S2CE0BPN605K0Q/001",
+   "lat": 38.715715,
+   "lon": -9.146131,
+   "seen": "2027-01-15..2027-01-17"
+  },
+  {
+   "hotelId": "tbo_holidays:1635713",
+   "name": "Corpo Santo Lisbon Historical Hotel",
+   "area": "Largo Corpo Santo 25, 1200-129 Lisboa,",
+   "stars": 5,
+   "priceFrom": 268,
+   "currency": "USD",
+   "elitePerks": [],
+   "imageUrl": "https://www.tboholidays.com//imageresource.aspx?img=FbrGPTrju5e5v0qrAGTD8pPBsj8/wYA5F3wAmN3NGLV6f9PD4KGcz1rX0raNrwcCXUynuMzYaC9+babY4Ss0EkWy4WTQ8mzgCsBRJozmd0JbRh8FO043ew==",
+   "lat": 38.70731,
+   "lon": -9.14223,
+   "seen": "2026-12-11..2026-12-13"
+  },
+  {
+   "hotelId": "tbo_holidays:5036749",
+   "name": "ME Lisbon by Meliá",
+   "area": "Av. António Augusto de Aguiar, 2,",
+   "stars": 5,
+   "priceFrom": 276,
+   "currency": "USD",
+   "elitePerks": [],
+   "imageUrl": "https://www.tboholidays.com//imageresource.aspx?img=FbrGPTrju5e5v0qrAGTD8pPBsj8/wYA5F3wAmN3NGLUbS7qQ7LSeLc5QLfTDlcsaul77wteof0+I7GanZ79LzqxXja6r4cz7vLcPtLuXe/dNWKWZJD3fxg==",
+   "lat": 38.728133,
+   "lon": -9.148677,
+   "seen": "2027-01-15..2027-01-17"
+  },
+  {
+   "hotelId": "01JS4S9EKQD4KJ83KMAE28XK4D",
+   "name": "Olissippo Lapa Palace",
+   "area": "Rua do Pau de Bandeira 4 Lisbon, 1249 021 Portugal",
+   "stars": 5,
+   "priceFrom": 369,
+   "currency": "USD",
+   "elitePerks": [
+    "Welcome Amenity",
+    "USD100 Restaurant Credit"
+   ],
+   "imageUrl": "https://storage.googleapis.com/hotel-resource/01JS4S9EKQD4KJ83KMAE28XK4D/001",
+   "lat": 38.7067,
+   "lon": -9.1639,
+   "seen": "2026-12-11..2026-12-13"
+  },
+  {
+   "hotelId": "tbo_holidays:1263343",
+   "name": "Valverde Lisboa Hotel & Garden - Relais & Châteaux",
+   "area": "Avenida da Liberdade, 164,",
+   "stars": 5,
+   "priceFrom": 378,
+   "currency": "USD",
+   "elitePerks": [],
+   "imageUrl": "https://www.tboholidays.com//imageresource.aspx?img=FbrGPTrju5e/HYusSxssYNGz+r+daGo8+nI8f2/HFw9QwX+47gOd8n0vhhPU+r1vY6faKxXdnZigu9ELiTKpEK+elCfnS1XuzA20RbAJ13k8t0sgKufhhAyshY42645Lc1wiUqMWgTz0NvD55UL3oivXd/fgveH3KsiYO+4znzjp25Ul6MZE6EDPBd+yLQYdF4cnTp1ep2s=",
+   "lat": 38.71975,
+   "lon": -9.144533,
+   "seen": "2026-12-11..2026-12-13"
+  },
+  {
+   "hotelId": "01JS4S9EKQD4KJ83KMA6YP57T6",
+   "name": "Bairro Alto Hotel",
+   "area": "PRACA LUIS DE CAMOES",
+   "stars": 5,
+   "priceFrom": 401,
+   "currency": "USD",
+   "elitePerks": [
+    "USD100 Restaurant Credit"
+   ],
+   "imageUrl": "https://storage.googleapis.com/hotel-resource/01JS4S9EKQD4KJ83KMA6YP57T6/001",
+   "lat": 38.710384,
+   "lon": -9.14342,
+   "seen": "2026-12-11..2026-12-13"
+  },
+  {
+   "hotelId": "tbo_holidays:6497474",
+   "name": "Lisbon Chiado Hotel & SPA",
+   "area": "20 Largo Rafael Bordalo Pinheiro,",
+   "stars": 5,
+   "priceFrom": 416,
+   "currency": "USD",
+   "elitePerks": [],
+   "imageUrl": "https://www.tboholidays.com//imageresource.aspx?img=FbrGPTrju5e5v0qrAGTD8pPBsj8/wYA5F3wAmN3NGLWCiOdScER0LP+PDR3e3FiQb7AyQTsfm4C+OBCI954nf/tY1JFRQmsdDCk+w6DW3m2b0lDvBfWepw==",
+   "lat": 38.711622,
+   "lon": -9.141952,
+   "seen": "2026-11-27..2026-11-29"
+  },
+  {
+   "hotelId": "tbo_holidays:6496218",
+   "name": "MYTHIC SANA Downtown Suites - New Opening",
+   "area": "126 Rua Áurea,",
+   "stars": 5,
+   "priceFrom": 454,
+   "currency": "USD",
+   "elitePerks": [],
+   "imageUrl": "https://www.tboholidays.com//imageresource.aspx?img=FbrGPTrju5e5v0qrAGTD8pPBsj8/wYA5F3wAmN3NGLWn2htkO+sXXlySpmYQJmYxYu7v98H1yK5UJ1mYCm7b6Aj07moss6R6ylxqwKC0B4eEo6LkomEBqw==",
+   "lat": 38.71035,
+   "lon": -9.138358,
+   "seen": "2026-12-11..2026-12-13"
+  },
+  {
+   "hotelId": "01JS4S9EKR36S2CE0B9FNEXR4R",
+   "name": "Valverde Hotel",
+   "area": "AV DA LIBERDADE 164",
+   "stars": 5,
+   "priceFrom": 462,
+   "currency": "USD",
+   "elitePerks": [
+    "Room upgrade (subject to availability)",
+    "Early Check In (subject to availability)",
+    "Late Check Out (subject to availability)",
+    "Free pick up and drop off service"
+   ],
+   "imageUrl": "https://storage.googleapis.com/hotel-resource/01JS4S9EKR36S2CE0B9FNEXR4R/001",
+   "lat": 38.71974,
+   "lon": -9.14454,
+   "seen": "2026-12-11..2026-12-13"
+  },
+  {
+   "hotelId": "01JS4S9EKS83W1NRXX4MWK9AV7",
+   "name": "The Ivens, Autograph Collection",
+   "area": "Rua Capelo, 5 Lisbon, 1200-224 Portugal",
+   "stars": 5,
+   "priceFrom": 515,
+   "currency": "USD",
+   "elitePerks": [
+    "Daily Breakfast",
+    "Room upgrade (subject to availability)",
+    "Early Check In (subject to availability)",
+    "Late Check Out (subject to availability)"
+   ],
+   "imageUrl": "https://storage.googleapis.com/hotel-resource/01JS4S9EKS83W1NRXX4MWK9AV7/001",
+   "lat": 38.7096,
+   "lon": -9.1402,
+   "seen": "2026-12-11..2026-12-13"
+  },
+  {
+   "hotelId": "01JS4S9EKQD4KJ83KMAFS8QJYD",
+   "name": "Four Seasons Hotel Ritz Lisbon",
+   "area": "Rua Rodrigo da Fonseca 88 Lisbon, 1099-039 Portugal",
+   "stars": 5,
+   "priceFrom": 986,
+   "currency": "USD",
+   "elitePerks": [
+    "Early Check In (subject to availability)",
+    "Late Check Out (subject to availability)",
+    "USD100 Hotel Credit"
+   ],
+   "imageUrl": "https://storage.googleapis.com/hotel-resource/01JS4S9EKQD4KJ83KMAFS8QJYD/001",
+   "lat": 38.725393,
+   "lon": -9.15534,
+   "seen": "2026-12-11..2026-12-13"
+  }
+ ]
+}
