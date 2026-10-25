@@ -31,6 +31,51 @@ const nsNow = (() => {
 })()
 const nsStorage = (ns: string): Pick<Storage, "getItem" | "setItem" | "removeItem"> | undefined =>
   !LS || !ns ? undefined : { getItem: (k) => LS.getItem(`${ns}:${k}`), setItem: (k, v) => LS.setItem(`${ns}:${k}`, v), removeItem: (k) => LS.removeItem(`${ns}:${k}`) }
+
+const isOperator = () => fetch(`${API}/api/rep/status`, { credentials: "same-origin" }).then((r) => r.json()).then((d) => !!d.demo).catch(() => false)
+const reloadClean = () => {
+  if (typeof location === "undefined") return
+  const u = new URL(location.href)
+  u.searchParams.delete("fresh")
+  location.replace(u.toString())
+}
+export const demo = {
+  /** Current fresh-demo namespace, "" for the operator's own wallet. */
+  active: () => nsNow,
+  isOperator,
+  /** Start (or restart) a clean ephemeral identity; operator only. Reloads the page. */
+  async reset() {
+    if (!(await isOperator())) return false
+    LS?.setItem(NS_KEY, `demo-${Date.now()}`)
+    reloadClean()
+    return true
+  },
+  /** Back to the operator's own passkey / Freighter / demo-key state. Reloads the page. */
+  exit() {
+    LS?.removeItem(NS_KEY)
+    reloadClean()
+  },
+  /** In a fresh namespace: connect its demo key and fund it, so the first booking needs nothing else. */
+  async prepare() {
+    if (!nsNow) return null
+    const addr = sdk.wallet.address ?? (await sdk.wallet.connect("local"))
+    for (let i = 0; i < 2; i++) {
+      const f: any = await sdk.chain.faucet()
+      if (!f.error) break
+      await new Promise((r) => setTimeout(r, 4000))
+    }
+    return addr
+  },
+}
+// ?fresh=1 on load: verified against the operator cookie, then switch namespace (also ?demo=<token> sets the cookie server-side first)
+// (deferred: the sdk is created below)
+setTimeout(() => {
+  if (typeof location !== "undefined" && new URLSearchParams(location.search).get("fresh") === "1") {
+    isOperator().then((ok) => (ok ? demo.reset() : reloadClean()))
+  } else if (nsNow) {
+    void demo.prepare()
+  }
+}, 0)
 // Proving files from our own origin (brotli, immutable), persisted in the Cache API so a revisit never downloads them
 // again, and prefetched at idle after first paint. The SDK keeps its own default URL; we pass ours.
 export const ARTIFACTS = `${API}/artifacts/semaphore/4.13.0`
@@ -108,49 +153,6 @@ if (typeof window !== "undefined") {
   const ric = (window as any).requestIdleCallback as undefined | ((f: () => void, o?: any) => void)
   if (document.readyState === "complete") ric ? ric(go, { timeout: 3000 }) : setTimeout(go, 800)
   else window.addEventListener("load", () => (ric ? ric(go, { timeout: 3000 }) : setTimeout(go, 800)), { once: true })
-}
-
-
-const isOperator = () => fetch(`${API}/api/rep/status`, { credentials: "same-origin" }).then((r) => r.json()).then((d) => !!d.demo).catch(() => false)
-const reloadClean = () => {
-  if (typeof location === "undefined") return
-  const u = new URL(location.href)
-  u.searchParams.delete("fresh")
-  location.replace(u.toString())
-}
-export const demo = {
-  /** Current fresh-demo namespace, "" for the operator's own wallet. */
-  active: () => nsNow,
-  isOperator,
-  /** Start (or restart) a clean ephemeral identity; operator only. Reloads the page. */
-  async reset() {
-    if (!(await isOperator())) return false
-    LS?.setItem(NS_KEY, `demo-${Date.now()}`)
-    reloadClean()
-    return true
-  },
-  /** Back to the operator's own passkey / Freighter / demo-key state. Reloads the page. */
-  exit() {
-    LS?.removeItem(NS_KEY)
-    reloadClean()
-  },
-  /** In a fresh namespace: connect its demo key and fund it, so the first booking needs nothing else. */
-  async prepare() {
-    if (!nsNow) return null
-    const addr = sdk.wallet.address ?? (await sdk.wallet.connect("local"))
-    for (let i = 0; i < 2; i++) {
-      const f: any = await sdk.chain.faucet()
-      if (!f.error) break
-      await new Promise((r) => setTimeout(r, 4000))
-    }
-    return addr
-  },
-}
-// ?fresh=1 on load: verified against the operator cookie, then switch namespace (also ?demo=<token> sets the cookie server-side first)
-if (typeof location !== "undefined" && new URLSearchParams(location.search).get("fresh") === "1") {
-  isOperator().then((ok) => (ok ? demo.reset() : reloadClean()))
-} else if (nsNow) {
-  void demo.prepare()
 }
 
 // ---- constants the design reads ----
