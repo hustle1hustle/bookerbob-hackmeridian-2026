@@ -1819,7 +1819,8 @@ class Component extends DCLogic {
         const joinedTx = r.id !== 'wallet' && r.txHash;
         const hasScore = r.id === 'wallet' && r.score != null;
         const scorePending = r.id === 'wallet' && /scoring/i.test(String(r.detail || ''));
-        const scoreOpen = hasScore && (src.scoreOpen || src.focus === 'wallet');
+        // Always expand score row when we have a rating (Freighter reconnect must show score + proof without an extra click).
+        const scoreOpen = hasScore;
         return { ...this.genRow(r), hasNote: r.id === 'wallet' && !!src.fallback, note: r.id === 'wallet' ? (src.fallback || '') : '', hasAccount: !!r.accountUrl, accountUrl: r.accountUrl || '', hasScore, scorePending, scoreOpen: !!scoreOpen, hasScoreProof: !!(hasScore && scoreUrl), noScoreProof: !!(hasScore && !scoreUrl), score: r.score != null ? r.score : '', tier: r.tier != null ? r.tier : '', scoreUrl: scoreUrl || '', scoreHref: scoreUrl || '#', scoreTarget: scoreUrl ? '_blank' : '', scoreArrow: scoreUrl ? ' ↗' : '', onScore: (e) => { if (e && e.preventDefault && !scoreUrl) e.preventDefault(); this.setState(st => ({ src: { ...st.src, scoreOpen: true, focus: 'wallet' } })); }, scoreTxShort: scoreTx ? scoreTx.short : '', head: i === 1 ? 'add for more perks' : '', hasHead: i === 1, perk: r.perk || '', hasPerk: !!r.perk, hasTx: !!joinedTx, txUrl: joinedTx ? this.tx(r.txHash).url : '', txShort: joinedTx ? this.tx(r.txHash).short : '', label: r.label, proves: r.proves, detail: r.detail, status: word[r.status] || r.status, statusColor: r.status === 'connected' ? 'var(--accent)' : r.status === 'failed' ? 'var(--warn)' : 'var(--ink-3)', rule: i ? 'var(--rule-soft)' : 'transparent', bg: src.focus === r.id ? 'var(--accent-soft)' : 'transparent', actions: actions(r) };
       }),
     };

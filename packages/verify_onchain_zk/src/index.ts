@@ -239,10 +239,20 @@ export interface PassportOptions {
 }
 
 async function passportGet(base: string, path: string, f: typeof fetch, key?: string): Promise<unknown> {
-  const res = await f(`${base}${path}`, key ? { headers: { authorization: `Bearer ${key}` } } : undefined)
-  if (res.status === 404) return null
-  if (!res.ok) throw new Error(`passport ${res.status}: ${path}`)
-  return res.json().catch(() => null)
+  // Hard timeout: a hanging CORS preflight to a third-party Passport origin must not block connect UI.
+  const ctrl = typeof AbortController !== "undefined" ? new AbortController() : null
+  const t = ctrl ? setTimeout(() => ctrl.abort(), 4_000) : null
+  try {
+    const res = await f(`${base}${path}`, {
+      ...(key ? { headers: { authorization: `Bearer ${key}` } } : {}),
+      ...(ctrl ? { signal: ctrl.signal } : {}),
+    })
+    if (res.status === 404) return null
+    if (!res.ok) throw new Error(`passport ${res.status}: ${path}`)
+    return res.json().catch(() => null)
+  } finally {
+    if (t) clearTimeout(t)
+  }
 }
 
 /** Accept a bare array or wrappers ({builders|profiles|data|entries|…}). */
@@ -320,17 +330,25 @@ export async function fetchPassport(address: string, opts: PassportOptions = {})
   const none: PassportScore = { score: 0, matched: false, signals: { matched: false, source } }
 
   if (opts.passportProxyBase !== undefined) {
+    // Proxy configured → same-origin only. Never fall through to demo.stellarpassport.xyz from a
+    // browser (CORS preflight can hang forever and block Freighter connect score UI).
     try {
       const proxy = opts.passportProxyBase.replace(/\/$/, "")
-      const res = await f(`${proxy}/api/passport/lookup?address=${encodeURIComponent(address)}`)
-      if (res.ok) {
-        const body = (await res.json().catch(() => null)) as PassportScore | null
-        if (body && typeof body.score === "number" && typeof body.matched === "boolean" && body.signals) return body
+      const ctrl = typeof AbortController !== "undefined" ? new AbortController() : null
+      const t = ctrl ? setTimeout(() => ctrl.abort(), 6_000) : null
+      try {
+        const res = await f(`${proxy}/api/passport/lookup?address=${encodeURIComponent(address)}`, ctrl ? { signal: ctrl.signal } : undefined)
+        if (res.ok) {
+          const body = (await res.json().catch(() => null)) as PassportScore | null
+          if (body && typeof body.score === "number" && typeof body.matched === "boolean" && body.signals) return body
+        }
+      } finally {
+        if (t) clearTimeout(t)
       }
     } catch {
-      /* fall through */
+      /* proxy down / timed out */
     }
-    // a browser with a proxy never calls the Passport origin directly (CORS); the proxy's answer is final
+    // Browser + proxy: never call Passport origin (CORS hang). Keyed server-side path may continue below.
     if (!opts.passportApiKey) return none
   }
 
@@ -626,7 +644,12 @@ export async function verifyOnConnect(address: string, opts: VerifyOnConnectOpti
   const digest = await claimDigest(claim)
   let attest: LoyaltyAttest | null = null
   if (opts.attest !== false) {
-    attest = await attestLoyaltyClaim(claim, { apiBase: opts.apiBase, fetch: opts.fetch, digest })
+    try {
+      attest = await attestLoyaltyClaim(claim, { apiBase: opts.apiBase, fetch: opts.fetch, digest })
+    } catch {
+      // Attest is best-effort for the clickable proof tx — score/claim still return.
+      attest = null
+    }
   }
   let proved: ProveLoyaltyResult | null = null
   let proofMode: VerifyOnConnectResult["proofMode"] = null
