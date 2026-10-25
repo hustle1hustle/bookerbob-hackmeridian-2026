@@ -90,6 +90,13 @@ function useMachine<R>(action: Action) {
   return { state, send }
 }
 
+/** An exception from the SDK (not a WriteResult): fetch failures read as Network, anything else as Unknown. Logged for debugging. */
+function thrown(e: unknown): { error: ErrorName; message?: string } {
+  console.error("[flow]", e)
+  const msg = e instanceof Error ? e.message : String(e)
+  return { error: e instanceof TypeError && /fetch|network/i.test(msg) ? "Network" : "Unknown", message: msg }
+}
+
 /** Review or discount: drives the UI from sdk.prover.prove(req) events. */
 export function useProofFlow<R>(action: "review" | "discount") {
   const { state, send } = useMachine<R>(action)
@@ -103,8 +110,8 @@ export function useProofFlow<R>(action: "review" | "discount") {
       send({ type: "start", cached: cachedAtStart.current })
       try {
         for await (const ev of sdk.prover.prove(req)) send({ type: "proof", ev })
-      } catch {
-        send({ type: "result", result: { error: "Network" } })
+      } catch (e) {
+        send({ type: "result", result: thrown(e) })
       }
       bump()
     },
@@ -121,8 +128,8 @@ export function useWriteFlow<R>(action: "book" | "checkout" | "attest" | "faucet
       send({ type: "start" })
       try {
         send({ type: "result", result: await call() })
-      } catch {
-        send({ type: "result", result: { error: "Network" } })
+      } catch (e) {
+        send({ type: "result", result: thrown(e) })
       }
       bump()
     },

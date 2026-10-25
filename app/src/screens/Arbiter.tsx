@@ -10,16 +10,22 @@ import { Empty, Loading, TxLink } from "../ui"
 import { FlowStatus } from "../views/flow"
 import { DisputeCard } from "../views/arbiter"
 
-function DisputeItem({ d, placeName, review }: { d: Dispute; placeName: string; review: Review | null }) {
+function DisputeItem({ d, placeName, review, newest }: { d: Dispute; placeName: string; review: Review | null; newest: boolean }) {
   const check = useCheckFlow()
   const attest = useWriteFlow("attest")
   const attested = !!d.attestTx || !!review?.verified
   const doAttest = () => attest.run(() => sdk.chain.attest(d.id))
 
   const runCheck = check.check
+  const runAttest = attest.run
   useEffect(() => {
     if (!attested && autoOnce("attest", `check-${d.id}`)) void runCheck(d.id)
   }, [d.id, attested, runCheck])
+  // demo: attest only the newest dispute, and only once all three checks passed
+  const allOk = check.state.status === "checked" && check.state.allOk
+  useEffect(() => {
+    if (newest && allOk && !attested && autoOnce("attest", `attest-${d.id}`)) void runAttest(() => sdk.chain.attest(d.id))
+  }, [newest, allOk, attested, d.id, runAttest])
 
   return (
     <DisputeCard
@@ -76,7 +82,9 @@ export function ArbiterScreen() {
   const nameOf = (id: number) => places.data?.find((p) => p.id === id)?.name ?? `place #${id}`
   const reviewOf = (id: number) => reviews.data?.find((r) => r.id === id) ?? null
   const isOpen = (d: Dispute) => !d.attestTx && !reviewOf(d.id)?.verified
-  const sorted = [...disputes.filter(isOpen), ...disputes.filter((d) => !isOpen(d))]
+  const newestAt = Math.max(0, ...disputes.map((d) => d.openedAt))
+  const byNewest = [...disputes].sort((a, b) => b.openedAt - a.openedAt)
+  const sorted = [...byNewest.filter(isOpen), ...byNewest.filter((d) => !isOpen(d))]
 
   return (
     <>
@@ -91,7 +99,7 @@ export function ArbiterScreen() {
       {disputes.length > 0 && (
         <div className="list section">
           {sorted.map((d) => (
-            <DisputeItem key={d.id} d={d} placeName={nameOf(d.merchant)} review={reviewOf(d.id)} />
+            <DisputeItem key={d.id} d={d} placeName={nameOf(d.merchant)} review={reviewOf(d.id)} newest={d.openedAt === newestAt} />
           ))}
         </div>
       )}
