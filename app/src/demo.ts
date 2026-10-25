@@ -16,10 +16,10 @@ export const demo = {
   auto: q.get("auto"),
 }
 
-/** True once per page load for a given auto action, so effects do not repeat it. */
+/** True once per page load for a given auto action (and step key), so effects do not repeat it. */
 const fired = new Set<string>()
-export function autoOnce(action: string): boolean {
-  if (demo.auto !== action || fired.has(action)) return false
-  fired.add(action)
+export function autoOnce(action: string, step = action): boolean {
+  if (demo.auto !== action || fired.has(step)) return false
+  fired.add(step)
   return true
 }

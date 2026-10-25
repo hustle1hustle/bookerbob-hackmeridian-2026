@@ -4,6 +4,7 @@ import { Empty } from "./ui"
 import { PlacesScreen } from "./screens/Places"
 import { PlaceScreen } from "./screens/Place"
 import { DeskScreen, FeedScreen } from "./screens/Hotel"
+import { ArbiterScreen } from "./screens/Arbiter"
 import { DiscloseScreen, DiscountScreen, ReviewScreen, StayScreen, StaysScreen } from "./screens/Stays"
 
 // Hash routes (static hosting):
@@ -14,6 +15,7 @@ import { DiscloseScreen, DiscountScreen, ReviewScreen, StayScreen, StaysScreen }
 //   #/stays/:i/review | /discount | /disclose
 //   #/desk/:id         hotel: checkout desk
 //   #/feed/:id         hotel: review feed with disputes
+//   #/arbiter          arbiter: dispute queue
 export function App() {
   const { path } = useRoute()
   return <Shell>{render(path)}</Shell>
@@ -38,6 +40,8 @@ function render(path: string[]) {
       return <DeskScreen key={path[1] ?? "0"} id={path[1] ? n(1) : 0} />
     case "feed":
       return <FeedScreen key={path[1] ?? "0"} id={path[1] ? n(1) : 0} />
+    case "arbiter":
+      return <ArbiterScreen />
     default:
       return (
         <Empty title="page not found">
