@@ -57,6 +57,13 @@ Undo afterwards: clear the Issuer URL in DevTools.
 | 0:03 | phone: consent sheet "BookerBob: are you a verified traveler?", tap share | "You approve on your phone." |
 | 0:07 | web: "verified traveler", Stellar tx link; a place's price drops by the 5% perk | "BookerBob keeps only yes. The discount follows you." |
 
+## Evidence: device run (Sun 25 Oct 2026)
+
+| Time (Lisbon = UTC) | What | Tx |
+|---|---|---|
+| 14:31:22 | Choly's phone (REP Bob, Oct 15 build) shared an Airbnb-based REP verdict; BookerBob verified it and added the browser's fresh identity to "REP verified traveler" (group 1). Web: "verified traveler. your perks now include it." | [`38bd6a7f38987c745624d363124c27f7a0e2bd8764b2051e3afdbe5474c34106`](https://stellar.expert/explorer/testnet/tx/38bd6a7f38987c745624d363124c27f7a0e2bd8764b2051e3afdbe5474c34106) |
+| 14:23:27 | The first attempt: the server verified and added the member, but the web card showed a failure because `/result` could not read the session id (fixed in d701dc6, deployed 14:30). | [`52f3b3c2…ffc358c`](https://stellar.expert/explorer/testnet/tx/52f3b3c26fc0397fe4da3c165b2d223834156ea09c507dd0a1fd9bd65ffc358c) |
+
 ## On-chain check (branch choly/rep-onchain, flag OFF by default)
 
 `add_member_with_rep(group, id_commitment, verdict, kb)` lets anyone join group 1 with a REP verdict that the
