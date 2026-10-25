@@ -7,7 +7,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { createHash, randomBytes } from "node:crypto"
 import { Keypair } from "@stellar/stellar-sdk"
 import { SHOP, StoreError, createSingleUseCode, deactivateCode, recordPaidOrder, storeManifest, storeRpc, storeTool, ordersWithCode } from "./shopify.ts"
-import { MERCHANT, NET, insertCommitment, isAccount, merchant, readPayment, simulateDiscount, isSpent, contractError, quotePayment, redeem, sendSigned } from "./core.ts"
+import { MERCHANT, NET, insertCommitment, isAccount, merchant, readPayment, simulateDiscount, isSpent, contractError, quotePayment, redeem, sendSigned, perks, simulateContext, groupKey, type ClaimIn, type GroupRef } from "./core.ts"
 import { EXT_VERSION, NS, STELLAR_HANDLER_ID, STELLAR_HANDLER_NS, RAW_PER_STORE_MINOR, claims, decorate, openSession, save, session, st, type Session } from "./patronage.ts"
 
 const PORT = Number(process.env.PORT ?? 8787)
@@ -99,10 +99,12 @@ async function updateCheckout(args: any) {
   let s = session(id)
   if (claims(args.checkout)) s = openSession(id, true)
   takeCommitment(s, args.checkout)
-  const proof = args.checkout?.[NS]?.proof
-  if (proof) {
+  const ext = args.checkout?.[NS]
+  // proofs: [{group, root, nullifier, proof}] with one payer; a single `proof` is the returning-customer claim.
+  const proofs = Array.isArray(ext?.proofs) ? { payer: ext.payer, claims: ext.proofs } : ext?.proof ? { payer: ext.proof.payer, claims: [{ group: { kind: "merchant", id: MERCHANT }, ...ext.proof }] } : null
+  if (proofs) {
     if (!s?.claimed) return err("eligibility_not_claimed", `claim ${NS} in context.eligibility first`)
-    const r = await verifyProof(s, proof)
+    const r = await verifyProof(s, proofs)
     if (!r.ok) {
       // eligibility_invalid is recoverable: the agent can drop the claim and pay full price.
       const co = await storeTool("get_checkout", { id })
@@ -146,52 +148,63 @@ async function quote(s: Session, co: any, payer: string) {
       guest: payer,
       amount,
       orderRef,
-      discount: s.verified ? { season: s.season, proof: s.verified.proof, root: BigInt(s.verified.root), nullifier: BigInt(s.verified.nullifier) } : undefined,
+      context: s.verified ? { season: s.season, claims: s.verified.claims.map((c) => ({ group: c.group, proof: c.proof, root: BigInt(c.root), nullifier: BigInt(c.nullifier) })) } : undefined,
     })
     s.quote = { payer, amount: amount.toString(), orderRef: orderRef.toString("hex"), itemsMinor, at: Date.now() }
     save()
-    const bps = s.verified ? (await merchant()).discountBps : 0
+    const bps = s.verified ? s.verified.bps : 0
     log(`checkout ${short(s.checkoutId)} quote co-signed: ${amount} raw${bps ? `, contract applies ${bps / 100}%` : ""}`)
-    return { quote: { tx_xdr: xdr, amount_raw: amount.toString(), pays_raw: ((amount * BigInt(10_000 - bps)) / 10_000n).toString(), order_ref: orderRef.toString("hex"), function: s.verified ? "book_with_discount_amount" : "book_amount" } }
+    return { quote: { tx_xdr: xdr, amount_raw: amount.toString(), pays_raw: ((amount * BigInt(10_000 - bps)) / 10_000n).toString(), order_ref: orderRef.toString("hex"), function: s.verified ? "book_with_context" : "book_amount", claims: s.verified?.claims.map((c) => c.group) ?? [] } }
   } catch (e) {
     return { error: `could not co-sign: ${contractError(e)}` }
   }
 }
 
-async function verifyProof(s: Session, p: any): Promise<{ ok: true } | { ok: false; error: string }> {
+async function verifyProof(s: Session, p: { payer: any; claims: any[] }): Promise<{ ok: true } | { ok: false; error: string }> {
   if (s.verified && s.code) return { ok: true }
   const payer = String(p.payer ?? "")
   if (!isAccount(payer)) return { ok: false, error: "payer must be a Stellar address" }
-  let root: bigint, nullifier: bigint
-  try {
-    root = BigInt(p.root)
-    nullifier = BigInt(p.nullifier)
-  } catch {
-    return { ok: false, error: "root and nullifier must be decimal integers" }
+  const policy = await perks()
+  const allowed = new Map((policy?.items ?? [{ group: { kind: "merchant", id: MERCHANT } as GroupRef, bps: (await merchant()).discountBps, name: "" }]).map((it) => [groupKey(it.group), it.bps]))
+  if (!p.claims.length || p.claims.length > allowed.size) return { ok: false, error: "one claim per policy group" }
+  const claims: ClaimIn[] = []
+  for (const c of p.claims) {
+    const g: GroupRef = { kind: c.group?.kind === "group" ? "group" : "merchant", id: Number(c.group?.id) }
+    if (!allowed.has(groupKey(g))) return { ok: false, error: `group ${groupKey(g)} earns nothing here` }
+    if (claims.some((x) => groupKey(x.group) === groupKey(g))) return { ok: false, error: "duplicate group" }
+    let root: bigint, nullifier: bigint
+    try {
+      root = BigInt(c.root)
+      nullifier = BigInt(c.nullifier)
+    } catch {
+      return { ok: false, error: "root and nullifier must be decimal integers" }
+    }
+    const pr = c.proof
+    if (![pr?.a, pr?.b, pr?.c].every((x) => typeof x === "string" && /^[0-9a-f]+$/i.test(x)) || pr.a.length !== 128 || pr.b.length !== 256 || pr.c.length !== 128) {
+      return { ok: false, error: "proof must be {a: 64-byte hex, b: 128-byte hex, c: 64-byte hex}" }
+    }
+    claims.push({ group: g, root, nullifier, proof: { a: pr.a, b: pr.b, c: pr.c } })
   }
-  const proof = p.proof
-  if (![proof?.a, proof?.b, proof?.c].every((x) => typeof x === "string" && /^[0-9a-f]+$/i.test(x)) || proof.a.length !== 128 || proof.b.length !== 256 || proof.c.length !== 128) {
-    return { ok: false, error: "proof must be {a: 64-byte hex, b: 128-byte hex, c: 64-byte hex}" }
-  }
-  const key = nullifier.toString()
-  // The contract is the verifier: a dry run of the exact call the payer will sign. It runs first
-  // so a replayed or forged proof is refused by Stellar itself, not by bridge bookkeeping.
-  const sim = await simulateDiscount(payer, s.season, proof, root, nullifier)
+  // The contract is the verifier: a dry run of the exact book_with_context the payer will sign. It runs
+  // first so a replayed or forged proof is refused by Stellar itself, not by bridge bookkeeping.
+  const sim = await simulateContext(payer, s.season, claims)
   if (!sim.ok) {
-    log(`checkout ${short(s.checkoutId)} proof refused by the contract: ${sim.error}`)
+    log(`checkout ${short(s.checkoutId)} claims refused by the contract: ${sim.error}`)
     return { ok: false, error: `contract refused the proof: ${sim.error}` }
   }
-  // Not yet spent on chain, but already backing another open checkout's code.
-  const holder = st().nullifiers[key]
-  if (holder && holder !== s.checkoutId) return { ok: false, error: "this past purchase already backs another open checkout this season" }
+  for (const c of claims) {
+    const holder = st().nullifiers[c.nullifier.toString()]
+    if (holder && holder !== s.checkoutId) return { ok: false, error: "this claim already backs another open checkout this season" }
+  }
+  const sum = claims.reduce((a, c) => a + (allowed.get(groupKey(c.group)) ?? 0), 0)
+  const bps = Math.min(sum, policy?.maxBps ?? sum)
   const code = `BB-${randomBytes(6).toString("hex").toUpperCase()}`
-  const bps = (await merchant()).discountBps
-  const made = await createSingleUseCode(code, bps / 100, CODE_LIFE_SEC, `returning customer, proof checked on Stellar (${bps / 100}%)`)
-  s.verified = { guest: payer, nullifier: key, root: root.toString(), proof, at: Date.now() }
+  const made = await createSingleUseCode(code, bps / 100, CODE_LIFE_SEC, `context perks proven on Stellar (${bps / 100}%)`)
+  s.verified = { guest: payer, claims: claims.map((c) => ({ group: c.group, root: c.root.toString(), nullifier: c.nullifier.toString(), proof: c.proof })), bps, at: Date.now() }
   s.code = { code, id: made.id, endsAt: made.endsAt }
-  st().nullifiers[key] = s.checkoutId
+  for (const c of claims) st().nullifiers[c.nullifier.toString()] = s.checkoutId
   save()
-  log(`checkout ${short(s.checkoutId)} proof verified by contract simulation, single-use code issued`)
+  log(`checkout ${short(s.checkoutId)} ${claims.length} claim(s) verified by contract simulation (${claims.map((c) => groupKey(c.group)).join(", ")}), ${bps / 100}% code issued`)
   return { ok: true }
 }
 
@@ -211,7 +224,9 @@ async function completeCheckout(args: any) {
       // The card paid; Stellar still burns the discount nullifier, so one discount per purchase per season holds across rails.
       if (s.verified && ADMIN) {
         const v = s.verified
-        const r = await redeem(ADMIN, { guest: v.guest, season: s.season, orderRef: orderRefOf(s), proof: v.proof, root: BigInt(v.root), nullifier: BigInt(v.nullifier) })
+        // redeem() burns the merchant's own-tree claim; group claims have no transfer-free spend.
+        const own = v.claims.find((c) => c.group.kind === "merchant" && c.group.id === MERCHANT)
+        const r = own ? await redeem(ADMIN, { guest: v.guest, season: s.season, orderRef: orderRefOf(s), proof: own.proof, root: BigInt(own.root), nullifier: BigInt(own.nullifier) }) : { ok: false as const, error: "no own-tree claim" }
         if (r.ok) (s.paid!.redeemTx = r.txHash), save(), log(`checkout ${short(s.checkoutId)} nullifier burned on Stellar via redeem, tx ${r.txHash.slice(0, 10)}`)
         else log(`redeem failed: ${r.error}`)
       }
@@ -232,13 +247,16 @@ async function completeCheckout(args: any) {
     return err("payment_invalid", `could not read the payment: ${contractError(e)}`)
   }
   if (paid.merchant !== MERCHANT) return err("payment_invalid", "payment went to another merchant")
-  // The tx must be the one co-signed for this checkout: same order ref, amount and payer.
-  if (!s.quote || paid.orderRef !== s.quote.orderRef || paid.quoted.toString() !== s.quote.amount || paid.guest !== s.quote.payer) {
+  // The tx must be the one co-signed for this checkout: same amount and payer (and order ref where the
+  // function carries one). The payer is a fresh address quoted for this checkout only.
+  if (!s.quote || paid.quoted.toString() !== s.quote.amount || paid.guest !== s.quote.payer || (paid.fn !== "book_with_context" && paid.orderRef !== s.quote.orderRef)) {
     return err("payment_invalid", "payment is not the co-signed quote for this checkout")
   }
   if (s.verified) {
-    if (paid.fn !== "book_with_discount_amount" || paid.nullifier?.toString() !== s.verified.nullifier || paid.season !== s.season) {
-      return err("payment_invalid", "payment does not match the verified proof (nullifier or season)")
+    const want = Object.fromEntries(s.verified.claims.map((c) => [groupKey(c.group), c.nullifier]))
+    const got = paid.nullifiers ?? {}
+    if (paid.fn !== "book_with_context" || paid.season !== s.season || Object.keys(want).length !== Object.keys(got).length || Object.entries(want).some(([k, v]) => got[k] !== v)) {
+      return err("payment_invalid", "payment does not carry the verified claims (nullifiers or season)")
     }
   } else if (paid.fn !== "book_amount") {
     return err("payment_invalid", "a checkout without a verified claim is paid with book_amount()")
@@ -254,7 +272,7 @@ async function completeCheckout(args: any) {
     order = await recordPaidOrder({
       lines: (co.line_items ?? []).map((l: any) => ({ variantId: l.item.id, quantity: l.quantity })),
       code: s.code?.code,
-      note: `Paid ${Number(paid.amount) / 1e7} test USDC on Stellar testnet, tx ${txHash}. Discount: ${s.verified ? "returning customer, proof verified on chain" : "none"}.`,
+      note: `Paid ${Number(paid.amount) / 1e7} test USDC on Stellar testnet, tx ${txHash}. Discount: ${s.verified ? `${s.verified.bps / 100}% from ${s.verified.claims.map((c) => groupKey(c.group)).join(" + ")}, proofs verified on chain` : "none"}.`,
       tags: ["stellar-usdc", s.verified ? "patronage-proof" : "first-purchase"],
     })
   } catch (e) {
@@ -399,7 +417,8 @@ const buy: Record<string, (b: any) => Promise<any>> = {
     return { checkoutId: co.id, currency: co.currency, subtotal: total(co, "subtotal"), provisionalDiscount: co.discounts?.applied?.find((d: any) => d.provisional)?.amount ?? 0, action: co[NS]?.action ?? null }
   },
   async prove(b) {
-    let co = await updateCheckout({ id: b.checkoutId, checkout: { [NS]: { proof: { payer: b.payer, root: b.root, nullifier: b.nullifier, proof: b.proof } } } })
+    const ext = Array.isArray(b.proofs) ? { payer: b.payer, proofs: b.proofs } : { proof: { payer: b.payer, root: b.root, nullifier: b.nullifier, proof: b.proof } }
+    let co = await updateCheckout({ id: b.checkoutId, checkout: { [NS]: ext } })
     if (co?.isError) return { error: JSON.parse(co.content[0].text).content }
     const v = co[NS]
     if (v?.status !== "verified") return { verified: false, error: co.messages?.find((m: any) => m.code === "eligibility_invalid")?.content ?? "not verified" }
@@ -410,7 +429,7 @@ const buy: Record<string, (b: any) => Promise<any>> = {
       await sleep(3000)
     }
     const applied = (co.discounts?.applied ?? []).find((d: any) => !d.provisional)
-    return { verified: true, code: v.code, discount: applied?.amount ?? 0, applied: !!applied, subtotal: total(co, "subtotal") }
+    return { verified: true, code: v.code, discountBps: v.discount_bps, claims: v.claims, discount: applied?.amount ?? 0, applied: !!applied, subtotal: total(co, "subtotal") }
   },
   async quote(b) {
     const co = await updateCheckout({ id: b.checkoutId, checkout: { [STELLAR_HANDLER_NS]: { payer: b.payer } } })

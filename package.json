@@ -7,7 +7,8 @@
   "scripts": {
     "bridge": "tsx --env-file=.env src/bridge.ts",
     "agent": "tsx --env-file=.env agent/agent.ts",
-    "probe": "node --env-file=.env scripts/probe.mjs"
+    "probe": "node --env-file=.env scripts/probe.mjs",
+    "visit": "tsx --env-file=.env agent/visit.ts"
   },
   "license": "MIT",
   "dependencies": {

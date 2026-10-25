@@ -6,7 +6,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs"
 mkdirSync("evidence", { recursive: true })
 import { randomBytes, randomUUID } from "node:crypto"
 import { Asset, BASE_FEE, Keypair, Operation, TransactionBuilder, rpc } from "@stellar/stellar-sdk"
-import { NET, MERCHANT, payQuote, discountMessage, discountScope, leaves, loadArtifacts, proveMembership, stayIdentity } from "../src/core.ts"
+import { NET, MERCHANT, payQuote, discountMessage, ctxScope, isSpentScope, nullifierOf, leaves, loadArtifacts, proveMembership, stayIdentity, treeOf, groupKey, type GroupRef } from "../src/core.ts"
 
 const arg = (k: string, d?: string) => {
   const i = process.argv.indexOf(`--${k}`)
@@ -104,13 +104,14 @@ async function main() {
   if (!variant) throw new Error(`no product for "${QUERY}": ${JSON.stringify(found).slice(0, 300)}`)
   say(`found "${product.title}" ${variant.price ? money(variant.price.amount ?? variant.price) : ""}`)
 
-  // 3. does the buyer have a past purchase here? Check its local identities against the chain.
-  const tree = await leaves()
+  // 3. which context does the buyer carry? Every identity it holds (one per past purchase or stay,
+  //    anywhere), checked against the chain. Claimed only if it has any.
   const made = w.purchases[key] ?? 0
-  const past = [...Array(made).keys()].map((i) => stayIdentity(w.master, MERCHANT, i)).filter((id) => tree.includes(id.commitment))
-  const returning = past.length > 0
+  const mine = Object.entries(w.purchases).flatMap(([m, n]) => [...Array(n).keys()].map((i) => stayIdentity(w.master, Number(m), i)))
+  const returning = mine.length > 0
   const next = stayIdentity(w.master, MERCHANT, made)
-  say(returning ? `buyer has ${past.length} past purchase(s) here, will claim the returning-customer discount` : "no past purchase here, full price; this purchase joins the store's customer tree")
+  const where = Object.entries(w.purchases).map(([m, n]) => `${n} at merchant ${m}`).join(", ")
+  say(returning ? `buyer holds ${mine.length} past purchase(s)/stay(s) (${where}), will claim its context perks` : "no context yet, full price; this purchase joins the store's customer tree")
 
   // 4. fresh payer for this purchase only
   const payer = await freshPayer(handler.config.asset.issuer)
@@ -126,22 +127,37 @@ async function main() {
   if (returning) {
     const action = co[NS]?.action
     if (co[NS]?.status !== "verification_required" || !action) throw new Error(`no verification action: ${JSON.stringify(co[NS])}`)
-    say(`store asks: Semaphore membership in merchant ${action.merchant_id} tree (${action.tree_size} customers), scope discount/season ${action.scope.season}, message binds the payer`)
+    say(`store offers: ${action.groups.map((g: any) => `${g.name} ${g.bps / 100}% (${g.size})`).join(", ")}; cap ${action.max_bps / 100}%, season ${action.season}, proofs bind the payer`)
 
-    // 6. prove, locally: which past purchase stays secret
+    // 6. which policy groups is the buyer in? Prove each, locally: which purchase or stay stays secret.
     const arts = await loadArtifacts()
-    const scope = discountScope(MERCHANT, action.scope.season)
     const message = discountMessage(payer.publicKey())
+    const proofs: any[] = []
+    const names: string[] = []
     const tProve = Date.now()
-    const p = await proveMembership(past[past.length - 1], tree, message, scope, arts)
-    say(`proof generated in ${Date.now() - tProve} ms, nullifier ${p.nullifier.toString().slice(0, 10)}…`)
+    for (const g of action.groups as { group: GroupRef; name: string; bps: number }[]) {
+      const t = await treeOf(g.group)
+      const scope = ctxScope(MERCHANT, g.group, action.season)
+      // a member identity whose perk is still unspent this season here
+      let id = null
+      for (const x of mine.filter((x) => t.leaves.includes(x.commitment))) {
+        if (!(await isSpentScope(scope, nullifierOf(x.secretScalar, scope)))) { id = x; break }
+      }
+      if (!id) continue
+      const pr = await proveMembership(id, t.leaves, message, scope, arts)
+      proofs.push({ group: g.group, root: pr.root.toString(), nullifier: pr.nullifier.toString(), proof: pr.proof })
+      names.push(`${g.name} ${g.bps / 100}%`)
+    }
+    if (!proofs.length) throw new Error("claimed context but is in none of the store's policy groups")
+    say(`${proofs.length} proof(s) generated in ${Date.now() - tProve} ms: ${names.join(" + ")} (cap ${action.max_bps / 100}%)`)
 
-    co = await ucp("update_checkout", { id: co.id, checkout: { [NS]: { proof: { payer: payer.publicKey(), root: p.root.toString(), nullifier: p.nullifier.toString(), proof: p.proof } } } })
+    co = await ucp("update_checkout", { id: co.id, checkout: { [NS]: { payer: payer.publicKey(), proofs } } })
     const verdict = co[NS]
     if (verdict?.status !== "verified") throw new Error(`proof refused: ${JSON.stringify(co.messages?.filter((m: any) => m.type === "error"))}`)
+    const p = { root: BigInt(proofs[0].root), nullifier: BigInt(proofs[0].nullifier), proof: proofs[0].proof }
     // Public data only (what the store and the chain see anyway), kept for the replay demo.
-    writeFileSync("evidence/last-proof.json", JSON.stringify({ payer: payer.publicKey(), season: action.scope.season, root: p.root.toString(), nullifier: p.nullifier.toString(), proof: p.proof }))
-    say(`store verified the proof against the Stellar contract, single-use code ${verdict.code}`)
+    writeFileSync("evidence/last-proof.json", JSON.stringify({ payer: payer.publicKey(), season: action.season, root: p.root.toString(), nullifier: p.nullifier.toString(), proof: p.proof, group: proofs[0].group, proofs }))
+    say(`store verified ${proofs.length} claim(s) against the Stellar contract: ${verdict.discount_bps / 100}% off, single-use code ${verdict.code}`)
 
     // 7. apply the code through UCP discounts (a new Shopify code can take a few seconds to go live)
     for (let i = 0; i < 10; i++) {
