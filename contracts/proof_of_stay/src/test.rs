@@ -274,3 +274,17 @@ fn discount_cycle() {
     let err = c.client.try_book_with_discount(&0, &guest, &season, &proof, &root, &nf);
     assert_eq!(err.err().unwrap().unwrap(), Error::NullifierUsed.into());
 }
+
+#[test]
+fn contract_verify_entry() {
+    let c = setup();
+    let (_, proof, pubs) = load(&c.env);
+    let mut raw = Vec::new(&c.env);
+    for p in pubs.iter() {
+        raw.push_back(p.to_u256());
+    }
+    assert!(c.client.verify(&proof, &raw));
+    let mut bad = raw.clone();
+    bad.set(3, bad.get_unchecked(3).add(&U256::from_u32(&c.env, 1)));
+    assert!(!c.client.verify(&proof, &bad));
+}

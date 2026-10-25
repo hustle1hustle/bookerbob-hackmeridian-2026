@@ -351,6 +351,18 @@ impl ProofOfStay {
         env.events().publish((soroban_sdk::symbol_short!("attest"), r.hotel), review_id);
     }
 
+    /// Stateless Groth16 check against the stored Semaphore VK: `[root, nullifier, hash(message), hash(scope)]`.
+    /// Used for the golden-proof gate and the cost benchmark. Rejects non-canonical signals.
+    pub fn verify(env: Env, proof: Proof, pub_signals: Vec<U256>) -> bool {
+        let mut pubs: Vec<Bn254Fr> = Vec::new(&env);
+        for v in pub_signals.iter() {
+            require_canonical(&env, &v);
+            pubs.push_back(Bn254Fr::from_u256(v));
+        }
+        let vk: VerificationKey = env.storage().instance().get(&Key::Vk).unwrap();
+        verifier::verify(&env, &vk, &proof, &pubs)
+    }
+
     pub fn hotel_count(env: Env) -> u32 {
         env.storage().instance().get(&Key::HotelCount).unwrap()
     }
