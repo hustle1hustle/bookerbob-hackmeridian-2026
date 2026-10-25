@@ -10,6 +10,21 @@ The Claude Design deliverable `Proof of Loyalty v2.dc.html` is served byte-exact
 6. the place picker shows a "connect REP for +5%" link under an unearned verified-traveler perk, which opens the popover at REP.
 7. a review whose transaction hash is unknown shows a plain "proven stay" badge instead of a link to `/tx/null`.
 8. **no zeros before data**: until the component is `ready` (places loaded), the kind counts in the hero and the category tabs and the "my passes" count render empty instead of 0, and the ranking shows one line in the design's rank-line style, "reading the proven reviews". After the load, real counts, and an empty state only when there is truly nothing.
+9. the customer-group label reads "N of 1024" (the real tree capacity, pol-real `TREE_CAP`) instead of the hardcoded "of 32"; the 32-cell grid stays as drawn.
+10. the arbiter's package fields that are words ("held by the arbiter") are shown as they are, not cut like a hash.
+11. **one connect for every entry point**: `requireWallet` (book, buy, review, dispute, attest, the agent) opens the header connect at the wallet with the reason on top ("connect to book."), and the pending action runs once the wallet connects. The design's old connect modal is no longer opened. Below the wallet, "add for more perks" lists REP, Stellar Passport and BookerBob regular, each with what it unlocks at this place from the on-chain policy ("+5% here"), or across the network ("+5% at 12 places").
+12. **visible tx links**, short hash plus ↗, opening stellar.expert testnet in a new tab:
+    - flow receipt: the payment ("confirmed on Stellar · tx …"), every proof used ("✓ BookerBob regular · tx …"), and the new pass ("new pass: Pátio do Vento · tx …"). No more receipt toggle;
+    - proof rows in the book panel: each held proof shows the tx that made it true, or "joined earlier" when the backend has none;
+    - header connect: connected sources show "joined · tx …";
+    - my passes: each place pass shows its checkout tx, or "joined earlier"; the BookerBob regular and REP passes show theirs;
+    - agent run: steps are expanded by default, and their tx links read "tx …↗".
+13. **names**: "network member" → "BookerBob regular"; "verified traveler" → "REP verified traveler · from REP", with one explainer line wherever it appears.
+14. **how your perks add up** on the place page: per source, what it proves, its % at this place, and whether it is counted, held over the cap, used this season or not held; then the sum, the place's cap and the price. Stellar Passport is a greyed "not active" row ("coming. not a perk at any place yet, so it is not counted."): no place policy has a Passport group today, so it never changes the price.
+15. **my passes**: the tab count equals the cards shown (place passes + BookerBob regular + REP when held); "no passes yet" only at zero; "your first stay or purchase adds a place pass" when only group passes exist; shop passes read "bought <date>"; long names wrap instead of clipping.
+16. **agent headline from the run**: "paid 40.80 usdc. full price. next time it's 10% off, proven." for a first purchase, and "paid 36.72 usdc. 10% off, proven." when the claim was applied (the % from the real cart). It was hardcoded to "10% off, proven" before.
+
+Data behind these (pol-real): `membershipTx()` reads `GET /api/checkout-tx` (place passes) and `GET /api/member-tx` (groups), cached; tx saved at join time when known (pay's new pass, UCP join). Eligibility rows carry `txHash`, `held`, `explain` and `atPlaces`; memberships carry `txHash`; `sources(placeId)` carries `txHash` and `perk`; `pay()` returns `passTx`; UCP steps carry evidence (UCP profile URL, product, Shopify variant, proof time in ms, Stellar check tx when the bridge returns one, payment tx, Shopify order, join tx).
 
 Sources and what they read:
 

@@ -56,12 +56,16 @@ html,body{margin:0;padding:0;background:#EDEBE5}
       </button>
       <sc-if value="{{ srcOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ srcToggle }}" style="position:fixed;inset:0;z-index:39"></div>
-        <div role="dialog" aria-label="connections" style="position:absolute;right:0;top:calc(100% + 8px);width:min(420px,92vw);background:var(--surface);color:var(--ink);border:1px solid var(--ink);box-shadow:var(--shadow-hard);z-index:40">
+        <div role="dialog" aria-label="connections" style="position:absolute;right:0;top:calc(100% + 8px);width:min(420px,92vw);max-height:calc(100vh - 96px);overflow:auto;background:var(--surface);color:var(--ink);border:1px solid var(--ink);box-shadow:var(--shadow-hard);z-index:40">
+          <sc-if value="{{ srcHasReason }}" hint-placeholder-val="{{ false }}"><div style="padding:16px 18px 4px;font-size:20px;font-weight:500;letter-spacing:-.03em">{{ srcReason }}</div></sc-if>
           <sc-for list="{{ srcRows }}" as="r" hint-placeholder-count="4">
+            <sc-if value="{{ r.hasHead }}" hint-placeholder-val="{{ false }}"><div style="padding:14px 18px 2px;border-top:1px solid var(--rule);font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)">{{ r.head }}</div></sc-if>
             <div style="padding:14px 18px;border-top:1px solid {{ r.rule }};background:{{ r.bg }}">
               <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px"><span style="font-size:15px">{{ r.label }}</span><span style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:{{ r.statusColor }}">{{ r.status }}</span></div>
+              <sc-if value="{{ r.hasPerk }}" hint-placeholder-val="{{ false }}"><div style="margin-top:4px;font-family:var(--mono);font-size:11px;font-weight:600;color:var(--deal-ink);background:var(--deal);display:inline-block;padding:2px 6px">{{ r.perk }}</div></sc-if>
               <p style="margin:4px 0 0;font-size:13px;line-height:1.45;color:var(--ink-2)">{{ r.proves }}</p>
               <p style="margin:2px 0 0;font-size:13px;line-height:1.45;color:var(--ink-3)">{{ r.detail }}</p>
+              <sc-if value="{{ r.hasTx }}" hint-placeholder-val="{{ false }}"><p style="margin:4px 0 0;font-size:12px;color:var(--ink-2)">joined · <a href="{{ r.txUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">tx {{ r.txShort }} ↗</a></p></sc-if>
               <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
                 <sc-for list="{{ r.actions }}" as="a" hint-placeholder-count="1"><button onClick="{{ a.onClick }}" disabled="{{ a.disabled }}" style="appearance:none;border:1px solid var(--ink);background:{{ a.bg }};color:{{ a.fg }};font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;height:30px;padding:0 10px;cursor:pointer;opacity:{{ a.op }}">{{ a.label }}</button></sc-for>
               </div>
@@ -311,6 +315,21 @@ html,body{margin:0;padding:0;background:#EDEBE5}
         </div>
 
         <div style="margin-top:8px">
+          <section aria-label="how your perks add up" style="border:1px solid var(--rule);margin:0 0 28px">
+            <div style="padding:16px 20px;border-bottom:1px solid var(--rule-soft);display:flex;justify-content:space-between;gap:12px;align-items:baseline"><span style="font-size:20px;font-weight:500;letter-spacing:-.03em">how your perks add up</span><span style="font-family:var(--mono);font-size:11px;color:var(--ink-3)">from this place's policy</span></div>
+            <sc-for list="{{ paRows }}" as="a" hint-placeholder-count="3">
+              <div style="padding:12px 20px;border-bottom:1px solid var(--rule-soft);display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 16px;opacity:{{ a.op }}">
+                <span style="font-size:15px">{{ a.label }} <span style="font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:{{ a.stateColor }}">{{ a.state }}</span></span>
+                <span style="font-family:var(--mono);font-size:13px;font-weight:600">{{ a.pct }}</span>
+                <span style="grid-column:1 / -1;font-size:13px;color:var(--ink-3);line-height:1.45">{{ a.proves }}</span>
+              </div>
+            </sc-for>
+            <div style="padding:12px 20px;display:grid;gap:4px;font-family:var(--mono);font-size:12px;color:var(--ink-2)">
+              <div style="display:flex;justify-content:space-between"><span>your perks, added</span><span>{{ pa.sum }}</span></div>
+              <div style="display:flex;justify-content:space-between"><span>this place's cap</span><span>{{ pa.cap }}</span></div>
+              <div style="display:flex;justify-content:space-between;color:var(--ink);font-weight:600"><span>you pay</span><span>{{ pa.final }} usdc</span></div>
+            </div>
+          </section>
           <sc-for list="{{ ppReviews }}" as="r" hint-placeholder-count="3">
             <article style="display:grid;grid-template-columns:minmax(90px,130px) minmax(0,1fr);gap:8px clamp(16px,3vw,36px);padding:24px 0;border-bottom:1px solid var(--rule-soft)">
               <div>
@@ -351,6 +370,12 @@ html,body{margin:0;padding:0;background:#EDEBE5}
                 <span style="min-width:0;display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px"><span style="font-size:15px;color:{{ k.labelColor }}">{{ k.label }}</span><span style="font-size:13px;color:var(--ink-3)">{{ k.reason }}</span></span>
                 <span style="font-family:var(--mono);font-size:12px;font-weight:600;color:{{ k.labelColor }}">{{ k.pct }}</span>
               </button>
+              <div style="padding:0 0 8px 32px;display:grid;gap:3px;font-size:12px;color:var(--ink-3)">
+                <span>{{ k.explain }}</span>
+                <sc-if value="{{ k.hasTx }}" hint-placeholder-val="{{ false }}"><span>joined · <a href="{{ k.txUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">tx {{ k.txShort }} ↗</a></span></sc-if>
+                <sc-if value="{{ k.joinedEarlier }}" hint-placeholder-val="{{ false }}"><span>joined earlier</span></sc-if>
+                <sc-if value="{{ k.hasRepLine }}" hint-placeholder-val="{{ false }}"><span style="color:var(--accent)">{{ k.repLine }}</span></sc-if>
+              </div>
               <sc-if value="{{ k.needsRep }}" hint-placeholder-val="{{ false }}"><button onClick="{{ k.openRep }}" style="appearance:none;border:0;background:none;padding:0 0 8px 32px;color:var(--accent);font-family:var(--mono);font-size:11px;letter-spacing:.04em;text-decoration:underline;text-underline-offset:3px;cursor:pointer">{{ k.repLink }}</button></sc-if>
             </sc-for>
           </div>
@@ -386,8 +411,9 @@ html,body{margin:0;padding:0;background:#EDEBE5}
         <article style="border:1px solid var(--rule);background:var(--surface);display:flex;flex-direction:column;animation:bb-in .45s ease both">
           <div style="padding:20px 22px 18px">
             <div style="display:flex;justify-content:space-between;gap:12px;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)"><span>{{ p.kind }} · {{ p.area }}</span><span>{{ p.what }}</span></div>
-            <div style="font-size:32px;font-weight:500;letter-spacing:-.045em;line-height:1;margin-top:30px">{{ p.name }}</div>
+            <div style="font-size:32px;font-weight:500;letter-spacing:-.045em;line-height:1.05;margin-top:30px;overflow-wrap:anywhere">{{ p.name }}</div>
             <div style="font-size:14px;color:var(--ink-2);margin-top:8px">{{ p.when }}</div>
+            <div style="font-size:12px;color:var(--ink-3);margin-top:4px"><sc-if value="{{ p.hasTx }}" hint-placeholder-val="{{ false }}"><a href="{{ p.txUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">tx {{ p.txShort }} ↗</a></sc-if><sc-if value="{{ p.noTx }}" hint-placeholder-val="{{ false }}">joined earlier</sc-if></div>
           </div>
           <div style="border-top:1px dashed var(--rule);margin:0 22px"></div>
           <div style="padding:16px 22px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:60px">
@@ -419,26 +445,29 @@ html,body{margin:0;padding:0;background:#EDEBE5}
         <article style="border:1px solid var(--ink);background:var(--ink);color:var(--bg);display:flex;flex-direction:column;animation:bb-in .45s ease both">
           <div style="padding:20px 22px 18px">
             <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;opacity:.65">network pass</div>
-            <div style="font-size:32px;font-weight:500;letter-spacing:-.045em;line-height:1;margin-top:30px">network member</div>
+            <div style="font-size:32px;font-weight:500;letter-spacing:-.045em;line-height:1;margin-top:30px">BookerBob regular</div>
             <div style="font-size:14px;opacity:.75;margin-top:8px">{{ networkLine }}</div>
+            <div style="font-size:13px;opacity:.75;margin-top:10px;line-height:1.45">every place in the network can give you a regular's perk without knowing where you've been. you got this from your {{ netFrom.what }} at {{ netFrom.place }}<sc-if value="{{ netFrom.hasTx }}" hint-placeholder-val="{{ false }}"> · <a href="{{ netFrom.url }}" target="_blank" rel="noopener" style="color:var(--bg);font-family:var(--mono);font-size:12px">tx {{ netFrom.short }} ↗</a></sc-if>.</div>
           </div>
           <div style="border-top:1px dashed var(--bg);margin:0 22px;opacity:.5"></div>
-          <div style="padding:16px 22px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:60px"><span style="background:var(--deal);color:var(--deal-ink);font-family:var(--mono);font-size:11.5px;font-weight:600;padding:4px 8px">extra off anywhere</span><span style="font-size:14px;opacity:.75">places see that you are proven, not where</span></div>
+          <div style="padding:16px 22px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:60px"><span style="background:var(--deal);color:var(--deal-ink);font-family:var(--mono);font-size:11.5px;font-weight:600;padding:4px 8px">{{ netPerk }}</span><span style="font-size:14px;opacity:.75">places see that you are proven, not where</span></div>
         </article>
       </sc-if>
       <sc-if value="{{ hasTravelerPass }}" hint-placeholder-val="{{ false }}">
         <article style="border:1px solid var(--ink);background:var(--ink);color:var(--bg);display:flex;flex-direction:column;animation:bb-in .45s ease both">
           <div style="padding:20px 22px 18px">
             <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;opacity:.65">attested pass</div>
-            <div style="font-size:32px;font-weight:500;letter-spacing:-.045em;line-height:1;margin-top:30px">verified traveler</div>
-            <div style="font-size:14px;opacity:.75;margin-top:8px">from an attester</div>
+            <div style="font-size:32px;font-weight:500;letter-spacing:-.045em;line-height:1;margin-top:30px">REP verified traveler</div>
+            <div style="font-size:14px;opacity:.75;margin-top:8px">from REP · {{ travPerk }}</div>
+            <div style="font-size:13px;opacity:.75;margin-top:10px;line-height:1.45">REP proves from your own Airbnb or Booking account that you travel. BookerBob only learns yes. nobody sees your trips.<sc-if value="{{ travTx.has }}" hint-placeholder-val="{{ false }}"> <a href="{{ travTx.url }}" target="_blank" rel="noopener" style="color:var(--bg);font-family:var(--mono);font-size:12px">tx {{ travTx.short }} ↗</a></sc-if></div>
           </div>
           <div style="border-top:1px dashed var(--bg);margin:0 22px;opacity:.5"></div>
-          <div style="padding:16px 22px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:60px"><span style="background:var(--deal);color:var(--deal-ink);font-family:var(--mono);font-size:11.5px;font-weight:600;padding:4px 8px">extra off at stays</span></div>
+          <div style="padding:16px 22px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:60px"><span style="background:var(--deal);color:var(--deal-ink);font-family:var(--mono);font-size:11.5px;font-weight:600;padding:4px 8px">{{ travPerk }}</span></div>
         </article>
       </sc-if>
     </div>
     <sc-if value="{{ passesEmpty }}" hint-placeholder-val="{{ false }}"><div style="border:1px solid var(--rule);padding:48px 24px;font-size:24px;letter-spacing:-.03em">no passes yet. <span style="color:var(--ink-2)">one appears after a stay or a purchase.</span></div></sc-if>
+    <sc-if value="{{ passesOnlyGroups }}" hint-placeholder-val="{{ false }}"><div style="border:1px dashed var(--rule);padding:20px 24px;margin-top:20px;font-size:17px;color:var(--ink-2)">your first stay or purchase adds a place pass.</div></sc-if>
   </div>
 </section>
 </sc-if>
@@ -490,7 +519,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
               <span style="font-family:var(--mono);font-size:12px;color:{{ s.color }};white-space:nowrap">{{ s.mark }}</span>
             </button>
             <sc-if value="{{ s.open }}" hint-placeholder-val="{{ false }}">
-              <div style="padding:0 0 14px 32px;font-size:14px;line-height:1.5;color:{{ s.detailColor }};animation:bb-in .25s ease both">{{ s.detail }}<sc-if value="{{ s.hasTx }}" hint-placeholder-val="{{ false }}"> <a href="{{ s.txUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px">tx ↗</a></sc-if></div>
+              <div style="padding:0 0 14px 32px;font-size:14px;line-height:1.5;color:{{ s.detailColor }};animation:bb-in .25s ease both">{{ s.detail }}<sc-if value="{{ s.hasTx }}" hint-placeholder-val="{{ false }}"> <a href="{{ s.txUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">tx {{ s.txShort }} ↗</a></sc-if></div>
             </sc-if>
           </div>
         </sc-for>
@@ -786,9 +815,12 @@ html,body{margin:0;padding:0;background:#EDEBE5}
               <p style="margin:16px 0 0;font-size:17px;line-height:1.45;color:var(--ink-2);text-wrap:pretty;max-width:46ch">{{ res.body }}</p>
               <sc-if value="{{ res.hasTx }}" hint-placeholder-val="{{ false }}">
                 <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;margin-top:12px;font-family:var(--mono);font-size:12px">
-                  <span style="display:flex;align-items:center;gap:8px"><span style="width:7px;height:7px;background:var(--accent)"></span>verified on stellar</span>
-                  <button onClick="{{ toggleReceipt }}" style="appearance:none;border:0;border-bottom:1px solid var(--ink);background:none;color:var(--ink);font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:0 0 2px;cursor:pointer">{{ res.receiptLabel }}</button>
-                  <sc-if value="{{ res.receiptOpen }}" hint-placeholder-val="{{ false }}"><a href="{{ res.txUrl }}" target="_blank" rel="noopener" style="display:inline-block">tx {{ res.txShort }} ↗</a></sc-if>
+                  <span style="display:flex;align-items:center;gap:8px"><span style="width:7px;height:7px;background:var(--accent)"></span>confirmed on Stellar</span>
+                  <a href="{{ res.txUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">tx {{ res.txShort }} ↗</a>
+                </div>
+                <div style="display:grid;gap:4px;margin-top:10px;font-size:13px;color:var(--ink-2)">
+                  <sc-for list="{{ res.proofTxs }}" as="q" hint-placeholder-count="0"><div>✓ {{ q.label }} · <sc-if value="{{ q.hasTx }}" hint-placeholder-val="{{ false }}"><a href="{{ q.url }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">tx {{ q.short }} ↗</a></sc-if><sc-if value="{{ q.noTx }}" hint-placeholder-val="{{ false }}">joined earlier</sc-if></div></sc-for>
+                  <sc-if value="{{ res.hasPass }}" hint-placeholder-val="{{ false }}"><div>new pass: {{ res.passLabel }} · <a href="{{ res.passUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">tx {{ res.passShort }} ↗</a></div></sc-if>
                 </div>
               </sc-if>
               <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:24px">
@@ -1052,8 +1084,17 @@ class Component extends DCLogic {
   setRole = role => { this.setState({ role }); window.scrollTo(0, 0); if (role === 'arbiter') this.selectFirstDispute(); };
   requireWallet(reason, fn) {
     if (this.state.wallet) return fn();
+    // bb:connect-control: one connect component for every entry point
     this.pending = fn;
-    this.setState({ connect: { reason, pending: null } });
+    this.setState(s => ({ src: { ...s.src, open: true, focus: 'wallet', reason } }));
+    this.loadSources();
+  }
+  repLine() {
+    const r = ((this.state.src && this.state.src.list) || []).find(x => x.id === 'rep');
+    if (!r) return '';
+    if (r.status === 'pending') return 'asking REP on your phone. approve it in REP Bob.';
+    if (r.status === 'failed') return r.detail;
+    return '';
   }
   doConnect = async method => {
     if (!this.m || (this.state.connect && this.state.connect.pending)) return;
@@ -1083,7 +1124,7 @@ class Component extends DCLogic {
 
   vShell() {
     const s = this.state, p = this.props, theme = s.theme || p.theme || 'light', role = s.role, connected = !!s.wallet;
-    const tabDefs = [['explore', ['home', 'place'], this.goHome, ''], ['bob shops', ['agent'], this.goAgent, ''], ['my passes', ['passes', 'review'], this.goPasses, s.ready ? String(s.memberships.length) : '']];
+    const tabDefs = [['explore', ['home', 'place'], this.goHome, ''], ['bob shops', ['agent'], this.goAgent, ''], ['my passes', ['passes', 'review'], this.goPasses, s.ready ? String(s.memberships.length + (s.memberships.length ? 1 : 0) + (s.credentials.some(c => c.group === 'traveler' && c.held) ? 1 : 0)) : '']];
     return {
       theme, themeAria: theme === 'dark' ? 'switch to light' : 'switch to dark', toggleTheme: () => this.setState({ theme: theme === 'dark' ? 'light' : 'dark' }),
       roles: [['guest', 'guest'], ['merchant', 'merchant'], ['arbiter', 'arbiter']].map(([k, label]) => ({ label, active: role === k, bg: role === k ? 'var(--ink)' : 'transparent', fg: role === k ? 'var(--bg)' : 'var(--ink)', onClick: () => this.setRole(k) })),
@@ -1156,13 +1197,13 @@ class Component extends DCLogic {
   };
   vPlace() {
     const s = this.state, P = this.byId(s.placeId);
-    if (!P) return { pp: {}, rooms: [], sizes: [], menu: [], product: {}, policyRows: [], ppLeaves: [], ppReviews: [], ppNoReviews: false, picker: [], bdRows: [], coItems: [], coEmpty: true, coNoSaved: true };
+    if (!P) return { paRows: [], pa: {}, pp: {}, rooms: [], sizes: [], menu: [], product: {}, policyRows: [], ppLeaves: [], ppReviews: [], ppNoReviews: false, picker: [], bdRows: [], coItems: [], coEmpty: true, coNoSaved: true };
     const c = this.checkoutCalc(P), hotel = this.isHotel(P), sel = s.sel, mine = s.memberships.find(x => x.place === P.id), v = this.verb(P), n = c.proven.length;
     const pp = {
       kind: P.kind, name: P.name, area: P.area.toLowerCase(), note: P.note, isReal: !!P.real,
       isHotel: hotel, isShop: P.kind === 'shop', isCafe: P.kind === 'café', offerTitle: { hotel: 'rooms', shop: 'the product', 'café': 'menu' }[P.kind] || '',
       hasScore: P.review_count > 0, noScore: !P.review_count, score: this.score(P) || '', reviewCount: P.review_count ? `${P.review_count} proven · ${P.verified_count} verified` : 'none yet',
-      groupSize: String(P.group_size), groupWord: this.groupWord(P, P.group_size), groupAria: `${P.group_size} of 32`, noun: this.noun(P), cap: '−' + c.pol.max_bps / 100 + '%',
+      groupSize: String(P.group_size), groupWord: this.groupWord(P, P.group_size), groupAria: `${P.group_size} of ${(this.m && this.m.TREE_CAP) || 32}`, noun: this.noun(P), cap: '−' + c.pol.max_bps / 100 + '%',
       noReviewsText: P.real ? 'real purchases only, so the first one will be real too.' : 'the first one will carry a proof.',
       verbTitle: { book: 'book', buy: 'buy', order: 'order' }[v],
     };
@@ -1173,10 +1214,18 @@ class Component extends DCLogic {
         label: e.label, pct: '−' + e.bps / 100 + '%', reason: this.shortReason(e, P, atCap), checked, notEligible: !e.eligible, mark: checked ? '✓' : '',
         boxBg: checked ? 'var(--ink)' : 'transparent', boxBd: e.eligible ? 'var(--ink)' : 'var(--rule-soft)', labelColor: e.eligible && !atCap ? 'var(--ink)' : 'var(--ink-3)', cursor: e.eligible ? 'pointer' : 'default',
         onToggle: () => { if (e.eligible) this.setState(st => ({ picks: { ...st.picks, [e.group]: st.picks[e.group] === false } })); },
-        needsRep: !e.eligible && e.group === 'traveler', repLink: 'connect REP for +' + e.bps / 100 + '%', openRep: () => { const rp = ((this.state.src && this.state.src.list) || []).find(x => x.id === 'rep'); if (rp && rp.link) window.open(rp.link, '_blank', 'noopener'); else this.openSources('rep'); },
+        hasTx: !!e.txHash, txUrl: e.txHash ? this.tx(e.txHash).url : '', txShort: e.txHash ? this.tx(e.txHash).short : '', joinedEarlier: !!e.held && !e.txHash,
+        explain: e.explain || '', repLine: e.group === 'traveler' && !e.held ? this.repLine() : '', hasRepLine: e.group === 'traveler' && !e.held && !!this.repLine(),
+        needsRep: !e.eligible && !e.held && e.group === 'traveler' && !this.repLine(), repLink: 'connect REP for +' + e.bps / 100 + '%', openRep: () => { const rp = ((this.state.src && this.state.src.list) || []).find(x => x.id === 'rep'); if (rp && rp.link) window.open(rp.link, '_blank', 'noopener'); else this.openSources('rep'); },
       };
     });
+    const passportRow = ((s.src && s.src.list) || []).find(x => x.id === 'passport');
+    const paRows = c.el.map(e => ({ label: e.label, proves: e.explain || e.reason, pct: '−' + e.bps / 100 + '%', state: e.eligible ? (c.proven.includes(e.group) ? 'counted' : 'held, over the cap') : e.held ? 'used this season' : 'not held', stateColor: e.eligible ? 'var(--accent)' : 'var(--ink-3)', op: 1 }))
+      .concat([{ label: 'Stellar Passport', proves: passportRow && passportRow.status === 'connected' ? 'coming: ' + passportRow.detail + '. not a perk at any place yet, so it is not counted.' : 'coming. not a perk at any place yet, so it is not counted.', pct: '—', state: 'not active', stateColor: 'var(--ink-3)', op: 0.55 }]);
+    const heldSum = c.el.filter(e => e.eligible).reduce((a, e) => a + e.bps, 0);
+    const pa = { sum: '−' + heldSum / 100 + '%', cap: '−' + c.pol.max_bps / 100 + '% max', final: this.money(c.bd.total) };
     return {
+      paRows, pa,
       pp,
       rooms: hotel ? P.offers.map((o, i) => ({ title: o.title, sub: o.sub, price: this.money(o.price), sel: i === sel.room, dot: i === sel.room ? 'var(--ink)' : 'transparent', onClick: () => this.setSel({ room: i }) })) : [],
       nights: String(sel.nights), incNights: () => this.setSel({ nights: Math.min(14, sel.nights + 1) }), decNights: () => this.setSel({ nights: Math.max(1, sel.nights - 1) }),
@@ -1206,6 +1255,17 @@ class Component extends DCLogic {
     await this.reload();
     this.setState({ disclose: { mId, phase: 'sent' } });
   }
+  passExtras(ms, placeIds) {
+    const s = this.state, list = (s.src && s.src.list) || [], first = ms[0], fp = first ? this.byId(first.place) : null;
+    const rep = list.find(x => x.id === 'rep'), net = list.find(x => x.id === 'network');
+    const t = h => (h ? { has: true, url: this.tx(h).url, short: this.tx(h).short } : { has: false, url: '', short: '' });
+    const ft = t(first && first.txHash);
+    return {
+      netFrom: { what: first ? first.what : 'stay', place: fp ? fp.name : '', hasTx: ft.has, url: ft.url, short: ft.short },
+      netPerk: (net && net.perk) || 'a regular\'s perk where places offer it',
+      travPerk: (rep && rep.perk) || 'a perk where places offer it', travTx: t(rep && rep.txHash),
+    };
+  }
   vPasses() {
     const s = this.state, ms = s.memberships, placeIds = [...new Set(ms.map(x => x.place))];
     const passes = ms.map(mm => {
@@ -1214,7 +1274,8 @@ class Component extends DCLogic {
       const dl = s.disclose && s.disclose.mId === mm.id ? s.disclose.phase : null;
       const status = disp ? (disp.status === 'awaiting' ? 'the place disputed your review' : disp.status === 'disclosed' ? 'with the arbiter' : 'review verified') : mm.reviewed ? 'reviewed ✓' : '';
       return {
-        kind: P ? P.kind : '', area: P ? P.area.toLowerCase() : '', what: mm.what, name: P ? P.name : '', when: mm.when.replace(/^(stayed|bought) /, ''),
+        kind: P ? P.kind : '', area: P ? P.area.toLowerCase() : '', what: mm.what, name: P ? P.name : '', when: mm.when.replace(/^stayed · /, ''),
+        hasTx: !!mm.txHash, noTx: !mm.txHash, txUrl: mm.txHash ? this.tx(mm.txHash).url : '', txShort: mm.txHash ? this.tx(mm.txHash).short : '',
         deals: deals.map(e => ({ label: `−${e.bps / 100}% next ${this.noun(P) === 'stay' ? 'stay' : 'time'}` })), noDeals: !deals.length,
         hasStatus: !!status, status, statusColor: awaiting ? 'var(--accent)' : 'var(--ink-2)',
         onReview: () => this.startReview(mm.id), onUse: () => this.openPlace(mm.place),
@@ -1227,7 +1288,9 @@ class Component extends DCLogic {
     });
     const rm = ms.find(x => x.id === s.draft.mId), rp = rm ? this.byId(rm.place) : null, rating = s.draft.rating;
     return {
-      passes, passesEmpty: s.ready && !ms.length,
+      ...this.passExtras(ms, placeIds),
+      passes, passesEmpty: s.ready && !ms.length && !s.credentials.some(c => c.group === 'traveler' && c.held),
+      passesOnlyGroups: s.ready && !ms.length && s.credentials.some(c => c.group === 'traveler' && c.held),
       hasNetworkPass: placeIds.length > 0, networkLine: `proven in ${this.plural(placeIds.length, 'place')}`,
       hasTravelerPass: s.credentials.some(c => c.group === 'traveler' && c.held),
       rf: { placeName: rp ? rp.name : 'it', text: s.draft.text, placeholder: this.isHotel(rp) ? 'the room, the people, the street at night.' : 'what you got, and how it was.' },
@@ -1259,7 +1322,7 @@ class Component extends DCLogic {
     const s = this.state, ag = s.ag || this.agBlank(), cart = ag.cart, failed = ag.phase === 'failed', running = ag.phase === 'running';
     const cur = ag.steps.findIndex(x => x.status === 'running'), doneN = ag.steps.filter(x => x.status === 'done').length;
     const agSteps = ag.steps.map((x, i) => {
-      const open = !!ag.open[i] && !!x.detail, txx = x.tx ? this.tx(x.tx) : null;
+      const open = (ag.open[i] ?? true) && !!x.detail, txx = x.tx ? this.tx(x.tx) : null;
       return {
         label: this.AGL[i] || x.label, open, detail: x.detail,
         mark: x.status === 'done' ? (x.detail ? (open ? '−' : '+') : '✓') : x.status === 'failed' ? 'failed' : x.status === 'running' ? 'now' : failed ? 'blocked' : '',
@@ -1268,12 +1331,12 @@ class Component extends DCLogic {
         dotBg: x.status === 'running' ? 'var(--accent)' : x.status === 'failed' ? 'var(--warn)' : x.status === 'done' ? 'var(--ink)' : 'transparent',
         dotBd: x.status === 'running' ? 'var(--accent)' : x.status === 'failed' ? 'var(--warn)' : x.status === 'done' ? 'var(--ink)' : 'var(--rule-soft)',
         anim: x.status === 'running' ? 'bb-blink 1s steps(1) infinite' : 'none',
-        hasTx: open && !!txx, txUrl: txx ? txx.url : '',
-        onToggle: () => { if (x.detail) this.setState(st => ({ ag: { ...st.ag, open: { ...st.ag.open, [i]: !st.ag.open[i] } } })); },
+        hasTx: open && !!txx, txUrl: txx ? txx.url : '', txShort: txx ? txx.short : '',
+        onToggle: () => { if (x.detail) this.setState(st => ({ ag: { ...st.ag, open: { ...st.ag.open, [i]: !(st.ag.open[i] ?? true) } } })); },
       };
     });
     const itemsSum = cart.items.reduce((a, i) => a + i.price, 0), disc = cart.discounts[0];
-    const headline = ag.phase === 'idle' ? 'ready to buy a rep tee.' : running ? (cur >= 0 ? this.AGL[cur] + '…' : '…') : failed ? 'proof rejected. discount removed.' : `paid ${this.money(cart.total)} usdc. 10% off, proven.`;
+    const headline = ag.phase === 'idle' ? 'ready to buy a rep tee.' : running ? (cur >= 0 ? this.AGL[cur] + '…' : '…') : failed ? 'proof rejected. discount removed.' : (disc && disc.proven && !disc.removed ? `paid ${this.money(cart.total)} usdc. ${Math.round((disc.amount / (itemsSum || 1)) * 100)}% off, proven.` : `paid ${this.money(cart.total)} usdc. full price.${cart.nextBps ? ` next time it's ${cart.nextBps / 100}% off, proven.` : ''}`);
     const sv0 = ag.store || null;
     return {
       ag: {
@@ -1333,7 +1396,7 @@ class Component extends DCLogic {
         input: dk.input, scanning: dk.scanning, scanLabel: dk.scanning ? 'stop' : 'scan qr',
         canSubmit: dk.phase !== 'submitting', submitting: dk.phase === 'submitting', success: dk.phase === 'success', notSuccess: dk.phase !== 'success', error: dk.phase === 'error',
         errHead: dErr ? dErr.h : '', errBody: dErr ? dErr.b : '', leafIdx: newIdx >= 0 ? String(newIdx + 1) : '',
-        root: P0 ? this.short(P0.roots[P0.roots.length - 1], 8, 6) : '', txUrl: dTx ? dTx.url : '', treeLabel: P0 ? `${P0.group_size} of 32` : '',
+        root: P0 ? this.short(P0.roots[P0.roots.length - 1], 8, 6) : '', txUrl: dTx ? dTx.url : '', treeLabel: P0 ? `${P0.group_size} of ${(this.m && this.m.TREE_CAP) || 32}` : '',
       },
       leaves: Array.from({ length: 32 }, (_, i) => { const f = P0 && i < P0.group_size, nw = i === newIdx; return { bg: nw ? 'var(--accent)' : f ? 'var(--ink)' : 'transparent', bd: nw ? 'var(--accent)' : f ? 'var(--ink)' : 'var(--rule-soft)' }; }),
       onDeskInput: e => this.setDesk({ input: e.target.value, detected: false }), deskScan: this.deskScan,
@@ -1379,7 +1442,7 @@ class Component extends DCLogic {
     const sd = s.disputes.find(x => x.id === ar.sel), sr = sd ? (s.reviews[sd.hotel] || []).find(x => x.id === sd.reviewId) : null, pk = sd && sd.package;
     const ad = {
       has: !!sd, awaiting: !!sd && sd.status === 'awaiting', hasPkg: !!pk, stars: this.stars(sr ? sr.rating : 0), aria: sr ? sr.rating + ' of 5' : '', text: sr ? (s.texts[sr.content_hash] || 'text unavailable') : '',
-      secret: pk ? (ar.reveal ? this.short(pk.secret, 10, 6) : '••••••••') : '', sig: pk ? this.short(pk.signature, 6, 4) : '', leaf: pk ? String(pk.leafIndex) : '', revealLabel: ar.reveal ? 'hide' : 'reveal',
+      secret: pk ? (ar.reveal ? (String(pk.secret).startsWith('0x') ? this.short(pk.secret, 10, 6) : pk.secret) : '••••••••') : '', sig: pk ? (String(pk.signature).startsWith('0x') ? this.short(pk.signature, 6, 4) : pk.signature) : '', leaf: pk ? String(pk.leafIndex) : '', revealLabel: ar.reveal ? 'hide' : 'reveal',
     };
     const attested = !!sd && sd.status === 'attested', chk = attested ? ['ok', 'ok', 'ok'] : ar.checks;
     const checks = ['commitment matches', 'signature valid', 'leaf in the group'].map((label, i) => ({ label, status: { wait: '', active: 'checking', ok: 'pass ✓', fail: 'fail' }[chk[i]], color: chk[i] === 'active' ? 'var(--accent)' : chk[i] === 'fail' ? 'var(--warn)' : 'var(--ink)', labelColor: chk[i] === 'wait' ? 'var(--ink-3)' : 'var(--ink)' }));
@@ -1459,7 +1522,9 @@ class Component extends DCLogic {
     const P = this.byId(f.ctx.placeId), name = P ? P.name.toLowerCase() : 'the place', hotel = this.isHotel(P);
     const receipt = { receiptOpen: !!f.receipt, receiptLabel: f.receipt ? 'hide receipt' : 'receipt' };
     if (f.phase === 'success') {
-      const x = this.tx(f.result.txHash), tx = { hasTx: true, txUrl: x.url, txShort: x.short, ...receipt };
+      const x = this.tx(f.result.txHash), el0 = (this.state.elig[f.ctx.placeId] || []), pt = f.result.passTx ? this.tx(f.result.passTx) : null;
+      const proofTxs = (f.result.discounts || []).map(r => { const e = el0.find(z => z.group === r.group), h = e && e.txHash; return { label: e ? e.label : r.label, hasTx: !!h, noTx: !h, url: h ? this.tx(h).url : '', short: h ? this.tx(h).short : '' }; });
+      const tx = { hasTx: !!f.result.txHash, txUrl: x.url, txShort: x.short, proofTxs, hasPass: !!pt, passUrl: pt ? pt.url : '', passShort: pt ? pt.short : '', passLabel: (this.byId(f.ctx.placeId) || {}).name || '', ...receipt };
       if (f.kind === 'review') return { ...blank, ...tx, head: 'proof verified. review posted.', body: 'it carries a proof, not a name.', primary: 'my passes', pKey: 'passes', secondary: `read it on ${name}`, sKey: 'place' };
       const rows = f.result.discounts || [], paid = this.money(f.result.total);
       if (!rows.length) return { ...blank, ...tx, head: hotel ? 'paid. you are booked.' : 'paid. it is yours.', body: `${paid} usdc, no fee.`, primary: 'done', pKey: 'passes', secondary: `back to ${name}`, sKey: 'place' };
@@ -1529,7 +1594,7 @@ class Component extends DCLogic {
     this.setField('settle', 'check');
   }
   // bb:connect-control
-  loadSources = async () => { if (!this.m || !this.m.sources) return; try { const list = await this.m.sources(); const w = !this.state.wallet && this.m.wallet.current ? this.m.wallet.current() : null; this.setState(s => ({ src: { ...s.src, list }, ...(w ? { wallet: w } : {}) })); } catch (e) { console.error(e); } };
+  loadSources = async () => { if (!this.m || !this.m.sources) return; try { const list = await this.m.sources(this.state.view === 'place' && this.state.role === 'guest' ? this.state.placeId : undefined); const w = !this.state.wallet && this.m.wallet.current ? this.m.wallet.current() : null; this.setState(s => ({ src: { ...s.src, list }, ...(w ? { wallet: w } : {}) })); } catch (e) { console.error(e); } };
   openSources = (focus = null) => { this.setState(s => ({ src: { ...s.src, open: true, focus } })); this.loadSources(); };
   srcAct = async (id, how) => {
     const m = this.m; if (!m) return;
@@ -1537,9 +1602,12 @@ class Component extends DCLogic {
       if (how === 'disconnect') { m.wallet.disconnect(); this.setState({ wallet: null }); }
       else {
         this.setState(s => ({ src: { ...s.src, busy: how } }));
-        try { const w = await m.wallet.connect(how); this.setState({ wallet: w }); } catch (e) { console.error(e); }
+        let ok = false;
+        try { const w = await m.wallet.connect(how); this.setState({ wallet: w }); ok = true; } catch (e) { console.error(e); }
         this.setState(s => ({ src: { ...s.src, busy: null } }));
+        const fn = ok ? this.pending : null; if (ok) { this.pending = null; this.setState(s => ({ src: { ...s.src, open: false, focus: null, reason: null } })); }
         await this.reload();
+        if (fn) fn();
       }
     } else if (id === 'rep') {
       await m.rep.start(); this.loadSources();
@@ -1564,11 +1632,12 @@ class Component extends DCLogic {
     };
     const open = !!src.open, connected = !!s.wallet;
     return {
-      srcOpen: open, srcToggle: () => (open ? this.setState(st => ({ src: { ...st.src, open: false, focus: null } })) : this.openSources()),
+      srcOpen: open, srcToggle: () => (open ? (this.pending = null, this.setState(st => ({ src: { ...st.src, open: false, focus: null, reason: null } }))) : this.openSources()),
+      srcHasReason: !!src.reason, srcReason: src.reason ? 'connect ' + src.reason + '.' : '',
       srcBtnBg: connected ? 'transparent' : 'var(--ink)', srcBtnFg: connected ? 'var(--ink)' : 'var(--bg)',
       srcChips: list.map(r => ({ short: short[r.id] || r.id, dot: (dots[r.status] || dots.none)[0], dotBd: (dots[r.status] || dots.none)[1], title: r.label + ': ' + (word[r.status] || r.status) })),
       srcCta: connected ? '' : 'connect →',
-      srcRows: list.map((r, i) => ({ label: r.label, proves: r.proves, detail: r.detail, status: word[r.status] || r.status, statusColor: r.status === 'connected' ? 'var(--accent)' : r.status === 'failed' ? 'var(--warn)' : 'var(--ink-3)', rule: i ? 'var(--rule-soft)' : 'transparent', bg: src.focus === r.id ? 'var(--accent-soft)' : 'transparent', actions: actions(r) })),
+      srcRows: list.map((r, i) => ({ head: i === 1 ? 'add for more perks' : '', hasHead: i === 1, perk: r.perk || '', hasPerk: !!r.perk, hasTx: !!r.txHash, txUrl: r.txHash ? this.tx(r.txHash).url : '', txShort: r.txHash ? this.tx(r.txHash).short : '', label: r.label, proves: r.proves, detail: r.detail, status: word[r.status] || r.status, statusColor: r.status === 'connected' ? 'var(--accent)' : r.status === 'failed' ? 'var(--warn)' : 'var(--ink-3)', rule: i ? 'var(--rule-soft)' : 'transparent', bg: src.focus === r.id ? 'var(--accent-soft)' : 'transparent', actions: actions(r) })),
     };
   }
 

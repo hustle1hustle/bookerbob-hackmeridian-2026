@@ -36,7 +36,7 @@ export function hashText(s: string): string {
 const round2 = (x: number) => Math.round(x * 100) / 100
 export function groupLabel(group: string, kind: string) {
   if (group === "returning") return kind === "hotel" ? "returning guest" : "returning customer"
-  return ({ network: "network member", traveler: "verified traveler" } as Record<string, string>)[group] || group
+  return ({ network: "BookerBob regular", traveler: "REP verified traveler · from REP" } as Record<string, string>)[group] || group
 }
 export function breakdown(subtotal: number, policy: { group: string; label: string; bps: number }[], max_bps: number, groups: string[]) {
   let used = 0
@@ -78,6 +78,24 @@ const kindOut = (k: string) => (k === "cafe" ? "café" : k)
 
 // the real store's products from the UCP bridge (title, USDC price, store price, variant)
 let storeItems: any[] = []
+
+// The transaction that made a membership true. The backend records demo-desk checkouts and group joins;
+// null means it joined before the backend recorded it (shown as "joined earlier", no link).
+const txCache = new Map<string, Promise<string | null>>()
+export function membershipTx(ref: { kind: "merchant" | "group"; id: number }, commitment: string): Promise<string | null> {
+  const key = `${ref.kind}:${ref.id}:${commitment}`
+  if (!txCache.has(key)) {
+    const url = ref.kind === "merchant" ? `${API}/api/checkout-tx?merchant=${ref.id}&commitment=${commitment}` : `${API}/api/member-tx?group=${ref.id}&commitment=${commitment}`
+    txCache.set(key, fetch(url).then((r) => r.json()).then((j) => j?.txHash ?? null).catch(() => null))
+  }
+  return txCache.get(key)!
+}
+export const rememberTx = (ref: { kind: "merchant" | "group"; id: number }, commitment: string, txHash: string) => {
+  txCache.set(`${ref.kind}:${ref.id}:${commitment}`, Promise.resolve(txHash))
+  resolvedTx.set(`${ref.kind}:${ref.id}:${commitment}`, txHash)
+}
+/** Resolved membership txs for synchronous readers (passes); filled during load. */
+const resolvedTx = new Map<string, string | null>()
 
 // One shared /api/config read (the backend computes it per request, so do not ask twice).
 let configP: Promise<any> | null = null
@@ -126,6 +144,9 @@ async function refreshEligibility(read: any) {
   if (!state) return
   const stays = sdk.stays.list()
   const master = (s: Stay) => sdk.stays.identity(s)
+  await Promise.all(
+    stays.map((st) => membershipTx({ kind: "merchant", id: st.merchant }, st.commitment).then((t) => resolvedTx.set(`merchant:${st.merchant}:${st.commitment}`, t))),
+  )
   for (const p of state.places) {
     const items = p.policy?.items ?? (p.m.discountBps ? [{ group: { kind: "merchant" as const, id: p.mid }, bps: p.m.discountBps }] : [])
     const out: any[] = []
@@ -142,13 +163,22 @@ async function refreshEligibility(read: any) {
       const kind = p.m.kind
       let reason = ""
       if (key === "returning") reason = !holder ? (kind === "hotel" ? "no stay here in this browser" : "no purchase here in this browser") : used ? "used this season. renews next season." : kind === "hotel" ? "you stayed here before. not which time." : "you bought here before. not what, not when."
-      else if (key === "network") reason = !holder ? "no proven visit anywhere yet" : used ? "used here this season" : "you are a proven guest somewhere in the network. not where."
+      else if (key === "network") reason = !holder ? "no proven stay or purchase in the network yet" : used ? "used here this season" : "you're a proven customer somewhere in the BookerBob network"
       else if (key === "traveler") reason = !holder ? "no attestation in this browser" : used ? "used here this season" : "an attester vouched for you. not who."
       else reason = !holder ? "not a member in this browser" : used ? "used here this season" : "a provider vouched for you. not who."
-      out.push({ group: key, label: groupLabel(key, kind) === key ? (groupsMeta.find((g) => `g${g.id}` === key)?.name ?? key) : groupLabel(key, kind), bps: it.bps, eligible: !!holder && !used, reason, _ref: it.group, _holder: holder })
+      const txHash = holder ? await membershipTx(it.group, holder.commitment) : null
+      const atPlaces = state.places.filter((q) => (q.policy?.items ?? []).some((x) => x.group.kind === it.group.kind && x.group.id === it.group.id)).length
+      out.push({ group: key, label: groupLabel(key, kind) === key ? (groupsMeta.find((g) => `g${g.id}` === key)?.name ?? key) : groupLabel(key, kind), bps: it.bps, eligible: !!holder && !used, held: !!holder, reason, explain: EXPLAIN[key] ?? "", txHash, atPlaces, _ref: it.group, _holder: holder })
     }
     state.elig[toPlace(p.mid)] = out
   }
+}
+
+/** One line per source, wherever it appears. */
+export const EXPLAIN: Record<string, string> = {
+  returning: "you were a customer here before. not which time.",
+  network: "you're a proven customer somewhere in the BookerBob network. places never see where.",
+  traveler: "REP proves from your own Airbnb or Booking account that you travel. BookerBob only learns yes. nobody sees your trips.",
 }
 
 const ready = () => (loading ??= load())
@@ -319,10 +349,12 @@ export const chain = {
       }
       // the paying browser joins the place's customer tree through the demo desk (a new stay for this purchase)
       const stay = sdk.stays.create(p.mid)
-      await sdk.chain.checkout(p.mid, stay.commitment)
+      const co: any = await sdk.chain.checkout(p.mid, stay.commitment)
+      const passTx = co && !co.error ? co.txHash : null
+      if (passTx) rememberTx({ kind: "merchant", id: p.mid }, stay.commitment, passTx)
       loading = null
       const paid = Number(BigInt(sent.value)) / 1e7
-      return { txHash: sent.txHash, subtotal, discounts: bd.rows.filter((r: any) => r.applied), total: round2(paid), saved: round2(subtotal - paid) }
+      return { txHash: sent.txHash, passTx, subtotal, discounts: bd.rows.filter((r: any) => r.applied), total: round2(paid), saved: round2(subtotal - paid) }
     } catch (e: any) {
       return err(parseContractError(e) ?? "BadParams", String(e?.message ?? e))
     }
@@ -354,7 +386,10 @@ export const chain = {
 // ---- browser-only state ----
 const stayId = (s: Stay) => `m-${s.merchant}-${s.stayIndex}`
 const stayOf = (id: string) => sdk.stays.list().find((s) => stayId(s) === id)
-const dateLine = (s: Stay, kind: string) => `${kind === "hotel" ? "stayed" : "bought"} · checked in ${new Date(s.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }).toLowerCase()}`
+const dateLine = (s: Stay, kind: string) => {
+  const day = new Date(s.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }).toLowerCase()
+  return kind === "hotel" ? `stayed · checked in ${day}` : `bought ${day}`
+}
 
 export const local = {
   memberships() {
@@ -380,6 +415,8 @@ export const local = {
           nullifierReview: hex(nfReview),
           reviewed: s.reviewId !== null,
           reviewId: s.reviewId !== null ? `r-${s.reviewId}` : null,
+          txHash: resolvedTx.get(`merchant:${s.merchant}:${s.commitment}`) ?? null,
+          placeName: p.m.name,
         }
       })
       .filter(Boolean)
@@ -469,12 +506,13 @@ async function* ucpRun(reuse: boolean): AsyncGenerator<any> {
   const items = await fetch(`${BRIDGE}/search?q=tee`).then((r) => r.json()).catch(() => [])
   const item = items[0]
   if (!item) return yield step(0, "failed", { error: "Network", detail: "the store did not answer." })
-  yield step(0, "done")
+  yield step(0, "done", { detail: `found REP Store on Shopify. its UCP profile: ${item.ucp ?? BRIDGE + "/.well-known/ucp"}` })
   yield step(1, "running")
-  cart.items.push({ title: String(item.title).toLowerCase(), price: Number(item.price) })
+  cart.nextBps = Number(item.returningDiscountBps ?? 0)
+  cart.items.push({ title: String(item.title).toLowerCase(), price: Number(item.price), imageUrl: item.imageUrl ?? null, storePrice: item.storePrice ?? null, storeCurrency: item.storeCurrency ?? null })
   cart.total = Number(item.price)
   yield snap()
-  yield step(1, "done", { detail: `1 × ${String(item.title).toLowerCase()} · ${Number(item.price).toFixed(2)} usdc` })
+  yield step(1, "done", { detail: `1 × ${String(item.title).toLowerCase()} · ${Number(item.price).toFixed(2)} usdc${item.storePrice ? ` (${Number(item.storePrice).toFixed(2)} ${String(item.storeCurrency ?? "").toLowerCase()} in the store)` : ""} · shopify variant ${String(item.variantId ?? "").split("/").pop()}` })
   const payer = await ensureWallet()
   await ready()
   const shopStay = sdk.stays.list().find((s) => s.merchant === UCP_MERCHANT && (findP(4)?.leaves ?? []).includes(BigInt(s.commitment)))
@@ -483,7 +521,7 @@ async function* ucpRun(reuse: boolean): AsyncGenerator<any> {
   yield step(2, "running")
   const st = await bpost("/buy/start", { variantId: item.variantId, qty: 1, claim, nextCommitment: next.commitment })
   if (st.error) return yield step(2, "failed", { error: st.error, detail: String(st.error) })
-  yield step(2, "done", { detail: claim ? UCP_STEPS[2].detail : "no past purchase in this browser, so no claim. full price." })
+  yield step(2, "done", { detail: claim ? "you bought here before, so bob claims returning customer. no name, no email sent." : "no past purchase from this store in this browser, so no claim. full price this time." })
   if (claim && st.action) {
     yield step(3, "running")
     const off = round2(Number(item.price) * (st.action.discount_bps / 10000))
@@ -495,8 +533,9 @@ async function* ucpRun(reuse: boolean): AsyncGenerator<any> {
     const artifacts = await loadArtifacts()
     const leaves = await views.leaves(await getClient({ ...TESTNET, contractId: (await apiConfig()).contractId }), UCP_MERCHANT)
     const holder = shopStay ?? next
+    const t0 = performance.now()
     const mp = await proveMembership(sdk.stays.identity(holder), leaves, d.discountMessage(payer), d.discountScope(UCP_MERCHANT, st.action.scope.season), artifacts)
-    yield step(4, "done")
+    yield step(4, "done", { detail: `made on this device in ${Math.round(performance.now() - t0)} ms. your secret never leaves it.` })
     yield step(5, "running")
     const pr = await bpost("/buy/prove", { checkoutId: st.checkoutId, payer, root: mp.root.toString(), nullifier: mp.nullifier.toString(), proof: mp.proof })
     if (pr.error || !pr.verified) {
@@ -507,7 +546,7 @@ async function* ucpRun(reuse: boolean): AsyncGenerator<any> {
       yield snap()
       return yield step(6, "failed", { detail: UCP_STEPS[6].failDetail })
     }
-    yield step(5, "done")
+    yield step(5, "done", pr.txHash ? { tx: pr.txHash, detail: "stellar checked the proof. it works once, so this discount cannot be reused." } : {})
     yield step(6, "running")
     cart.discounts[0].proven = true
     yield snap()
@@ -529,10 +568,12 @@ async function* ucpRun(reuse: boolean): AsyncGenerator<any> {
   yield step(8, "running")
   const done = await bpost("/buy/complete", { checkoutId: st.checkoutId, txHash: sent.txHash })
   const orderId = done?.order?.name ?? done?.order?.id ?? null
-  yield step(8, "done", { detail: orderId ? `order ${orderId} · paid · tx attached` : "paid · tx attached. the store records the order once draft orders are enabled." })
+  yield step(8, "done", { tx: sent.txHash, detail: orderId ? `order ${orderId} · recorded in REP Store on Shopify` : "paid. the store records the order once draft orders are enabled." })
   yield step(9, "running")
   loading = null
-  yield step(9, "done")
+  const joinTx = (typeof done?.joined === "string" ? done.joined : null) ?? (await membershipTx({ kind: "merchant", id: UCP_MERCHANT }, next.commitment))
+  if (joinTx) rememberTx({ kind: "merchant", id: UCP_MERCHANT }, next.commitment, joinTx)
+  yield step(9, "done", joinTx ? { tx: joinTx, detail: "you joined the store's proven customers. this purchase can be reviewed once, and it earns returning customer next time." } : {})
   if (orderId) yield { type: "store", storeView: { orderId, amount: cart.total, badges: cart.discounts.length ? ["verified returning customer"] : [], tx: sent.txHash } }
 }
 
@@ -637,6 +678,10 @@ export interface Source {
   detail: string
   /** Where to go instead of an in-page action (REP app while REP verify is demo-only). */
   link?: string
+  /** The transaction that made it true, when known. */
+  txHash?: string | null
+  /** What it unlocks at this place, or across the network. */
+  perk?: string
 }
 
 /** The REP app, one config value (may move to r3p.xyz). */
@@ -693,7 +738,24 @@ export const passport = {
   },
 }
 
-export async function sources(): Promise<Source[]> {
+/** What a source unlocks at a place (from its on-chain policy), or across the network. */
+function perkFor(groupKey: string, placeId?: number): string {
+  if (!state) return ""
+  const rows = Object.entries(state.elig).flatMap(([pid, xs]) => (xs as any[]).filter((x) => x.group === groupKey).map((x) => ({ pid: Number(pid), bps: x.bps })))
+  if (placeId !== undefined && placeId !== null) {
+    const here = rows.find((r) => r.pid === placeId)
+    return here ? `+${here.bps / 100}% here` : "no perk at this place"
+  }
+  if (!rows.length) return ""
+  const bps = Math.max(...rows.map((r) => r.bps))
+  return `+${bps / 100}% at ${rows.length} ${rows.length === 1 ? "place" : "places"}`
+}
+async function heldTx(groupKey: string): Promise<string | null> {
+  for (const xs of Object.values(state?.elig ?? {})) for (const x of xs as any[]) if (x.group === groupKey && x.txHash) return x.txHash
+  return null
+}
+
+export async function sources(placeId?: number): Promise<Source[]> {
   await ready()
   const addr = wallet.address ?? sdk.wallet.address
   const ms = local.memberships() as any[]
@@ -711,9 +773,11 @@ export async function sources(): Promise<Source[]> {
     },
     {
       id: "rep",
-      label: "REP verified traveler",
-      proves: "an attester vouches that you travel. not who you are.",
+      label: "REP verified traveler · from REP",
+      proves: EXPLAIN.traveler,
       status: held ? "connected" : demo ? repState.status : "soon",
+      txHash: held ? ((await heldTx("traveler")) ?? repState.tx ?? null) : null,
+      perk: perkFor("traveler", placeId),
       detail: held
         ? "verified traveler counts in your perks"
         : !demo
@@ -728,15 +792,17 @@ export async function sources(): Promise<Source[]> {
     {
       id: "passport",
       label: "Stellar Passport",
-      proves: "your builder profile on Stellar. read only.",
+      proves: "your builder profile on Stellar. read only. not a perk yet: no place offers it today.",
       status: pp.status,
       detail: pp.detail || (addr ? "check your wallet's builder profile" : "connect a wallet first"),
     },
     {
       id: "network",
-      label: "network member",
-      proves: "you are a proven guest somewhere in the network. not where.",
+      label: "BookerBob regular",
+      proves: EXPLAIN.network,
       status: ms.length ? "connected" : "none",
+      txHash: ms.length ? ((await heldTx("network")) ?? ms[0].txHash ?? null) : null,
+      perk: perkFor("network", placeId),
       detail: ms.length ? `proven in ${placesProven} ${placesProven === 1 ? "place" : "places"}` : "comes with your first stay or purchase",
     },
   ]
