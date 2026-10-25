@@ -120,3 +120,9 @@ The wallet row in Connect offers "sign in with my passkey" (`wallet.connect('pas
 - The agent headline uses the run's own `headline` event when present (e.g. "same proof again: refused. it only works once."), else the computed one.
 - After a refusal that is not the replay demo, "pay full price" runs `ucp.run({ noClaim: true })`.
 - Step 2's label is "add it to the cart" (it was "add the t-shirt", wrong for the cap or a hoodie).
+
+## How it works page (edit 24)
+
+- `vShell()` tab list: a fourth tab "how it works" after my passes, which navigates to `/how` (the footer link was already there).
+- After the first load, `?view=agent` / `?view=passes` opens that view and `?connect=1` opens Connect, so the `/how` header and nav land in the right place of the app.
+- `site/public/how.html` (not the design file) is restyled to the same language: the app's header (mark, testnet tag, connect →) and tab row with "how it works" current, the type scale, rule-based grids and cards, mono "tx 4d6f75…4580 ↗" links opening in a new tab, the site footer, single column at 390 px. Content, diagrams and tx hashes unchanged.

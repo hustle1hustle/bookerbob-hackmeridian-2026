@@ -979,6 +979,8 @@ class Component extends DCLogic {
     window.addEventListener('pol:data', () => this.reload());
     await this.reload();
     this.setState({ ready: true, ag: this.agBlank() });
+    // links from /how: ?view=agent|passes opens that view, ?connect=1 opens Connect
+    { const q = new URLSearchParams(location.search); const v = q.get('view'); if (v === 'agent') this.goAgent(); else if (v === 'passes') this.goPasses(); if (q.get('connect') === '1') this.openSources(); }
     this.selectFirstDispute();
     if (this.props.startView && this.props.startView !== 'none') this.jump(this.props.startView);
   }
@@ -1181,7 +1183,7 @@ class Component extends DCLogic {
 
   vShell() {
     const s = this.state, p = this.props, theme = s.theme || p.theme || 'light', role = s.role, connected = !!s.wallet;
-    const tabDefs = [['explore', ['home', 'place'], this.goHome, ''], ['bob shops', ['agent'], this.goAgent, ''], ['my passes', ['passes', 'review'], this.goPasses, s.ready ? String(s.memberships.length + (s.memberships.length ? 1 : 0) + (s.credentials.some(c => c.group === 'traveler' && c.held) ? 1 : 0)) : '']];
+    const tabDefs = [['explore', ['home', 'place'], this.goHome, ''], ['bob shops', ['agent'], this.goAgent, ''], ['my passes', ['passes', 'review'], this.goPasses, s.ready ? String(s.memberships.length + (s.memberships.length ? 1 : 0) + (s.credentials.some(c => c.group === 'traveler' && c.held) ? 1 : 0)) : ''], ['how it works', ['how'], () => { location.href = '/how'; }, '']];
     return {
       theme, themeAria: theme === 'dark' ? 'switch to light' : 'switch to dark', toggleTheme: () => this.setState({ theme: theme === 'dark' ? 'light' : 'dark' }),
       roles: [['guest', 'guest'], ['merchant', 'merchant'], ['arbiter', 'arbiter']].map(([k, label]) => ({ label, active: role === k, bg: role === k ? 'var(--ink)' : 'transparent', fg: role === k ? 'var(--bg)' : 'var(--ink)', onClick: () => this.setRole(k) })),
