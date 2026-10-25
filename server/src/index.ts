@@ -12,6 +12,7 @@
 //   POST /api/payer/open|activate|feebump   fresh payer per booking, sponsored and fee-bumped by BookerBob
 //   GET  /api/catalog  POST /api/quote  POST /api/cosign   demo catalog, server-computed totals, admin co-sign
 //   POST /api/disputes/open                merchant disputes a review (awaits the guest's disclosure)
+//   GET  /api/state                        home first paint: merchants, reviews (with texts), policies, leaves, groups
 //   GET  /api/search?q=                    Ask Bob: federated search over source adapters, ranked by proven reviews
 import { contractId, deployment } from "../../packages/sdk/src/deployment.ts"
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
@@ -43,17 +44,37 @@ const store = new Store(CONTRACT, join(ROOT, "data"), process.env.DATA_DIR ?? jo
 const ops = new Ops(net, keysFromEnv())
 const FAUCET_AMOUNT = 1000n * 10_000_000n
 
-// Chain snapshot for search (merchants + all reviews), refreshed at most every 15 s.
-let snap: { at: number; merchants: Merchant[]; reviews: Review[] } | null = null
+// Chain snapshot (merchants, reviews, policies, leaves, groups), pre-warmed at boot and refreshed in the background,
+// so search, /api/config and the home's first paint (/api/state) never wait on dozens of RPC reads.
+type Snap = { at: number; merchants: Merchant[]; reviews: Review[]; policies: Record<number, unknown>; leaves: Record<number, string[]>; groups: unknown[]; groupLeaves: Record<number, string[]> }
+let snap: Snap | null = null
+let snapP: Promise<Snap> | null = null
 let configStatic: { usdc: string; arbiter: string } | null = null
-async function snapshot() {
-  if (snap && Date.now() - snap.at < 15_000) return snap
+async function buildSnapshot(): Promise<Snap> {
   const read = await ops.read()
   const n = await views.merchantCount(read)
-  const merchants = await Promise.all(Array.from({ length: n }, (_, i) => views.merchant(read, i)))
-  const reviews = (await Promise.all(merchants.map((m) => views.reviews(read, m.id)))).flat() as Review[]
-  snap = { at: Date.now(), merchants, reviews }
-  return snap
+  const ids = Array.from({ length: n }, (_, i) => i)
+  const [merchants, groups] = await Promise.all([Promise.all(ids.map((i) => views.merchant(read, i))), views.groups(read).catch(() => [])])
+  const [reviews, policies, leaves, groupLeaves] = await Promise.all([
+    Promise.all(merchants.map((m) => views.reviews(read, m.id))).then((x) => x.flat() as Review[]),
+    Promise.all(ids.map((i) => views.policy(read, i).catch(() => null))).then((x) => Object.fromEntries(x.map((p, i) => [i, p]))),
+    Promise.all(ids.map((i) => views.leaves(read, i))).then((x) => Object.fromEntries(x.map((l, i) => [i, l.map(String)]))),
+    Promise.all((groups as any[]).map((g) => views.groupLeaves(read, g.id))).then((x) => Object.fromEntries(x.map((l, i) => [(groups as any[])[i].id, l.map(String)]))),
+  ])
+  return { at: Date.now(), merchants, reviews, policies, leaves, groups, groupLeaves }
+}
+async function snapshot(): Promise<Snap> {
+  if (snap && Date.now() - snap.at < 15_000) return snap
+  if (snap) {
+    // serve the last snapshot now, refresh behind it
+    snapP ??= buildSnapshot().then((x) => ((snap = x), (snapP = null), x)).catch(() => ((snapP = null), snap!))
+    return snap
+  }
+  snapP ??= buildSnapshot().then((x) => ((snap = x), (snapP = null), x)).catch((e) => ((snapP = null), Promise.reject(e)))
+  return snapP
+}
+const refreshSnapshot = () => {
+  snapP ??= buildSnapshot().then((x) => ((snap = x), (snapP = null), x)).catch(() => ((snapP = null), snap as Snap))
 }
 const payers = new PayerService(ops)
 const catalog = loadCatalog(join(ROOT, "data"))
@@ -142,6 +163,20 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
     if (!Number.isInteger(gid) || !/^\d{1,78}$/.test(cm)) return fail(res, { error: "BadParams" })
     const hit = await findJoinTx(net.rpcUrl, CONTRACT, "member", gid, cm, deployment.deployLedger ?? 1).catch(() => null)
     return json(res, 200, { txHash: hit?.txHash ?? null })
+  }
+  // Everything the home needs for first paint, from the warm snapshot; review texts joined in.
+  if (req.method === "GET" && path === "/api/state") {
+    const sn = await snapshot()
+    const reviews = sn.reviews.map((r) => {
+      const meta = store.review(r.id)
+      const text = meta && contentHash(meta.text).slice(2) === r.contentHash ? meta.text : null
+      return { ...r, text, txHash: meta?.txHash ?? null, time: meta?.time ?? null, demoActivity: meta?.demoActivity ?? false }
+    })
+    const catalogById: Record<number, unknown> = {}
+    for (const m of sn.merchants) if (catalog[m.name]) catalogById[m.id] = catalog[m.name]
+    const demo = sn.merchants.filter((x) => ops.keys.merchantAdmins.has(x.admin)).map((x) => x.id)
+    res.setHeader("cache-control", "no-cache")
+    return json(res, 200, { at: sn.at, contractId: CONTRACT, demoMerchants: demo, merchants: sn.merchants, reviews, policies: sn.policies, leaves: sn.leaves, groups: sn.groups, groupLeaves: sn.groupLeaves, catalog: catalogById })
   }
   if (req.method === "GET" && path === "/api/catalog") {
     const sn = await snapshot()
@@ -346,5 +381,7 @@ createServer(async (req, res) => {
   }
 }).listen(Number(process.env.PORT ?? 8080), () => {
   warmArtifacts(process.env.DATA_DIR ?? join(ROOT, ".data")).catch((e) => console.error("artifacts warm failed", String(e)))
+  refreshSnapshot()
+  setInterval(refreshSnapshot, 15_000).unref()
   console.log(`pos server on :${process.env.PORT ?? 8080}, contract ${CONTRACT}`)
 })
