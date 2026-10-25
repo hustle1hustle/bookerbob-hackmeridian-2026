@@ -9,3 +9,4 @@ Live: https://stellarbob2026.xyz (Fly app `stellarbob2026`). **Protocol (everyon
 | 2026-10-25 ~14:50 | 144f4ff | brain session | REP result fix; after v7 (Denis) |
 | 2026-10-25 ~15:30 | b7f065e | brain session | Claude Design v2 fixes + REP demo gate; REP_DEMO_TOKEN live |
 | 2026-10-25 ~15:35 | 4e1b10e | brain session | review 409 + 5xx diagnostics, rep-tier, proving files from our origin; previous v15 came from a teammate's local tree |
+| 2026-10-25 ~16:05 | 1b09d84 | brain session | booking fee fix (re-simulate after cosign) + review text backfill |
