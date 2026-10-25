@@ -166,7 +166,7 @@ export function createRep(deps: RepDeps) {
         const q = new URL(req.url ?? path, "http://x").searchParams
         const token = q.get("token") ?? q.get("demo") ?? ""
         if (!deps.demoToken || !token || !timingSafeEqual(sha(token), sha(deps.demoToken))) return json(res, 403, { error: "Forbidden" })
-        res.writeHead(302, { location: q.get("fresh") === "1" ? "/?fresh=1" : "/", "set-cookie": `${COOKIE}=${encodeURIComponent(token)}; Path=/api/rep; Max-Age=604800; HttpOnly; Secure; SameSite=Lax`, "cache-control": "no-store" })
+        res.writeHead(302, { location: q.get("fresh") === "1" ? "/?fresh=1" : "/", "set-cookie": `${COOKIE}=${encodeURIComponent(token)}; Path=/api; Max-Age=604800; HttpOnly; Secure; SameSite=Lax`, "cache-control": "no-store" })
         return void res.end()
       }
       if (req.method === "POST" && sub === "/session") {

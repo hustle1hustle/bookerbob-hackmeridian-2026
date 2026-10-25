@@ -16,6 +16,8 @@
 //   GET  /api/search?q=                    Ask Bob: federated search over source adapters, ranked by proven reviews
 import { contractId, deployment } from "../../packages/sdk/src/deployment.ts"
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
+import { createHash, timingSafeEqual } from "node:crypto"
+import { rpc } from "@stellar/stellar-sdk"
 import { readFileSync, existsSync, statSync } from "node:fs"
 import { join, extname, resolve } from "node:path"
 import { Ops, keysFromEnv } from "./core.ts"
@@ -115,6 +117,31 @@ const limited = (req: IncomingMessage) => {
 }
 
 const MIME: Record<string, string> = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png", ".json": "application/json", ".wasm": "application/wasm", ".zkey": "application/octet-stream", ".woff2": "font/woff2", ".ico": "image/x-icon" }
+
+const OPERATOR_COOKIE = "bb_demo"
+function isOperatorReq(req: IncomingMessage): boolean {
+  const want = process.env.REP_DEMO_TOKEN
+  if (!want) return false
+  const cookie = String(req.headers.cookie ?? "").split(/;\s*/).find((c) => c.startsWith(`${OPERATOR_COOKIE}=`))?.slice(OPERATOR_COOKIE.length + 1)
+  const got = String(req.headers["x-bb-demo"] ?? (cookie ? decodeURIComponent(cookie) : ""))
+  const h = (x: string) => createHash("sha256").update(x).digest()
+  return got.length > 0 && timingSafeEqual(h(got), h(want))
+}
+const BOOKING_FNS = new Set(["book", "book_with_discount", "book_with_context", "book_amount", "book_with_discount_amount"])
+/** A successful, recent (30 min) booking call to our contract for this merchant. */
+async function verifyBookingTx(hash: string, merchant: number): Promise<boolean> {
+  try {
+    const r: any = await new rpc.Server(net.rpcUrl).getTransaction(hash)
+    if (r.status !== "SUCCESS") return false
+    if (Date.now() / 1000 - Number(r.createdAt) > 1800) return false
+    const env = JSON.parse(JSON.stringify(r.envelopeXdr, (_, v) => (typeof v === "bigint" ? v.toString() : v)))
+    const find = (o: any): any => (o && typeof o === "object" ? (o.invoke_contract ?? Object.values(o).map(find).find(Boolean)) : undefined)
+    const call = find(env)
+    return !!call && call.contract_address === CONTRACT && BOOKING_FNS.has(call.function_name) && Number(call.args?.[0]?.u32) === merchant
+  } catch {
+    return false
+  }
+}
 
 async function checkStored(d: { pkg?: import("@bookerbob/pos-sdk").DisclosurePackage }) {
   if (!d.pkg) return { commitmentMatches: false, signatureValid: false, leafInTree: false }
@@ -293,6 +320,14 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
   }
   if (path === "/api/checkout") {
     if (!isInt(b.merchant) || !isDec(b.commitment)) return fail(res, { error: "BadParams" })
+    // a stay joins a place's tree only for a real booking at that place (one checkout per booking tx), or for the
+    // demo operator (scripts, the hotel desk demo); never for anyone who asks
+    if (!isOperatorReq(req)) {
+      const ok = typeof b.bookingTx === "string" && /^[0-9a-f]{64}$/.test(b.bookingTx) && (await verifyBookingTx(b.bookingTx, b.merchant))
+      if (!ok) return json(res, 403, { error: "NotDemoMerchant", message: "a stay is added after a booking at this place" })
+      if (store.bookingUsed(b.bookingTx)) return json(res, 409, { error: "DuplicateLeaf", message: "this booking already added a stay" })
+      store.useBooking(b.bookingTx)
+    }
     const r = await ops.checkout(b.merchant, BigInt(b.commitment))
     if (!r.ok) return fail(res, r)
     store.putCheckout(b.merchant, String(b.commitment), r.txHash)

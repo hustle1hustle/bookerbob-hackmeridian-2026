@@ -413,9 +413,9 @@ export function createTestnetSdk(opts: TestnetOptions = {}): Sdk {
     },
     explorerTx: (h) => `https://stellar.expert/explorer/testnet/tx/${h}`,
     explorerContract: () => `https://stellar.expert/explorer/testnet/contract/${contractId}`,
-    async checkout(merchant, commitment) {
+    async checkout(merchant, commitment, bookingTx) {
       const conf = await cfg()
-      if (conf.demoMerchants.includes(merchant)) return asResult(await post("/api/checkout", { merchant, commitment }), (r) => ({ root: String(r.root) }))
+      if (conf.demoMerchants.includes(merchant)) return asResult(await post("/api/checkout", { merchant, commitment, bookingTx }), (r) => ({ root: String(r.root) }))
       const w = await writer()
       if (!w) return { error: "WalletNotConnected" }
       const r = await write<bigint>(w, "checkout", { merchant, id_commitment: BigInt(commitment) })
