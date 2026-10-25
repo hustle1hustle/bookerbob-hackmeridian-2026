@@ -974,12 +974,14 @@ export const wallet = {
       this.address = await sdk.wallet.connect("local")
     }
     this.method = used
+    if (this.address) void loyalty.ensure(this.address)
     return { address: this.address, method: used }
   },
   disconnect() {
     sdk.wallet.disconnect()
     this.address = null
     this.method = null
+    loyalty.clear()
   },
   /** The wallet this browser already holds (the SDK restores a remembered demo key on load), or null. */
   current() {
@@ -1016,6 +1018,77 @@ export interface Source {
   perk?: string
   /** stellar.expert page of the connected account. */
   accountUrl?: string
+  /** Wallet loyalty score (Horizon + optional Passport), when scored. */
+  score?: number
+  tier?: number
+  /** Attest tx on testnet (memo.hash = claim digest) — clickable proof. */
+  scoreUrl?: string
+}
+
+// Wallet loyalty score (verify_onchain_zk): Horizon rating → claim → 1-stroop attest tx.
+const loyaltySeason = () => new Date().getUTCFullYear() * 100 + (new Date().getUTCMonth() + 1)
+const loyaltyCacheKey = (addr: string) => `bookerbob.loyalty.v2.${loyaltySeason()}.${addr}`
+type LoyaltyView = {
+  status: "none" | "pending" | "ready" | "failed"
+  rating?: number
+  tier?: number
+  txHash?: string | null
+  explorerUrl?: string | null
+  address?: string
+  why?: string
+}
+let loyaltyState: LoyaltyView = { status: "none" }
+function readLoyaltyCache(addr: string): Omit<LoyaltyView, "status" | "address" | "why"> | null {
+  try {
+    const raw = LS?.getItem(loyaltyCacheKey(addr))
+    if (!raw) return null
+    const j = JSON.parse(raw) as { rating?: number; tier?: number; txHash?: string | null; explorerUrl?: string | null }
+    if (typeof j.rating !== "number" || typeof j.tier !== "number") return null
+    return { rating: j.rating, tier: j.tier, txHash: j.txHash ?? null, explorerUrl: j.explorerUrl ?? null }
+  } catch {
+    return null
+  }
+}
+function writeLoyaltyCache(addr: string, v: { rating: number; tier: number; txHash: string | null; explorerUrl: string | null }) {
+  try {
+    LS?.setItem(loyaltyCacheKey(addr), JSON.stringify(v))
+  } catch {
+    /* quota */
+  }
+}
+export const loyalty = {
+  get state() {
+    return { ...loyaltyState }
+  },
+  clear() {
+    loyaltyState = { status: "none" }
+  },
+  /** Score + attest once per season (cached). `proveScore: false` — panel needs the attest tx, not the Groth16 artifact. */
+  async ensure(address?: string | null) {
+    const addr = address ?? wallet.address ?? sdk.wallet.address
+    if (!addr) return (loyaltyState = { status: "none" })
+    const cached = readLoyaltyCache(addr)
+    if (cached && (cached.explorerUrl || cached.txHash)) {
+      const explorerUrl = cached.explorerUrl || (cached.txHash ? `https://stellar.expert/explorer/testnet/tx/${cached.txHash}` : null)
+      return (loyaltyState = { status: "ready", address: addr, ...cached, explorerUrl })
+    }
+    if (loyaltyState.status === "pending" && loyaltyState.address === addr) return loyaltyState
+    loyaltyState = { status: "pending", address: addr }
+    try {
+      const { verifyOnConnect } = await import("../../packages/verify_onchain_zk/src/index.ts")
+      const r = await verifyOnConnect(addr, { apiBase: API, attest: true, proveScore: false })
+      const view = {
+        rating: r.claim.rating,
+        tier: r.claim.tier,
+        txHash: r.attest?.txHash ?? null,
+        explorerUrl: r.attest?.explorerUrl ?? (r.attest?.txHash ? `https://stellar.expert/explorer/testnet/tx/${r.attest.txHash}` : null),
+      }
+      writeLoyaltyCache(addr, view)
+      return (loyaltyState = { status: "ready", address: addr, ...view })
+    } catch {
+      return (loyaltyState = { status: "failed", address: addr, why: "could not score this wallet. try again." })
+    }
+  },
 }
 
 /** The REP app, one config value (may move to r3p.xyz). */
@@ -1101,14 +1174,32 @@ export async function sources(placeId?: number): Promise<Source[]> {
   const held = travelerHeld()
   const demo = await repDemo()
   const pp = passportState.address && passportState.address !== addr ? { status: "none" as SourceStatus, detail: "" } : passportState
+  const ly = loyaltyState.address && loyaltyState.address !== addr ? ({ status: "none" } as LoyaltyView) : loyaltyState
+  const walletDetail = !addr
+    ? "face id. no seed phrase. your proofs come back on any of your devices."
+    : ly.status === "ready" && typeof ly.rating === "number"
+      ? `${addr.slice(0, 4)}…${addr.slice(-4)} · score ${ly.rating} · tier ${ly.tier}`
+      : ly.status === "pending"
+        ? `${addr.slice(0, 4)}…${addr.slice(-4)} · scoring…`
+        : ly.status === "failed"
+          ? `${addr.slice(0, 4)}…${addr.slice(-4)} · score failed`
+          : `${addr.slice(0, 4)}…${addr.slice(-4)}`
   return [
     {
       id: "wallet",
       label: addr ? (wallet.method ?? (sdk.wallet.kind === "local" ? "demo key" : "wallet")) : "wallet",
       proves: "pays for you. a fresh address for every payment, so purchases do not link.",
       status: addr ? "connected" : "none",
-      detail: addr ? `${addr.slice(0, 4)}…${addr.slice(-4)}` : "face id. no seed phrase. your proofs come back on any of your devices.",
+      detail: walletDetail,
       ...(addr ? { accountUrl: `https://stellar.expert/explorer/testnet/account/${addr}` } : {}),
+      ...(ly.status === "ready" && typeof ly.rating === "number"
+        ? {
+            score: ly.rating,
+            tier: ly.tier,
+            scoreUrl: ly.explorerUrl || undefined,
+            txHash: ly.txHash ?? null,
+          }
+        : {}),
     },
     {
       id: "rep",
