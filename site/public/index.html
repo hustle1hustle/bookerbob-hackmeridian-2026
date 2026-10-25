@@ -83,6 +83,16 @@ html,body{margin:0;padding:0;background:#EDEBE5}
               <sc-if value="{{ r.showScoreRow }}" hint-placeholder-val="{{ false }}">
                 <p style="margin:6px 0 0;font-size:12px;line-height:1.5;color:var(--ink)">{{ r.scoreLine }}<sc-if value="{{ r.hasScoreProof }}" hint-placeholder-val="{{ false }}"> · <a href="{{ r.scoreUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">proof tx {{ r.scoreTxShort }} ↗</a></sc-if></p>
               </sc-if>
+              <!-- bb:stellar-tier: the wallet's tier joins a group places can reward; the score line above stays -->
+              <sc-if value="{{ r.showTier }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--rule-soft)">
+                  <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px"><span style="font-size:14px">Stellar wallet tier</span><sc-if value="{{ r.tierHasPerk }}" hint-placeholder-val="{{ false }}"><span style="font-family:var(--mono);font-size:11px;font-weight:600;color:var(--deal-ink);background:var(--deal);padding:2px 6px">{{ r.tierPerk }}</span></sc-if></div>
+                  <p style="margin:4px 0 0;font-size:13px;line-height:1.45;color:var(--ink-2)">{{ r.tierExplainer }}</p>
+                  <sc-if value="{{ r.tierHeld }}" hint-placeholder-val="{{ false }}"><p style="margin:4px 0 0;font-size:12px;color:var(--ink)">{{ r.tierLabel }}<sc-if value="{{ r.tierHasTx }}" hint-placeholder-val="{{ false }}"> · <a href="{{ r.tierTxUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">tx {{ r.tierTxShort }} ↗</a></sc-if></p></sc-if>
+                  <sc-if value="{{ r.tierHasReason }}" hint-placeholder-val="{{ false }}"><p role="status" style="margin:4px 0 0;font-size:13px;line-height:1.45;color:var(--ink-3)">{{ r.tierReason }}</p></sc-if>
+                  <sc-if value="{{ r.tierShowBtn }}" hint-placeholder-val="{{ false }}"><div style="margin-top:8px"><button onClick="{{ r.onTierJoin }}" disabled="{{ r.tierBtnDisabled }}" style="appearance:none;border:1px solid var(--ink);background:{{ r.tierBtnBg }};color:{{ r.tierBtnFg }};font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;height:30px;padding:0 10px;cursor:pointer;opacity:{{ r.tierBtnOp }}">{{ r.tierBtnLabel }}</button></div></sc-if>
+                </div>
+              </sc-if>
               <sc-if value="{{ r.hasGens }}" hint-placeholder-val="{{ false }}">
                 <div style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--rule-soft)">
                   <button onClick="{{ r.onStartOver }}" style="appearance:none;border:1px solid var(--ink);background:transparent;color:var(--ink);font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;height:30px;padding:0 10px;cursor:pointer">{{ r.startLabel }}</button>
@@ -376,7 +386,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
               </div>
               <div style="min-width:0">
                 <sc-if value="{{ r.hasText }}" hint-placeholder-val="{{ true }}"><p style="margin:0;font-size:18px;line-height:1.42;letter-spacing:-.012em;text-wrap:pretty;max-width:52ch">{{ r.text }}</p></sc-if>
-                <sc-if value="{{ r.noText }}" hint-placeholder-val="{{ false }}"><p style="margin:0;font-size:18px;line-height:1.42;color:var(--ink-3)">text unavailable</p></sc-if>
+                <sc-if value="{{ r.noText }}" hint-placeholder-val="{{ false }}"><p style="margin:0;font-size:18px;line-height:1.42;color:var(--ink-3)">rating only, no text</p></sc-if>
                 <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;align-items:center">
                   <sc-if value="{{ r.hasTx }}" hint-placeholder-val="{{ true }}"><a href="{{ r.txUrl }}" target="_blank" rel="noopener" title="the proof, on stellar.expert" style="display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 9px;border:1px solid var(--rule-soft);font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;color:var(--ink)" style-hover="border-color:var(--ink)"><span style="width:6px;height:6px;background:var(--ink)"></span>{{ r.proofLabel }}</a></sc-if>
                   <sc-if value="{{ r.noTx }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 9px;border:1px solid var(--rule-soft);font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink)"><span style="width:6px;height:6px;background:var(--ink)"></span>{{ r.proofPlain }}</span></sc-if>
@@ -501,6 +511,18 @@ html,body{margin:0;padding:0;background:#EDEBE5}
           </div>
           <div style="border-top:1px dashed var(--bg);margin:0 22px;opacity:.5"></div>
           <div style="padding:16px 22px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:60px"><span style="background:var(--deal);color:var(--deal-ink);font-family:var(--mono);font-size:11.5px;font-weight:600;padding:4px 8px">{{ travPerk }}</span></div>
+        </article>
+      </sc-if>
+      <!-- bb:stellar-tier pass -->
+      <sc-if value="{{ hasTierPass }}" hint-placeholder-val="{{ false }}">
+        <article style="border:1px solid var(--ink);background:var(--ink);color:var(--bg);display:flex;flex-direction:column;animation:bb-in .45s ease both">
+          <div style="padding:20px 22px 18px">
+            <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;opacity:.65">attested pass</div>
+            <div style="font-size:32px;font-weight:500;letter-spacing:-.045em;line-height:1;margin-top:30px">{{ tierPass.label }}</div>
+            <div style="font-size:13px;opacity:.75;margin-top:10px;line-height:1.45">your Stellar wallet history earns a tier. places see the tier, never the wallet.<sc-if value="{{ tierPass.hasTx }}" hint-placeholder-val="{{ false }}"> <a href="{{ tierPass.url }}" target="_blank" rel="noopener" style="color:var(--bg);font-family:var(--mono);font-size:12px">tx {{ tierPass.short }} ↗</a></sc-if></div>
+          </div>
+          <div style="border-top:1px dashed var(--bg);margin:0 22px;opacity:.5"></div>
+          <div style="padding:16px 22px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:60px"><span style="background:var(--deal);color:var(--deal-ink);font-family:var(--mono);font-size:11.5px;font-weight:600;padding:4px 8px">{{ tierPass.perk }}</span></div>
         </article>
       </sc-if>
     </div>
@@ -726,7 +748,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
           </div>
           <div style="min-width:0">
             <sc-if value="{{ r.hasText }}" hint-placeholder-val="{{ true }}"><p style="margin:0;font-size:17px;line-height:1.45;max-width:60ch;text-wrap:pretty">{{ r.text }}</p></sc-if>
-            <sc-if value="{{ r.noText }}" hint-placeholder-val="{{ false }}"><p style="margin:0;font-size:17px;color:var(--ink-3)">text unavailable</p></sc-if>
+            <sc-if value="{{ r.noText }}" hint-placeholder-val="{{ false }}"><p style="margin:0;font-size:17px;color:var(--ink-3)">rating only, no text</p></sc-if>
             <div style="display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:8px;font-size:13px;color:var(--ink-3)">
               <sc-if value="{{ r.verified }}" hint-placeholder-val="{{ false }}"><span style="color:var(--accent)">✓ verified stay</span></sc-if>
               <sc-if value="{{ r.demo }}" hint-placeholder-val="{{ false }}"><span style="color:var(--ink-2)">testnet demo activity</span></sc-if>
@@ -1205,7 +1227,7 @@ class Component extends DCLogic {
 
   vShell() {
     const s = this.state, p = this.props, theme = s.theme || p.theme || 'light', role = s.role, connected = !!s.wallet;
-    const tabDefs = [['explore', ['home', 'place'], this.goHome, ''], ['bob shops', ['agent'], this.goAgent, ''], ['my passes', ['passes', 'review'], this.goPasses, s.ready ? String(s.memberships.length + (s.memberships.length ? 1 : 0) + (s.credentials.some(c => c.group === 'traveler' && c.held) ? 1 : 0)) : ''], ['how it works', ['how'], () => { location.href = '/how'; }, '']];
+    const tabDefs = [['explore', ['home', 'place'], this.goHome, ''], ['bob shops', ['agent'], this.goAgent, ''], ['my passes', ['passes', 'review'], this.goPasses, s.ready ? String(s.memberships.length + (s.memberships.length ? 1 : 0) + s.credentials.filter(c => (c.group === 'traveler' || c.group === 'tier') && c.held).length) : ''], ['how it works', ['how'], () => { location.href = '/how'; }, '']];
     return {
       theme, themeAria: theme === 'dark' ? 'switch to light' : 'switch to dark', toggleTheme: () => this.setState({ theme: theme === 'dark' ? 'light' : 'dark' }),
       roles: [['guest', 'guest'], ['merchant', 'merchant'], ['arbiter', 'arbiter']].map(([k, label]) => ({ label, active: role === k, bg: role === k ? 'var(--ink)' : 'transparent', fg: role === k ? 'var(--bg)' : 'var(--ink)', onClick: () => this.setRole(k) })),
@@ -1293,7 +1315,8 @@ class Component extends DCLogic {
   }
   shortReason(e, P, atCap) {
     if (atCap) return 'at the cap';
-    if (e.eligible) return { returning: this.isHotel(P) ? 'stayed here' : 'bought here', network: this.netWhere(P), traveler: 'attested' }[e.group] || '';
+    if (e.eligible) return { returning: this.isHotel(P) ? 'stayed here' : 'bought here', network: this.netWhere(P), traveler: 'attested', tier: 'tier joined' }[e.group] || '';
+    if (e.group === 'tier' && !e.held) return (this.m && this.m.stellarTier && this.m.stellarTier.reason()) || 'join with your wallet in connect';
     if (/used/.test(e.reason)) return 'used this season';
     return { returning: this.isHotel(P) ? 'no stay here yet' : 'no purchase here yet', network: 'no visit yet', traveler: 'not attested' }[e.group] || '';
   }
@@ -1326,9 +1349,8 @@ class Component extends DCLogic {
         needsRep: !e.eligible && !e.held && e.group === 'traveler' && !this.repLine(), repLink: 'connect REP for +' + e.bps / 100 + '%', openRep: () => { const rp = ((this.state.src && this.state.src.list) || []).find(x => x.id === 'rep'); if (rp && rp.link) window.open(rp.link, '_blank', 'noopener'); else this.openSources('rep'); },
       };
     });
-    const passportRow = ((s.src && s.src.list) || []).find(x => x.id === 'passport');
     const paRows = c.el.map(e => ({ label: e.label, proves: e.explain || e.reason, pct: '−' + e.bps / 100 + '%', state: e.eligible ? (c.proven.includes(e.group) ? 'counted' : 'held, over the cap') : e.held ? 'used this season' : 'not held', stateColor: e.eligible ? 'var(--accent)' : 'var(--ink-3)', op: 1 }))
-      .concat([{ label: 'Stellar Passport', proves: passportRow && passportRow.status === 'connected' ? 'coming: ' + passportRow.detail + '. not a perk at any place yet, so it is not counted.' : 'coming. not a perk at any place yet, so it is not counted.', pct: '—', state: 'not active', stateColor: 'var(--ink-3)', op: 0.55 }]);
+;
     const heldSum = c.el.filter(e => e.eligible).reduce((a, e) => a + e.bps, 0);
     const pa = { sum: '−' + heldSum / 100 + '%', cap: '−' + c.pol.max_bps / 100 + '% max', final: this.money(c.bd.total) };
     return {
@@ -1371,6 +1393,7 @@ class Component extends DCLogic {
       netFrom: { what: first ? first.what : 'stay', place: fp ? fp.name : '', hasTx: ft.has, url: ft.url, short: ft.short },
       netPerk: (net && net.perk) || 'a regular\'s perk where places offer it',
       travPerk: (rep && rep.perk) || 'a perk where places offer it', travTx: t(rep && rep.txHash),
+      tierPass: (() => { const w = list.find(x => x.id === 'wallet'), st = w && w.stellarTier, tt = t(st && st.tx); return { label: 'Stellar wallet tier' + (st && st.tier != null ? ' ' + st.tier : ''), hasTx: tt.has, url: tt.url, short: tt.short, perk: (st && st.perk) || 'a perk where places offer it' }; })(),
     };
   }
   vPasses() {
@@ -1396,8 +1419,9 @@ class Component extends DCLogic {
     const rm = ms.find(x => x.id === s.draft.mId), rp = rm ? this.byId(rm.place) : null, rating = s.draft.rating;
     return {
       ...this.passExtras(ms, placeIds),
-      passes, passesEmpty: s.ready && !ms.length && !s.credentials.some(c => c.group === 'traveler' && c.held),
-      passesOnlyGroups: s.ready && !ms.length && s.credentials.some(c => c.group === 'traveler' && c.held),
+      passes, passesEmpty: s.ready && !ms.length && !s.credentials.some(c => (c.group === 'traveler' || c.group === 'tier') && c.held),
+      passesOnlyGroups: s.ready && !ms.length && s.credentials.some(c => (c.group === 'traveler' || c.group === 'tier') && c.held),
+      hasTierPass: s.credentials.some(c => c.group === 'tier' && c.held),
       hasNetworkPass: placeIds.length > 0, networkLine: `proven in ${this.plural(placeIds.length, 'place')}`,
       hasTravelerPass: s.credentials.some(c => c.group === 'traveler' && c.held),
       rf: { placeName: rp ? rp.name : 'it', text: s.draft.text, placeholder: this.isHotel(rp) ? 'the room, the people, the street at night.' : 'what you got, and how it was.' },
@@ -1504,7 +1528,7 @@ class Component extends DCLogic {
   deskConfirm = () => this.requireWallet('as the hotel', async () => {
     const input = this.state.desk.input.trim();
     this.setDesk({ phase: 'submitting', error: null, detected: false, scanning: false });
-    const r = await this.m.chain.checkout(0, input);
+    const r = await this.m.chain.checkout(this.state.mPlace || 0, input);
     if (r.error) { this.setDesk({ phase: 'error', error: r.error }); return; }
     await this.reload();
     this.setDesk({ phase: 'success', result: r, input: '' });
@@ -1518,7 +1542,7 @@ class Component extends DCLogic {
     });
   }
   vMerchant() {
-    const s = this.state, P0 = this.byId(0), dk = s.desk, dres = dk.result, newIdx = dk.phase === 'success' && dres ? dres.leafIndex : -1;
+    const s = this.state, P0 = this.byId(this.state.mPlace || 0), dk = s.desk, dres = dk.result, newIdx = dk.phase === 'success' && dres ? dres.leafIndex : -1;
     const dErr = dk.error ? (this.ERR[dk.error] || this.ERR.BadParams) : null, dTx = dres ? this.tx(dres.txHash) : null, shop = this.byId(4);
     return {
       mPlaces: [0, 4].map(id => [id, (this.byId(id) ? this.byId(id).name.toLowerCase() + ' · ' + this.byId(id).kind : '')]).map(([id, label]) => ({ label, line: s.mPlace === id ? 'var(--ink)' : 'transparent', onClick: () => this.setState({ mPlace: id }) })),
@@ -1532,7 +1556,7 @@ class Component extends DCLogic {
       leaves: Array.from({ length: 32 }, (_, i) => { const f = P0 && i < P0.group_size, nw = i === newIdx; return { bg: nw ? 'var(--accent)' : f ? 'var(--ink)' : 'transparent', bd: nw ? 'var(--accent)' : f ? 'var(--ink)' : 'var(--rule-soft)' }; }),
       onDeskInput: e => this.setDesk({ input: e.target.value, detected: false }), deskScan: this.deskScan,
       deskSample: () => this.setDesk({ input: this.newCommit(), detected: false, phase: 'idle', error: null }),
-      deskDup: () => { const mm = s.memberships.find(x => x.place === 0); this.setDesk({ input: mm ? mm.commitment : '', detected: false, phase: 'idle', error: null }); },
+      deskDup: () => { const mm = s.memberships.find(x => x.place === (s.mPlace || 0)); this.setDesk({ input: mm ? mm.commitment : '', detected: false, phase: 'idle', error: null }); },
       deskConfirm: this.deskConfirm,
       hotelFeed: (s.reviews[0] || []).map(r => {
         const d = s.disputes.find(x => x.reviewId === r.id);
@@ -1568,11 +1592,11 @@ class Component extends DCLogic {
     const s = this.state, ar = s.arb;
     const queue = s.disputes.map(d => {
       const P = this.byId(d.hotel), r = (s.reviews[d.hotel] || []).find(x => x.id === d.reviewId), t = r ? s.texts[r.content_hash] : null, sel = ar.sel === d.id;
-      return { hotelName: P ? P.name.toLowerCase() : '', status: d.status === 'awaiting' ? 'awaiting guest' : d.status === 'disclosed' ? 'ready' : 'attested', excerpt: t ? (t.length > 70 ? t.slice(0, 68) + '…' : t) : 'text unavailable', sel, bg: sel ? 'var(--ink)' : 'transparent', fg: sel ? 'var(--bg)' : 'var(--ink)', onSelect: () => this.setState({ arb: { sel: d.id, checks: ['wait', 'wait', 'wait'], phase: 'idle', tx: null, error: null, reveal: false } }) };
+      return { hotelName: P ? P.name.toLowerCase() : '', status: d.status === 'awaiting' ? 'awaiting guest' : d.status === 'disclosed' ? 'ready' : 'attested', excerpt: t ? (t.length > 70 ? t.slice(0, 68) + '…' : t) : 'rating only, no text', sel, bg: sel ? 'var(--ink)' : 'transparent', fg: sel ? 'var(--bg)' : 'var(--ink)', onSelect: () => this.setState({ arb: { sel: d.id, checks: ['wait', 'wait', 'wait'], phase: 'idle', tx: null, error: null, reveal: false } }) };
     });
     const sd = s.disputes.find(x => x.id === ar.sel), sr = sd ? (s.reviews[sd.hotel] || []).find(x => x.id === sd.reviewId) : null, pk = sd && sd.package;
     const ad = {
-      has: !!sd, awaiting: !!sd && sd.status === 'awaiting', hasPkg: !!pk, stars: this.stars(sr ? sr.rating : 0), aria: sr ? sr.rating + ' of 5' : '', text: sr ? (s.texts[sr.content_hash] || 'text unavailable') : '',
+      has: !!sd, awaiting: !!sd && sd.status === 'awaiting', hasPkg: !!pk, stars: this.stars(sr ? sr.rating : 0), aria: sr ? sr.rating + ' of 5' : '', text: sr ? (s.texts[sr.content_hash] || 'rating only, no text') : '',
       secret: pk ? (String(pk.secret).startsWith('0x') ? this.short(pk.secret, 10, 6) : pk.secret) : '', sig: pk ? (String(pk.signature).startsWith('0x') ? this.short(pk.signature, 6, 4) : pk.signature) : '', leaf: pk ? String(pk.leafIndex) : '', revealLabel: ar.reveal ? 'hide' : 'reveal',
     };
     const attested = !!sd && sd.status === 'attested', chk = attested ? ['ok', 'ok', 'ok'] : ar.checks;
@@ -1805,6 +1829,12 @@ class Component extends DCLogic {
       clearInterval(this.repT);
       this.repT = setInterval(async () => { const st = await m.rep.poll(); if (st.status !== 'pending') { clearInterval(this.repT); await this.reload(); } this.loadSources(); }, 2000);
     } else if (id === 'passport') { const p = m.passport.check(); this.loadSources(); await p; }
+    else if (id === 'tier' && m.stellarTier) {
+      this.setState(s => ({ src: { ...s.src, busy: 'tier' } }));
+      try { await m.stellarTier.join(); } catch (e) { console.error(e); }
+      this.setState(s => ({ src: { ...s.src, busy: null } }));
+      await this.reload(); await this.loadSources();
+    }
     this.loadSources();
   };
   genRow(r) {
@@ -1877,9 +1907,17 @@ class Component extends DCLogic {
           : (live && live.status === 'failed')
             ? 'wallet score: could not score — disconnect and connect Freighter again'
             : 'wallet score: scoring…';
+        const st = r.id === 'wallet' && r.status === 'connected' ? r.stellarTier : null, stTx = st && st.tx ? this.tx(st.tx) : null;
+        const tierBits = {
+          showTier: !!st, tierExplainer: st ? st.explainer : '', tierHeld: !!(st && st.held), tierLabel: st ? 'Stellar wallet tier' + (st.tier != null ? ' ' + st.tier : '') : '',
+          tierHasTx: !!stTx, tierTxUrl: stTx ? stTx.url : '', tierTxShort: stTx ? stTx.short : '', tierHasReason: !!(st && !st.held && st.reason), tierReason: st ? st.reason : '',
+          tierShowBtn: !!(st && !st.held && (st.canJoin || st.pending)), tierBtnDisabled: !!(st && (st.pending || busy === 'tier')), tierBtnOp: st && (st.pending || busy === 'tier') ? 0.45 : 1,
+          tierBtnLabel: st && (st.pending || busy === 'tier') ? 'waiting for your wallet…' : 'join with my wallet', tierBtnBg: 'var(--ink)', tierBtnFg: 'var(--bg)', onTierJoin: () => this.srcAct('tier'),
+          tierHasPerk: !!(st && st.perk), tierPerk: st ? st.perk : '',
+        };
         const shortAddr = addr ? addr.slice(0, 4) + '…' + addr.slice(-4) : '';
-        const detail = shortAddr || r.detail;
-        return { ...this.genRow(r), hasNote: r.id === 'wallet' && !!src.fallback, note: r.id === 'wallet' ? (src.fallback || '') : '', hasAccount: !!r.accountUrl, accountUrl: r.accountUrl || '', hasScore, showScoreRow, scoreLine, hasScoreProof: !!(hasScore && scoreUrl), score: score != null ? score : '', tier: tier != null ? tier : '', scoreUrl: scoreUrl || '', scoreTxShort: scoreTx ? scoreTx.short : '', head: i === 1 ? 'add for more perks' : '', hasHead: i === 1, perk: r.perk || '', hasPerk: !!r.perk, hasTx: !!joinedTx, txUrl: joinedTx ? this.tx(r.txHash).url : '', txShort: joinedTx ? this.tx(r.txHash).short : '', label: r.label, proves: r.proves, detail, status: word[r.status] || r.status, statusColor: r.status === 'connected' ? 'var(--accent)' : r.status === 'failed' ? 'var(--warn)' : 'var(--ink-3)', rule: i ? 'var(--rule-soft)' : 'transparent', bg: src.focus === r.id ? 'var(--accent-soft)' : 'transparent', actions: actions(r) };
+        const detail = r.id === 'wallet' ? (shortAddr || r.detail) : r.detail;
+        return { ...this.genRow(r), ...tierBits, hasNote: r.id === 'wallet' && !!src.fallback, note: r.id === 'wallet' ? (src.fallback || '') : '', hasAccount: !!r.accountUrl, accountUrl: r.accountUrl || '', hasScore, showScoreRow, scoreLine, hasScoreProof: !!(hasScore && scoreUrl), score: score != null ? score : '', tier: tier != null ? tier : '', scoreUrl: scoreUrl || '', scoreTxShort: scoreTx ? scoreTx.short : '', head: i === 1 ? 'add for more perks' : '', hasHead: i === 1, perk: r.perk || '', hasPerk: !!r.perk, hasTx: !!joinedTx, txUrl: joinedTx ? this.tx(r.txHash).url : '', txShort: joinedTx ? this.tx(r.txHash).short : '', label: r.label, proves: r.proves, detail, status: word[r.status] || r.status, statusColor: r.status === 'connected' ? 'var(--accent)' : r.status === 'failed' ? 'var(--warn)' : 'var(--ink-3)', rule: i ? 'var(--rule-soft)' : 'transparent', bg: src.focus === r.id ? 'var(--accent-soft)' : 'transparent', actions: actions(r) };
       }),
     };
   }
