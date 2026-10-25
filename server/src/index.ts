@@ -13,7 +13,7 @@
 //   GET  /api/catalog  POST /api/quote  POST /api/cosign   demo catalog, server-computed totals, admin co-sign
 //   POST /api/disputes/open                merchant disputes a review (awaits the guest's disclosure)
 //   GET  /api/search?q=                    Ask Bob: federated search over source adapters, ranked by proven reviews
-import { contractId } from "../../packages/sdk/src/deployment.ts"
+import { contractId, deployment } from "../../packages/sdk/src/deployment.ts"
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
 import { readFileSync, existsSync, statSync } from "node:fs"
 import { join, extname, resolve } from "node:path"
@@ -28,6 +28,7 @@ import { ucpAdapter } from "./search/ucp.ts"
 import { opsApi, opsClient } from "./ops.ts" // importing installs the error hooks
 import { jmprAdapter } from "./search/jmpr.ts"
 import { PayerService } from "./payer.ts"
+import { findJoinTx } from "./joins.ts"
 import { loadCatalog, Quotes } from "./catalog.ts"
 import type { Merchant, Review } from "../../packages/sdk/src/types.ts"
 
@@ -127,7 +128,18 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
     const q = new URL(req.url ?? "", "http://x").searchParams
     const mer = Number(q.get("merchant")), cm = String(q.get("commitment") ?? "")
     if (!Number.isInteger(mer) || !/^\d{1,78}$/.test(cm)) return fail(res, { error: "BadParams" })
-    return json(res, 200, { txHash: store.checkoutTx(mer, cm) ?? null })
+    const saved = store.checkoutTx(mer, cm)
+    if (saved) return json(res, 200, { txHash: saved })
+    const hit = await findJoinTx(net.rpcUrl, CONTRACT, "checkout", mer, cm, deployment.deployLedger ?? 1).catch(() => null)
+    return json(res, 200, { txHash: hit?.txHash ?? null })
+  }
+  // add_member tx for a group pass (REP verified traveler, chain backfills): GET /api/member-tx?group=&commitment=
+  if (req.method === "GET" && path === "/api/member-tx") {
+    const q = new URL(req.url ?? "", "http://x").searchParams
+    const gid = Number(q.get("group")), cm = String(q.get("commitment") ?? "")
+    if (!Number.isInteger(gid) || !/^\d{1,78}$/.test(cm)) return fail(res, { error: "BadParams" })
+    const hit = await findJoinTx(net.rpcUrl, CONTRACT, "member", gid, cm, deployment.deployLedger ?? 1).catch(() => null)
+    return json(res, 200, { txHash: hit?.txHash ?? null })
   }
   if (req.method === "GET" && path === "/api/catalog") {
     const sn = await snapshot()
