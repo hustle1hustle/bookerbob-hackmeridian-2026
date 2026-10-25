@@ -140,9 +140,55 @@
   <div class="foot"><span>docs/bench.md, measured 25 Oct 2026</span><span>testnet</span></div>
 </section>
 
+<!-- stack -->
+<section class="s">
+  <div class="lbl">The stack</div><div class="no">06</div>
+  <h2 style="max-width:none;font-size:92px">From a browser to a Stellar contract.</h2>
+  <svg viewBox="0 0 1680 600" width="1680" height="600" style="margin-top:48px" font-family="Geist, sans-serif">
+    <defs><marker id="sa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#121211"/></marker></defs>
+    <!-- browser -->
+    <rect x="0" y="0" width="360" height="560" fill="#F6F5F1" stroke="#121211"/>
+    <text x="28" y="44" font-family="Geist Mono" font-size="17" fill="#6B685F" letter-spacing="1.5">BROWSER</text>
+    <g font-size="25" fill="#121211"><text x="28" y="104">Semaphore prover</text><text x="28" y="134" font-size="20" fill="#4A4842">wasm, ~0.5 s, secret stays</text>
+      <text x="28" y="204">Wallet</text><text x="28" y="234" font-size="20" fill="#4A4842">passkey, Freighter, demo key</text>
+      <text x="28" y="304">Fresh payer</text><text x="28" y="334" font-size="20" fill="#4A4842">one address per purchase</text>
+      <text x="28" y="404">Per-stay identities</text><text x="28" y="434" font-size="20" fill="#4A4842">one commitment per visit</text></g>
+    <!-- backend -->
+    <rect x="440" y="0" width="360" height="560" fill="#F6F5F1" stroke="#121211"/>
+    <text x="468" y="44" font-family="Geist Mono" font-size="17" fill="#6B685F" letter-spacing="1.5">BOOKERBOB BACKEND</text>
+    <g font-size="25" fill="#121211"><text x="468" y="104">Relayer</text><text x="468" y="134" font-size="20" fill="#4A4842">reviews sent unlinkable</text>
+      <text x="468" y="204">Co-sign</text><text x="468" y="234" font-size="20" fill="#4A4842">per-order amount + order ref</text>
+      <text x="468" y="304">Ask Bob adapters</text><text x="468" y="334" font-size="20" fill="#4A4842">places · UCP bridge · JMPR</text>
+      <text x="468" y="404">Attester hooks</text><text x="468" y="434" font-size="20" fill="#4A4842">REP handoff, network</text></g>
+    <!-- contract -->
+    <rect x="880" y="0" width="420" height="560" fill="#121211"/>
+    <text x="908" y="44" font-family="Geist Mono" font-size="17" fill="#8C897F" letter-spacing="1.5">SOROBAN CONTRACT · STELLAR TESTNET</text>
+    <g font-size="25" fill="#ECEAE3"><text x="908" y="104">Groth16 verifier on BN254</text>
+      <text x="908" y="164">Poseidon LeanIMT per group</text>
+      <text x="908" y="224">Nullifiers, persistent</text>
+      <text x="908" y="284">Context-perk policies, cap</text>
+      <text x="908" y="344">USDC via SAC, one tx</text>
+      <text x="908" y="404" fill="#8EA0FF">Native P-256 for REP</text><text x="908" y="434" font-size="20" fill="#B4B1A8">tier credentials</text></g>
+    <text x="908" y="520" font-size="20" fill="#B4B1A8">one contract id, upgrade() in place</text>
+    <!-- external -->
+    <rect x="1380" y="0" width="300" height="260" fill="#EDEBE5" stroke="#121211" stroke-dasharray="6 6"/>
+    <text x="1404" y="44" font-family="Geist Mono" font-size="17" fill="#6B685F" letter-spacing="1.5">EXTERNAL</text>
+    <text x="1404" y="104" font-size="25" fill="#121211">Shopify, via UCP</text><text x="1404" y="134" font-size="20" fill="#4A4842">a real test store</text>
+    <text x="1404" y="194" font-size="25" fill="#121211">JMPR hotels</text><text x="1404" y="224" font-size="20" fill="#4A4842">snapshot, 0 live calls</text>
+    <rect x="1380" y="300" width="300" height="260" fill="#EDEBE5" stroke="#121211" stroke-dasharray="6 6"/>
+    <text x="1404" y="344" font-family="Geist Mono" font-size="17" fill="#6B685F" letter-spacing="1.5">ATTESTERS</text>
+    <text x="1404" y="404" font-size="25" fill="#121211">REP tier issuer</text><text x="1404" y="434" font-size="20" fill="#4A4842">zkTLS travel proofs</text>
+    <text x="1404" y="494" font-size="25" fill="#121211">Stellar wallet tier</text><text x="1404" y="524" font-size="20" fill="#4A4842">Horizon history (+ Passport)</text>
+    <g stroke="#121211" stroke-width="2"><line x1="360" y1="280" x2="436" y2="280" marker-end="url(#sa)"/><line x1="800" y1="280" x2="876" y2="280" marker-end="url(#sa)"/>
+      <line x1="1380" y1="430" x2="1304" y2="430" marker-end="url(#sa)"/></g>
+    <g font-family="Geist Mono" font-size="15" fill="#4A4842"><text x="364" y="268">proofs</text><text x="806" y="268">signed tx</text><text x="1308" y="420">creds</text></g>
+  </svg>
+  <div class="foot"><span>Protocol 29 · soroban-sdk 28 · Semaphore v4 · stellar-sdk 17</span><span>stellarbob2026.xyz</span></div>
+</section>
+
 <!-- 6 demo -->
 <section class="s">
-  <div class="lbl">Live demo</div><div class="no">06</div>
+  <div class="lbl">Live demo</div><div class="no">07</div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:48px;margin-top:40px">
     <div>
       <div class="lbl" style="margin-bottom:14px">Ask Bob: ranked by proven reviews only</div>
@@ -172,22 +218,41 @@ store saw: a valid proof, a fresh payer, a fresh
   <div class="foot"><span>stellarbob2026.xyz · bookerbob-ucp-bridge.fly.dev</span><span>real runs, Stellar testnet, Shopify test store</span></div>
 </section>
 
-<!-- 7 context providers -->
+<!-- attesters -->
 <section class="s">
-  <div class="lbl">Context providers are pluggable</div><div class="no">07</div>
-  <h2>Anyone who can vouch adds a group. Places choose what to reward.</h2>
-  <div class="row c3">
-    <div><div class="lbl accent">attested group</div><h3 style="margin-top:14px">REP verified traveler</h3><p>Past Airbnb or Booking stays proven with zkTLS in the REP app. BookerBob checks REP's signed verdict and adds a fresh identity. Live since today's device run.</p></div>
-    <div><div class="lbl accent">chain group</div><h3 style="margin-top:14px">BookerBob network</h3><p>A stay at any member place enrolls you, so a guest of one Lisbon place is a known guest at all of them, without anyone knowing who.</p></div>
-    <div><div class="lbl accent">next</div><h3 style="margin-top:14px">Stellar wallet history</h3><p>Already in the app as connect, score, attest from Horizon. It plugs in the same way: one operator key, one group, one line of policy.</p></div>
-  </div>
-  <p style="margin-top:48px">Each provider owns its group and only it can add members. The provider never learns where a perk is used; the place never learns who used it.</p>
-  <div class="foot"><span>create_group · add_member · set_policy · book_with_context</span><span>docs/context-providers.md</span></div>
+  <div class="lbl">Attesters are pluggable</div><div class="no">08</div>
+  <h2 style="max-width:none;font-size:92px">Anyone who can vouch feeds a group.</h2>
+  <svg viewBox="0 0 1680 560" width="1680" height="560" style="margin-top:44px" font-family="Geist, sans-serif">
+    <defs><marker id="ta" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#121211"/></marker></defs>
+    <text x="0" y="20" font-family="Geist Mono" font-size="16" fill="#6B685F" letter-spacing="1.5">ATTESTER · SEES</text>
+    <text x="700" y="20" font-family="Geist Mono" font-size="16" fill="#6B685F" letter-spacing="1.5">GROUP ON STELLAR · LEDGER SEES</text>
+    <text x="1330" y="20" font-family="Geist Mono" font-size="16" fill="#6B685F" letter-spacing="1.5">PLACE POLICY</text>
+    <g font-size="24" fill="#121211">
+      <rect x="0" y="40" width="560" height="96" fill="#F6F5F1" stroke="#121211"/><text x="24" y="80">REP · zkTLS travel proofs</text><text x="24" y="114" font-size="19" fill="#4A4842">tier issuer: verdict + device proof, keeps yes/no</text>
+      <rect x="0" y="156" width="560" height="96" fill="#F6F5F1" stroke="#121211"/><text x="24" y="196">Stellar wallet tier · wallet history</text><text x="24" y="230" font-size="19" fill="#4A4842">sees wallet → commitment, at join time only</text>
+      <rect x="0" y="272" width="560" height="96" fill="#F6F5F1" stroke="#121211"/><text x="24" y="312">BookerBob network · checkout</text><text x="24" y="346" font-size="19" fill="#4A4842">a member place sees one stay, not the guest</text>
+      <rect x="0" y="388" width="560" height="140" fill="none" stroke="#121211" stroke-dasharray="6 6"/><text x="24" y="428" fill="#4A4842">and more to go</text><text x="24" y="464" font-size="19" fill="#6B685F">World ID · other zkTLS sources</text><text x="24" y="494" font-size="19" fill="#6B685F">merchant loyalty programs</text>
+
+      <rect x="700" y="40" width="520" height="96" fill="#121211"/><text x="724" y="80" fill="#ECEAE3">REP verified traveler</text><text x="724" y="114" font-size="19" fill="#8EA0FF">P-256 tier cred · commitment, tier byte</text>
+      <rect x="700" y="156" width="520" height="96" fill="#121211"/><text x="724" y="196" fill="#ECEAE3">Stellar wallet tier</text><text x="724" y="230" font-size="19" fill="#B4B1A8">commitment only</text>
+      <rect x="700" y="272" width="520" height="96" fill="#121211"/><text x="724" y="312" fill="#ECEAE3">BookerBob Lisbon network</text><text x="724" y="346" font-size="19" fill="#B4B1A8">commitment only</text>
+      <rect x="700" y="388" width="520" height="140" fill="none" stroke="#121211" stroke-dasharray="6 6"/><text x="724" y="428" fill="#4A4842">one group per attester</text><text x="724" y="464" font-size="19" fill="#6B685F">only its operator key adds members</text>
+
+      <rect x="1330" y="40" width="350" height="488" fill="#F4C430" stroke="#121211"/>
+      <text x="1354" y="88">returning guest 10%</text><text x="1354" y="134">REP traveler +5%</text><text x="1354" y="180">wallet tier +5%</text><text x="1354" y="226">network +5%</text>
+      <line x1="1354" y1="256" x2="1656" y2="256" stroke="#121211"/>
+      <text x="1354" y="298">capped at 15%</text><text x="1354" y="344" font-size="19">proved in zero knowledge,</text><text x="1354" y="372" font-size="19">paid in one USDC tx</text>
+      <text x="1354" y="470" font-size="19" fill="#121211">the place never learns</text><text x="1354" y="498" font-size="19" fill="#121211">who, or which attester</text>
+    </g>
+    <g stroke="#121211" stroke-width="2"><line x1="560" y1="88" x2="696" y2="88" marker-end="url(#ta)"/><line x1="560" y1="204" x2="696" y2="204" marker-end="url(#ta)"/><line x1="560" y1="320" x2="696" y2="320" marker-end="url(#ta)"/>
+      <line x1="1220" y1="88" x2="1326" y2="140" marker-end="url(#ta)"/><line x1="1220" y1="204" x2="1326" y2="200" marker-end="url(#ta)"/><line x1="1220" y1="320" x2="1326" y2="260" marker-end="url(#ta)"/></g>
+  </svg>
+  <div class="foot"><span>create_group · add_member · set_policy · book_with_context</span><span>places see the tier, never the wallet</span></div>
 </section>
 
 <!-- 8 security -->
 <section class="s">
-  <div class="lbl">Security model</div><div class="no">08</div>
+  <div class="lbl">Security model</div><div class="no">09</div>
   <h2>Private by default. Accountable when needed.</h2>
   <table>
     <tr><th>Party</th><th>Sees</th><th>Never sees</th></tr>
@@ -202,7 +267,7 @@ store saw: a valid proof, a fresh payer, a fresh
 
 <!-- 9 roadmap -->
 <section class="s dark">
-  <div class="lbl">Beyond hotels</div><div class="no" style="color:#8C897F">09</div>
+  <div class="lbl">Beyond hotels</div><div class="no" style="color:#8C897F">10</div>
   <h2 style="color:var(--bg)">Any place where you were a customer.</h2>
   <div class="row c4" style="border-color:#ECEAE3">
     <div style="border-color:rgba(236,234,227,.14)"><div class="lbl">live today</div><h3 style="margin-top:14px;color:var(--bg)">UCP merchants</h3><p>One Shopify store works end to end. Any UCP merchant takes the same extension.</p></div>
@@ -216,7 +281,7 @@ store saw: a valid proof, a fresh payer, a fresh
 
 <!-- 10 team -->
 <section class="s">
-  <div class="lbl">Team</div><div class="no">10</div>
+  <div class="lbl">Team</div><div class="no">11</div>
   <h1 style="margin-top:120px">BookerBob.</h1>
   <div class="sub">Built in Lisbon, for Stellar.</div>
   <div class="row c2" style="margin-top:80px">
