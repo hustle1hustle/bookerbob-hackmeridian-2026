@@ -19,18 +19,28 @@ const tx = new TransactionBuilder(src, { fee: BASE_FEE, networkPassphrase: TESTN
   .build()
 const sim = await s.simulateTransaction(tx)
 if (!rpc.Api.isSimulationSuccess(sim)) throw new Error(JSON.stringify(sim).slice(0, 300))
-const res = sim.transactionData.build().resources()
-const verify = { instructions: res.instructions(), minResourceFee: sim.minResourceFee }
+// Find a field anywhere in an XDR value (works with both the class and the plain-object XDR forms).
+const find = (o: any, key: string): any => {
+  if (!o || typeof o !== "object") return undefined
+  if (key in o) return o[key]
+  if (typeof o[key] === "function") return o[key]()
+  for (const v of Object.values(o)) {
+    const f = find(v, key)
+    if (f !== undefined) return f
+  }
+}
+const sd: any = sim.transactionData.build()
+const verify = { instructions: Number(typeof sd.resources === "function" ? sd.resources().instructions() : find(sd, "instructions")), minResourceFee: sim.minResourceFee }
 
 const hashes: Record<string, string> = JSON.parse(process.env.TX_HASHES ?? "{}")
 const rows: string[] = []
 for (const [label, h] of Object.entries(hashes)) {
   const r = await s.getTransaction(h)
   if (r.status !== "SUCCESS") continue
-  const env = r.envelopeXdr
-  const t = env.switch().name === "envelopeTypeTx" ? env.v1().tx() : null
-  const sd = t?.ext().sorobanData()
-  rows.push(`| ${label} | ${sd?.resources().instructions().toLocaleString("en")} | ${(Number(t?.fee()) / 1e7).toFixed(5)} XLM max fee | [${h.slice(0, 8)}…](https://stellar.expert/explorer/testnet/tx/${h}) |`)
+  const ins = Number(find(r.envelopeXdr, "instructions"))
+  const fee = Number(find(r.envelopeXdr, "fee"))
+  const charged = Number(find(r.resultXdr, "fee_charged") ?? find(r.resultXdr, "feeCharged"))
+  rows.push(`| ${label} | ${ins.toLocaleString("en")} | ${(charged / 1e7).toFixed(5)} XLM charged (max ${(fee / 1e7).toFixed(5)}) | [${h.slice(0, 8)}…](https://stellar.expert/explorer/testnet/tx/${h}) |`)
 }
 const LIMIT = 400_000_000
 const md = `# Benchmarks
