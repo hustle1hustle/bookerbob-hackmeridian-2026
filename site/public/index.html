@@ -538,6 +538,23 @@ html,body{margin:0;padding:0;background:#EDEBE5}
       <span style="font-family:var(--mono);font-size:12px;opacity:.75">{{ ag.progress }}</span>
     </div>
 
+    <sc-if value="{{ shopIdle }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="REP Store products" style="margin-top:20px;border:1px solid var(--rule);padding:16px 20px">
+        <div style="display:flex;justify-content:space-between;gap:12px;align-items:baseline"><span style="font-size:20px;font-weight:500;letter-spacing:-.03em">pick what bob buys</span><span style="font-family:var(--mono);font-size:11px;color:var(--ink-3)">REP Store · on Shopify, over UCP</span></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:10px;margin-top:12px">
+          <sc-for list="{{ shopProducts }}" as="P" hint-placeholder-count="6">
+            <div style="border:1px solid {{ P.bd }};padding:10px;display:grid;gap:8px">
+              <a href="{{ P.url }}" target="_blank" rel="noopener" style="display:grid;grid-template-columns:64px minmax(0,1fr);gap:12px;align-items:center;text-decoration:none;color:var(--ink)">
+            <span style="width:64px;height:64px;border:1px solid var(--rule-soft);background:var(--surface) center/cover no-repeat;background-image:{{ P.bgImage }};display:grid;place-items:center;font-family:var(--mono);font-size:9px;color:var(--ink-3)">{{ P.noPhoto }}</span>
+            <span style="min-width:0"><span style="display:block;font-size:15px;line-height:1.25">{{ P.title }}</span><span style="display:block;font-family:var(--mono);font-size:12px;margin-top:4px">{{ P.price }} usdc <span style="color:var(--ink-3)">{{ P.store }}</span></span><span style="display:block;font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin-top:4px">REP Store · on Shopify ↗</span></span>
+          </a>
+              <button onClick="{{ P.onPick }}" aria-pressed="{{ P.on }}" style="appearance:none;border:1px solid var(--ink);background:transparent;color:var(--ink);font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;height:28px;cursor:pointer">bob buys this</button>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
     <div style="display:flex;flex-wrap:wrap;gap:20px;margin-top:20px;align-items:flex-start">
       <div style="flex:1.5 1 520px;min-width:0;border:1px solid var(--rule);padding:0 20px">
         <sc-for list="{{ agSteps }}" as="s" hint-placeholder-count="10">
@@ -558,6 +575,10 @@ html,body{margin:0;padding:0;background:#EDEBE5}
         <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--rule-soft)"><span style="font-size:20px;font-weight:500;letter-spacing:-.03em">cart · rep store</span><span style="font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)">ucp</span></div>
         <div style="padding:16px 20px;min-height:72px">
           <sc-for list="{{ cartItems }}" as="i" hint-placeholder-count="0"><div style="display:flex;justify-content:space-between;gap:16px;font-size:16px;animation:bb-in .3s ease both"><span>{{ i.title }}</span><span style="font-family:var(--mono);font-size:13px">{{ i.price }}</span></div></sc-for>
+          <sc-for list="{{ cartCards }}" as="P" hint-placeholder-count="0"><div style="margin-top:10px"><a href="{{ P.url }}" target="_blank" rel="noopener" style="display:grid;grid-template-columns:64px minmax(0,1fr);gap:12px;align-items:center;text-decoration:none;color:var(--ink)">
+            <span style="width:64px;height:64px;border:1px solid var(--rule-soft);background:var(--surface) center/cover no-repeat;background-image:{{ P.bgImage }};display:grid;place-items:center;font-family:var(--mono);font-size:9px;color:var(--ink-3)">{{ P.noPhoto }}</span>
+            <span style="min-width:0"><span style="display:block;font-size:15px;line-height:1.25">{{ P.title }}</span><span style="display:block;font-family:var(--mono);font-size:12px;margin-top:4px">{{ P.price }} usdc <span style="color:var(--ink-3)">{{ P.store }}</span></span><span style="display:block;font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin-top:4px">REP Store · on Shopify ↗</span></span>
+          </a></div></sc-for>
           <sc-if value="{{ cartEmpty }}" hint-placeholder-val="{{ true }}"><div style="font-size:15px;color:var(--ink-3)">empty</div></sc-if>
           <sc-for list="{{ cartDiscounts }}" as="d" hint-placeholder-count="0">
             <div style="display:flex;justify-content:space-between;gap:12px;margin-top:12px;padding:10px 12px;border:1px {{ d.bdStyle }} {{ d.bd }};background:{{ d.bg }};color:{{ d.fg }};font-family:var(--mono);font-size:12.5px;font-weight:600;animation:bb-in .3s ease both;transition:background .3s,color .3s">
@@ -581,6 +602,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
     <sc-if value="{{ agFailed }}" hint-placeholder-val="{{ false }}">
       <div data-screen-label="Agent failed path" style="margin-top:20px;border:1px solid var(--rule);display:flex;flex-wrap:wrap;gap:16px 40px;align-items:center;justify-content:space-between;padding:clamp(20px,3vw,28px);animation:bb-in .4s ease both">
         <div style="max-width:52ch"><div style="font-size:clamp(26px,2.8vw,40px);font-weight:500;letter-spacing:-.045em;line-height:1">the claim did not hold.</div><p style="margin:10px 0 0;font-size:16px;line-height:1.45;color:var(--ink-2)">{{ agFailBody }}</p></div>
+        <sc-if value="{{ agCanPayFull }}" hint-placeholder-val="{{ false }}"><button onClick="{{ payFullPrice }}" style="appearance:none;border:1px solid var(--ink);background:transparent;color:var(--ink);font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;height:48px;padding:0 20px;cursor:pointer">pay full price</button></sc-if>
         <button onClick="{{ resetAgent }}" style="appearance:none;border:1px solid var(--ink);background:var(--ink);color:var(--bg);font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;height:48px;padding:0 20px;display:inline-flex;align-items:center;gap:24px;cursor:pointer" style-hover="background:var(--accent);border-color:var(--accent);color:var(--accent-ink)">reset the demo<span>→</span></button>
       </div>
     </sc-if>
@@ -906,7 +928,7 @@ class Component extends DCLogic {
     ag: null,
   };
   mx = 0;
-  AGL = ['find the store', 'add the t-shirt', 'claim returning customer', 'store offers 10% off, pending', 'make the proof, locally', 'stellar checks the proof, once', 'discount confirmed', 'pay in usdc', 'order paid in the shopify admin', 'join the customer group'];
+  AGL = ['find the store', 'add it to the cart', 'claim returning customer', 'store offers 10% off, pending', 'make the proof, locally', 'stellar checks the proof, once', 'discount confirmed', 'pay in usdc', 'order paid in the shopify admin', 'join the customer group'];
   ERR = {
     HotelNotFound: { h: 'this place is not listed.', b: 'nothing was posted, nothing was charged.', r: 'back to explore', k: 'home' },
     UnknownRoot: { h: 'the place moved on.', b: 'this proof is for an older state of the place. refresh and retry.', r: 'refresh and retry', k: 'retry' },
@@ -1110,7 +1132,7 @@ class Component extends DCLogic {
   go(view, extra = {}) { this.setState({ view, role: 'guest', ...extra }); window.scrollTo(0, 0); }
   goHome = () => this.go('home');
   goPasses = () => this.go('passes', { disclose: null });
-  goAgent = () => this.go('agent');
+  goAgent = () => { this.go('agent'); this.loadShop(); };
   openPlace = id => this.go('place', { placeId: id, picks: {}, sel: { room: 0, nights: 2, size: 'm', qty: 1, menu: { 0: 1, 2: 1 } } });
   setRole = role => { this.setState({ role }); window.scrollTo(0, 0); if (role === 'arbiter') this.selectFirstDispute(); };
   requireWallet(reason, fn) {
@@ -1331,11 +1353,11 @@ class Component extends DCLogic {
       submitReview: this.submitReview, submitDisabled: !rating, submitOpacity: rating ? 1 : 0.35,
     };
   }
-  runAgent(reuse) {
+  runAgent(reuse, noClaim = false) {
     this.requireWallet('to let bob pay', async () => {
       if (!this.m || (this.state.ag && this.state.ag.phase === 'running')) return;
-      this.setState({ ag: { ...this.agBlank(), phase: 'running' } });
-      for await (const ev of this.m.ucp.run({ reuse })) {
+      this.setState({ ag: { ...this.agBlank(), phase: 'running', reused: !!reuse } });
+      for await (const ev of this.m.ucp.run({ reuse, noClaim })) {
         if (ev.type === 'step') this.setState(s => {
           const ag = { ...s.ag, steps: s.ag.steps.map(x => ({ ...x })) }, st = ag.steps[ev.i];
           st.status = ev.status; if (ev.detail) st.detail = ev.detail; if (ev.tx) st.tx = ev.tx; if (ev.link) st.link = ev.link; if (ev.error) ag.error = ev.error;
@@ -1344,13 +1366,24 @@ class Component extends DCLogic {
         });
         else if (ev.type === 'cart') this.setState(s => ({ ag: { ...s.ag, cart: ev.cart } }));
         else if (ev.type === 'store') this.setState(s => ({ ag: { ...s.ag, store: ev.storeView } }));
+        else if (ev.type === 'headline') this.setState(s => ({ ag: { ...s.ag, headlineText: ev.text, headlineReason: ev.reason || '' } }));
       }
       this.setState(s => ({ ag: { ...s.ag, phase: s.ag.steps.some(x => x.status === 'failed') ? 'failed' : 'done' } }));
       this.reload();
     });
   }
+  productCard(p, onPick) {
+    const pick = this.state.shopPick;
+    return {
+      title: (p.title || '').toLowerCase(), price: this.money(p.price), store: p.storePrice ? `· ${Number(p.storePrice).toFixed(2)} ${(p.storeCurrency || '').toLowerCase()}` : '',
+      url: p.url || '#', bgImage: p.imageUrl ? `url("${p.imageUrl}")` : 'none', noPhoto: p.imageUrl ? '' : 'no photo',
+      on: !!(pick && pick.variantId === p.variantId), bd: pick && pick.variantId === p.variantId ? 'var(--ink)' : 'var(--rule)', onPick: onPick || (() => {}),
+    };
+  }
+  loadShop = () => { if (this.m && this.m.store && this.m.store.items && !this.state.shopItems) this.m.store.items().then(xs => this.setState({ shopItems: xs })); };
   resetAgent = () => { if (this.m) this.m.ucp.reset(); this.setState({ ag: this.agBlank() }); this.reload(); };
   vAgent() {
+    if (!this.state.shopItems && !this.shopLoading && this.m) { this.shopLoading = true; setTimeout(this.loadShop, 0); }
     const s = this.state, ag = s.ag || this.agBlank(), cart = ag.cart, failed = ag.phase === 'failed', running = ag.phase === 'running';
     const cur = ag.steps.findIndex(x => x.status === 'running'), doneN = ag.steps.filter(x => x.status === 'done').length;
     const agSteps = ag.steps.map((x, i) => {
@@ -1368,7 +1401,7 @@ class Component extends DCLogic {
       };
     });
     const itemsSum = cart.items.reduce((a, i) => a + i.price, 0), disc = cart.discounts[0];
-    const headline = ag.phase === 'idle' ? 'ready to buy a rep tee.' : running ? (cur >= 0 ? this.AGL[cur] + '…' : '…') : failed ? 'proof rejected. discount removed.' : (disc && disc.proven && !disc.removed ? `paid ${this.money(cart.total)} usdc. ${Math.round((disc.amount / (itemsSum || 1)) * 100)}% off, proven.` : `paid ${this.money(cart.total)} usdc. full price.${cart.nextBps ? ` next time it's ${cart.nextBps / 100}% off, proven.` : ''}`);
+    const headline = ag.headlineText ? ag.headlineText : ag.phase === 'idle' ? (this.state.shopPick ? `ready to buy ${this.state.shopPick.title.toLowerCase()}.` : 'ready to buy a rep tee.') : running ? (cur >= 0 ? this.AGL[cur] + '…' : '…') : failed ? 'proof rejected. discount removed.' : (disc && disc.proven && !disc.removed ? `paid ${this.money(cart.total)} usdc. ${Math.round((disc.amount / (itemsSum || 1)) * 100)}% off, proven.` : `paid ${this.money(cart.total)} usdc. full price.${cart.nextBps ? ` next time it's ${cart.nextBps / 100}% off, proven.` : ''}`);
     const sv0 = ag.store || null;
     return {
       ag: {
@@ -1378,7 +1411,10 @@ class Component extends DCLogic {
       },
       agSteps, agBusy: running, agBtnOpacity: running ? 0.35 : 1, agRunLabel: running ? 'shopping' : ag.phase === 'idle' ? 'run bob' : 'run again',
       runAgent: () => this.runAgent(false), runAgentReused: () => this.runAgent(true), resetAgent: this.resetAgent,
-      cartItems: cart.items.map(i => ({ title: i.title, price: this.money(i.price) })), cartEmpty: !cart.items.length,
+      agCanPayFull: failed && !ag.reused, payFullPrice: () => this.runAgent(false, true),
+      shopIdle: ag.phase === 'idle', shopProducts: (this.state.shopItems || []).map(p => this.productCard(p, () => { this.m.store.choose(p.variantId); this.setState({ shopPick: p }); })),
+      cartCards: cart.items.map(i => this.productCard(i, null)),
+      cartItems: [], cartEmpty: !cart.items.length,
       cartDiscounts: cart.discounts.map(d => ({
         label: d.label, amount: this.money(d.amount), state: d.removed ? 'removed' : d.proven ? 'proven' : 'pending',
         bg: d.proven && !d.removed ? 'var(--deal)' : 'transparent', fg: d.removed ? 'var(--warn)' : d.proven ? 'var(--deal-ink)' : 'var(--ink)',

@@ -149,7 +149,7 @@ export const demo = {
 // (deferred: the sdk is created below)
 setTimeout(() => {
   if (typeof location !== "undefined" && new URLSearchParams(location.search).get("fresh") === "1") {
-    isOperator().then((ok) => (ok ? demo.reset() : reloadClean()))
+    isOperator().then((ok) => { if (ok) void demo.reset(); else reloadClean() })
   } else if (nsNow) {
     void demo.prepare()
   }
@@ -740,10 +740,30 @@ export const backend = {
 }
 
 /** Store orders from the UCP bridge's admin view: not available yet, the card drops (docs/design-binding.md). */
+// The store's catalog over UCP (bridge /search): what Bob can buy, and which one the next run buys.
+let storeCatalogP: Promise<any[]> | null = null
+let chosenVariant: string | null = null
 export const store = {
   async orders() {
     return []
   },
+  /** The products REP Store offers (title, USDC price, store price, image when the store has one, product page). */
+  items(): Promise<any[]> {
+    return (storeCatalogP ??= fetch(`${BRIDGE}/search?q=rep`)
+      .then((r) => r.json())
+      .then((xs) =>
+        (Array.isArray(xs) ? xs : []).map((x: any) => ({ variantId: x.variantId, title: String(x.title), price: Number(x.price), storePrice: x.storePrice ?? null, storeCurrency: x.storeCurrency ?? null, imageUrl: x.imageUrl ?? null, url: x.url ?? null })),
+      )
+      .catch(() => {
+        storeCatalogP = null
+        return []
+      }))
+  },
+  /** Pick the product the next ucp.run() buys (null: the store's first tee). */
+  choose(variantId: string | null) {
+    chosenVariant = variantId
+  },
+  chosen: () => chosenVariant,
 }
 
 export const UCP_STEPS = [
@@ -779,13 +799,13 @@ async function* ucpRun(reuse: boolean, noClaim = false): AsyncGenerator<any> {
   const snap = () => ({ type: "cart", cart: JSON.parse(JSON.stringify(cart)) })
   const step = (i: number, status: string, extra: any = {}) => ({ type: "step", i, status, detail: extra.detail ?? (status === "done" ? UCP_STEPS[i].detail : ""), ...extra })
   yield step(0, "running")
-  const items = await fetch(`${BRIDGE}/search?q=tee`).then((r) => r.json()).catch(() => [])
-  const item = items[0]
+  const items = await fetch(`${BRIDGE}/search?q=${chosenVariant ? "rep" : "tee"}`).then((r) => r.json()).catch(() => [])
+  const item = (chosenVariant && items.find((x: any) => x.variantId === chosenVariant)) || items[0]
   if (!item) return yield step(0, "failed", { error: "Network", detail: "the store did not answer." })
   yield step(0, "done", { detail: "found REP Store on Shopify. it speaks UCP: checkout, cart and proof of loyalty.", link: { url: item.ucp ?? `${BRIDGE}/.well-known/ucp`, label: "UCP profile" } })
   yield step(1, "running")
   cart.nextBps = Number(item.returningDiscountBps ?? 0)
-  cart.items.push({ title: String(item.title).toLowerCase(), price: Number(item.price), imageUrl: item.imageUrl ?? null, storePrice: item.storePrice ?? null, storeCurrency: item.storeCurrency ?? null })
+  cart.items.push({ title: String(item.title).toLowerCase(), price: Number(item.price), imageUrl: item.imageUrl ?? null, url: item.url ?? null, storePrice: item.storePrice ?? null, storeCurrency: item.storeCurrency ?? null })
   cart.total = Number(item.price)
   yield snap()
   yield step(1, "done", { detail: `1 × ${String(item.title).toLowerCase()} · ${Number(item.price).toFixed(2)} usdc${item.storePrice ? ` (${Number(item.storePrice).toFixed(2)} ${String(item.storeCurrency ?? "").toLowerCase()} in the store)` : ""} · shopify variant ${String(item.variantId ?? "").split("/").pop()}`, ...(item.url ? { link: { url: item.url, label: "product page on Shopify" } } : {}) })
