@@ -2149,7 +2149,7 @@ class Component extends DCLogic {
   vSources() {
     const s = this.state, src = s.src || { list: [] }, list = src.list || [], busy = src.busy;
     const dots = { connected: ['var(--accent)', 'var(--accent)'], pending: ['var(--deal)', 'var(--deal-ink)'], failed: ['var(--warn)', 'var(--warn)'], soon: ['transparent', 'var(--rule-soft)'], none: ['transparent', 'currentColor'] };
-    const word = { connected: 'connected', pending: 'pending', failed: 'failed', soon: 'soon', none: 'not connected' };
+    const word = { connected: 'connected', pending: 'pending', failed: 'failed', soon: 'REP app', none: 'not connected' };
     const short = { wallet: 'key', rep: 'rep', passport: 'passport', network: 'network' };
     const btn = (label, onClick, primary, disabled) => ({ label, onClick, disabled: !!disabled, op: disabled ? 0.45 : 1, bg: primary ? 'var(--ink)' : 'transparent', fg: primary ? 'var(--bg)' : 'var(--ink)' });
     const pk = this.m && this.m.passkey && s.wallet && s.wallet.method === 'passkey' ? this.m.passkey.info() : null;
@@ -2206,7 +2206,7 @@ class Component extends DCLogic {
           : (live && (live.status === 'failed' || live.status === 'skipped') && live.why)
             ? live.why
             : 'wallet score: scoring…';
-        const st = r.id === 'wallet' && r.status === 'connected' ? r.stellarTier : null, stTx = st && st.tx ? this.tx(st.tx) : null;
+        const st = r.id === 'wallet' ? r.stellarTier : null, stTx = st && st.tx ? this.tx(st.tx) : null;
         const tierBits = {
           showTier: !!st, tierExplainer: st ? st.explainer : '', tierHeld: !!(st && st.held), tierLabel: st ? (st.moved ? 'moved your Stellar wallet tier to this fresh start' : 'Stellar wallet tier' + (st.tier != null ? ' ' + st.tier : '')) : '',
           tierHasTx: !!stTx, tierTxUrl: stTx ? stTx.url : '', tierTxShort: stTx ? stTx.short : '', tierHasReason: !!(st && !st.held && st.reason), tierReason: st ? st.reason : '',

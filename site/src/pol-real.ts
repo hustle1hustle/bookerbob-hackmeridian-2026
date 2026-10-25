@@ -1570,7 +1570,7 @@ export const rep = {
     return { ...repState }
   },
   async start() {
-    if (!(await repDemo())) return (repState = { status: "soon", why: "REP verified traveler is coming to the REP app" })
+    if (!(await repDemo())) return (repState = { status: "soon", why: "live with the REP app · shown in the demo video" })
     const stay = sdk.stays.create(UCP_MERCHANT)
     const r = await fetch(`${API}/api/rep/session`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ commitment: stay.commitment }) })
       .then((x) => x.json())
@@ -1648,7 +1648,7 @@ export const stellarTier = {
   /** Why this browser cannot join right now ("" = it can). Synchronous, from the wallet and its loyalty score. */
   reason(): string {
     const addr = wallet.address ?? sdk.wallet.address
-    if (!addr) return `connect a Stellar wallet with tier ${tierMin}+`
+    if (!addr) return `connect a Freighter wallet with tier ${tierMin}+ to join`
     if (!addr.startsWith("G")) return "a passkey wallet is a contract account. connect Freighter for the tier."
     const ly = loyaltyState.address === addr ? loyaltyState : ({ status: "none" } as LoyaltyView)
     if (sdk.wallet.kind === "local" && ly.status !== "ready") return `a demo key is brand new, so it has no tier. connect Freighter with tier ${tierMin}+`
@@ -1797,7 +1797,7 @@ export async function sources(placeId?: number): Promise<Source[]> {
           ? "moved your REP verified traveler to this fresh start"
           : "verified traveler counts in your perks"
         : !demo
-          ? "REP verified traveler is coming to the REP app"
+          ? "live with the REP app · shown in the demo video"
           : repState.status === "pending"
             ? repState.moving
               ? "approve in REP Bob on your phone. your earlier start's membership moves here."

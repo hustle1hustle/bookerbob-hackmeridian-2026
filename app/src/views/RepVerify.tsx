@@ -55,7 +55,7 @@ export function RepVerify() {
       <h3>verified traveler</h3>
       {phase.k === "idle" && demo === false && (
         <p className="muted">
-          REP verified traveler is coming to the REP app. <a href={REP_APP_URL} target="_blank" rel="noreferrer">get REP</a>
+          REP verified traveler is live with the REP app, shown in the demo video. <a href={REP_APP_URL} target="_blank" rel="noreferrer">get REP</a>
         </p>
       )}
       {phase.k === "idle" && demo && (
