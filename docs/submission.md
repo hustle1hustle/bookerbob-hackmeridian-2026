@@ -29,7 +29,7 @@ Customers prove on Stellar that they were customers of a place, with a zero-know
 | Poseidon permutation (CAP-0075) via `soroban-poseidon`: the contract keeps the LeanIMT tree itself, root equal to the Semaphore JS library byte for byte | `src/tree.rs` | tree insert (checkout) 1.1M instructions |
 | USDC through a Stellar Asset Contract: proof check and payment in one tx | `book_with_discount`, `book_with_context`, `book_with_discount_amount` | `book_with_discount` 31.7M instructions, `book` 1.1M |
 | keccak256 host function: Semaphore's `hash(x) >> 8` for scope and message | `src/lib.rs` | |
-| Native P-256 (`secp256r1_verify`): the contract verifies a REP tier credential signed by the REP tier issuer, so a group can be joined without a trusted operator key | `add_member_with_tier`, `src/tier.rs`, **off on the live deployment until the admin upgrade** | about 3.4M instructions, under 1% of the limit (unit-test budget) |
+| Native P-256 (`secp256r1_verify`): the contract verifies a REP tier credential signed by the REP tier issuer, so a group can be joined without a trusted operator key | `add_member_with_tier`, `src/tier.rs`, **off on the live deployment until the admin upgrade** | 7.1M instructions declared on testnet for the whole join, 1.8% of the limit |
 
 Fees on writes are dominated by storage rent (TTL extended about 29 days so the demo survives judging), not compute. Source: `docs/bench.md`.
 

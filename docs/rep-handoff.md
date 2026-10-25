@@ -87,7 +87,8 @@ the fallback.
 - On the ledger: the 106-byte credential and its signature. No spend, dates, source, verdict or device key.
 - Open: one REP presentation mints one credential, but a notarized session can yield several presentations, so
   sybil resistance per account needs a stable account id from REP.
-- Cost: about 3.4M CPU instructions (under 1% of the 400M per-tx limit); the wasm is 53 KB.
+- Cost on testnet: 7.1M CPU instructions declared for the whole join, credential check plus group insert (1.8% of
+  the 400M per-tx limit), tx [`43d46b5e…`](https://stellar.expert/explorer/testnet/tx/43d46b5e8ba297e61c3916b09c15fe45add4491418d49434c8dc813500dc2372) on a mirror of live; the wasm is 55 KB.
 - Tests: `cargo test` in `contracts/proof_of_stay` (`test_tier.rs`, credentials signed in the test with p256: valid,
   high S, the issuer's own test vector (signature layout), forged signature, another commitment, another group or
   deployment, bad magic, unknown kid, tier below policy, expired, not yet
@@ -105,7 +106,10 @@ Semaphore's `group.generateMerkleProof(index).siblings`. The contract checks the
 the leaf in place (same index), and restarts the group's root history at the new root, so the old identity stops
 proving membership at once. Nullifiers the old identity spent stay spent. About 29M CPU at a full group (1024).
 Errors: 24 NotMember, 4 DuplicateLeaf, 3 BadLeaf, 25 BadPath (stale siblings: re-read the leaves and retry).
-Side effect: other members' in-flight proofs against older roots must be re-made.
+Side effect: other members' in-flight proofs against older roots must be re-made. Testnet, on a mirror of live:
+[`71750161…`](https://stellar.expert/explorer/testnet/tx/717501613aa3a976692d18ac8721357d41154706ced8aa4baaff859cc4d341ab),
+the on-chain root equals Semaphore's `group.updateMember` root, one root left in the history, a second move of the
+old leaf refused with 24.
 
 Turn it on (testnet, after review):
 
