@@ -860,15 +860,22 @@ async function* ucpRun(reuse: boolean, noClaim = false): AsyncGenerator<any> {
     const artifacts = await loadArtifacts(ARTIFACTS)
     const leaves = await views.leaves(await getClient({ ...TESTNET, contractId: (await apiConfig()).contractId }), UCP_MERCHANT)
     const holder = shopStay ?? next
+    const ident = sdk.stays.identity(holder)
+    // the identity must already be one of the store's customers; a new visitor has nothing to prove (or replay) yet
+    if (!leaves.includes(ident.commitment)) {
+      const why = "you need a past purchase from this store first"
+      yield step(4, "failed", { error: "NotInTree", headline: `${why}. buy once, then the discount (and the replay demo) work.`, reason: why, detail: `${why}. this purchase can continue at full price.` })
+      yield { type: "headline", text: `${why}. buy once, then the discount works.`, reason: why, error: "NotInTree" }
+      return
+    }
     const t0 = performance.now()
-    let mp: any
+    let mp
     try {
-      mp = await proveMembership(sdk.stays.identity(holder), leaves, d.discountMessage(payer), d.discountScope(UCP_MERCHANT, st.action.scope.season), artifacts)
-    } catch (e: any) {
-      const notIn = /NotInTree/i.test(String(e?.message ?? e))
-      const headline = notIn ? "you need a past purchase first." : "the proof could not be made on this device."
-      yield step(4, "failed", { error: notIn ? "NotInTree" : "ProveFailed", headline, detail: notIn ? "this browser is not in the store's customer group yet. buy once at full price, then the discount is yours." : "proving stopped on this device. try again." })
-      return yield { type: "headline", text: headline, reason: headline, error: notIn ? "NotInTree" : "ProveFailed" }
+      mp = await proveMembership(ident, leaves, d.discountMessage(payer), d.discountScope(UCP_MERCHANT, st.action.scope.season), artifacts)
+    } catch (e) {
+      const why = "the proof could not be made on this device"
+      yield step(4, "failed", { error: "ProveFailed", headline: `${why}. you can still pay full price.`, reason: why, detail: why })
+      return
     }
     yield step(4, "done", { detail: `made on this device in ${Math.round(performance.now() - t0)} ms. your secret never leaves it.` })
     yield step(5, "running")
@@ -923,9 +930,19 @@ async function* ucpRun(reuse: boolean, noClaim = false): AsyncGenerator<any> {
   if (orderId) yield { type: "store", storeView: { orderId, amount: cart.total, badges: cart.discounts.length ? ["verified returning customer"] : [], tx: sent.txHash } }
 }
 
+/** Wraps the agent run so it never rejects: an unexpected error ends the run with a plain headline. */
+async function* safeRun(g: AsyncGenerator<any>): AsyncGenerator<any> {
+  try {
+    yield* g
+  } catch (e) {
+    console.warn("agent run failed", String((e as any)?.message ?? e))
+    yield { type: "headline", text: "something went wrong on our side. nothing was charged twice; try again.", reason: "unexpected error", error: "Unknown" }
+  }
+}
+
 async function payUcp(cart: { items: { title: string; price: number }[] }, groups: string[]) {
   let last: any = null
-  for await (const ev of ucpRun(groups.includes("returning"))) if (ev.type === "step") last = ev
+  for await (const ev of safeRun(ucpRun(groups.includes("returning")))) if (ev.type === "step") last = ev
   if (last?.status === "failed") return err(last.error ?? "BadParams")
   const tx = last?.tx
   const subtotal = round2(cart.items.reduce((a, i) => a + i.price, 0))
@@ -945,7 +962,7 @@ export const ucp = {
   /** the store's returning-customer discount on chain, in basis points */
   discountBps: () => Number(state?.places.find((p) => p.mid === UCP_MERCHANT)?.m.discountBps ?? 0),
   /** reuse: replay the last proof on purpose (the refusal demo). noClaim: pay full price (after a refusal). */
-  run: ({ reuse = false, noClaim = false } = {}) => ucpRun(reuse, noClaim),
+  run: ({ reuse = false, noClaim = false } = {}) => safeRun(ucpRun(reuse, noClaim)),
   reset() {},
 }
 
@@ -1133,7 +1150,7 @@ export const loyalty = {
     const p = (async (): Promise<LoyaltyView> => {
       try {
         const { verifyOnConnect } = await import("../../packages/verify_onchain_zk/src/index.ts")
-        const r = await verifyOnConnect(addr, { apiBase: API, attest: true, proveScore: false })
+        const r = await verifyOnConnect(addr, { apiBase: API, attest: true, proveScore: false, passportProxyBase: API })
         const view = {
           rating: r.claim.rating,
           tier: r.claim.tier,
