@@ -51,7 +51,7 @@ writeFileSync(
       messageHash: hash(message).toString(),
       scopeHash: hash(scope).toString(),
       publicSignalOrder: ["merkleTreeRoot", "nullifier", "hash(message)", "hash(scope)"],
-      artifacts: { project: "semaphore", version: "4.13.0", wasm, zkey },
+      artifacts: { project: "semaphore", version: "4.13.0", wasm: `https://snark-artifacts.pse.dev/semaphore/4.13.0/semaphore-${DEPTH}.wasm`, zkey: `https://snark-artifacts.pse.dev/semaphore/4.13.0/semaphore-${DEPTH}.zkey` },
     },
     null,
     2,

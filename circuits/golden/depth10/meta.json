@@ -25,7 +25,7 @@
   "artifacts": {
     "project": "semaphore",
     "version": "4.13.0",
-    "wasm": "/var/folders/dh/z8d2tsd139v803dvv180dtfw0000gn/T/snark-artifacts/semaphore/4.13.0/semaphore-10.wasm",
-    "zkey": "/var/folders/dh/z8d2tsd139v803dvv180dtfw0000gn/T/snark-artifacts/semaphore/4.13.0/semaphore-10.zkey"
+    "wasm": "https://snark-artifacts.pse.dev/semaphore/4.13.0/semaphore-10.wasm",
+    "zkey": "https://snark-artifacts.pse.dev/semaphore/4.13.0/semaphore-10.zkey"
   }
 }
