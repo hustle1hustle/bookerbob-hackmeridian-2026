@@ -48,6 +48,10 @@ export function createMockSdk(opts: MockOptions = {}): Sdk {
       if (!address) throw new Error("WalletNotConnected")
       return xdr
     },
+    async signMessage(message: string) {
+      if (!address) throw new Error("WalletNotConnected")
+      return btoa(message).slice(0, 88)
+    },
     disconnect() {
       address = null
       kind = null
