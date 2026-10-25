@@ -26,5 +26,6 @@ External services, if used in later stages: JMPR (hotel search and sandbox booki
 - The whole Soroban contract: incremental Poseidon LeanIMT, Groth16 verifier on BN254, reviews, discounts with USDC, disclosure attestation, and its tests.
 - Proof converter (`scripts/proof_to_soroban.ts`), golden proof and fixture generators, shared scope/message derivation, deploy and seed scripts, benchmark.
 - Frontend and agent.
+- `ucp/`: the UCP bridge for a Shopify store (patronage extension, Stellar USDC payment handler, Buy with Bob REST, Ask Bob search) and the buyer's agent. Its prior work and external services: [`ucp/PRIOR_WORK.md`](ucp/PRIOR_WORK.md). In short: the Shopify test store `jwq0dd-rp.myshopify.com` and its Dev Dashboard app pre-date the event (external service, test mode); private pre-hackathon REP commerce code was read for patterns only (single-use discount codes via the Admin API), nothing copied.
 
 AI assistance is disclosed in [`docs/ai-usage.md`](docs/ai-usage.md).

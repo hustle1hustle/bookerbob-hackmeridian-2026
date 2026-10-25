@@ -1,0 +1,14 @@
+start 15000 AED provisional 1500 season 20264
+prove {
+  verified: true,
+  code: 'BB-72DBF8A1F3B2',
+  discount: 1500,
+  applied: true,
+  subtotal: 15000
+}
+quote book_with_discount_amount 408000000 -> 367200000
+send {
+  txHash: '8ed5db04722c9b31352f108931a2cacd83b27dcb210569cc88d53ff9eb10aadb',
+  paid: '367200000'
+}
+complete {"status":"completed","order":null,"receipt":{"handler_id":"stellar.usdc","tx_hash":"8ed5db04722c9b31352f108931a2cacd83b27dcb210569cc88d53ff9eb10aadb","amount_raw":"367200000","explorer":"https://stellar.expert/explorer/testnet/tx/8ed5db04722c9b31352f108931a2cacd83b27dcb210569cc88d53ff9eb10aadb"},"joined":"1dce7196ef114ccaaf8484c6adbbe6f90d40f068e683deb740d3fd74f0e0a94d"}

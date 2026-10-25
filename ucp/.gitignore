@@ -1,0 +1,8 @@
+.env
+node_modules/
+data/
+agent/.buyer*.json
+agent/.payers*.json
+*.log
+!evidence/*.log
+!evidence/v1/*.log

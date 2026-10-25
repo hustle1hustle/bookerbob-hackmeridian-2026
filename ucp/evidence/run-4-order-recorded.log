@@ -1,0 +1,13 @@
+[  0.9s] store profile: 12 capabilities, patronage yes, Stellar USDC yes
+[  1.3s] found "REP ship of theseus tee" 150.00 AED
+[  1.9s] buyer has 4 past purchase(s) here, will claim the returning-customer discount
+[  2.0s] fresh payer GAL432… funded with test USDC
+[  3.0s] checkout hWNINdg8 subtotal 150.00 AED, provisional discount 15.00 AED
+[  3.0s] store asks: Semaphore membership in merchant 5 tree (4 customers), scope discount/season 20264, message binds the payer
+[ 10.0s] proof generated in 609 ms, nullifier 1536492358…
+[ 12.2s] store verified the proof against the Stellar contract, single-use code BB-1B8B565ED6AD
+[ 12.9s] code applied by the store: -15.00 AED
+[ 14.7s] store co-signed book_with_discount_amount: 40.80 USDC before discount, pays 36.72 USDC, order ref c8b51a14…
+[ 19.0s] paid 36.72 USDC on Stellar, tx 19254e2f16af0c6b4282d9d3403d9cb7cab129647552490af533b6e0e15a9a09
+[ 32.2s] order #1005 completed. https://stellar.expert/explorer/testnet/tx/19254e2f16af0c6b4282d9d3403d9cb7cab129647552490af533b6e0e15a9a09
+[ 32.2s] store saw: a valid proof, a fresh payer, a fresh customer code. Not who the buyer is, nor which past order.
