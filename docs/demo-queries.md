@@ -4,7 +4,7 @@ Ask Bob queries for the demo and the video, checked against `http://localhost:80
 
 ## "hotel in lisbon under 120" 
 
-parsed: kind hotel, max 120; sources: jmpr disabled, places ok, ucp ok
+parsed: kind hotel, max 120; sources: partners disabled, places ok, ucp ok
 
 | # | result | source | price | why |
 |---|---|---|---|---|
@@ -16,7 +16,7 @@ parsed: kind hotel, max 120; sources: jmpr disabled, places ok, ucp ok
 
 ## "hotel under 100" 
 
-parsed: kind hotel, max 100; sources: jmpr disabled, places ok, ucp ok
+parsed: kind hotel, max 100; sources: partners disabled, places ok, ucp ok
 
 | # | result | source | price | why |
 |---|---|---|---|---|
@@ -26,7 +26,7 @@ parsed: kind hotel, max 100; sources: jmpr disabled, places ok, ucp ok
 
 ## "best hotel" 
 
-parsed: kind hotel, max none; sources: jmpr disabled, places ok, ucp ok
+parsed: kind hotel, max none; sources: partners disabled, places ok, ucp ok
 
 | # | result | source | price | why |
 |---|---|---|---|---|
@@ -39,7 +39,7 @@ parsed: kind hotel, max none; sources: jmpr disabled, places ok, ucp ok
 
 ## "coffee nearby" 
 
-parsed: kind cafe, max none; sources: jmpr disabled, places ok, ucp ok
+parsed: kind cafe, max none; sources: partners disabled, places ok, ucp ok
 
 | # | result | source | price | why |
 |---|---|---|---|---|
@@ -49,7 +49,7 @@ parsed: kind cafe, max none; sources: jmpr disabled, places ok, ucp ok
 
 ## "restaurant dinner" 
 
-parsed: kind restaurant, max none; sources: jmpr disabled, places ok, ucp ok
+parsed: kind restaurant, max none; sources: partners disabled, places ok, ucp ok
 
 | # | result | source | price | why |
 |---|---|---|---|---|
@@ -59,7 +59,7 @@ parsed: kind restaurant, max none; sources: jmpr disabled, places ok, ucp ok
 
 ## "t-shirt under 50 usdc" 
 
-parsed: kind shop, max 50; sources: jmpr disabled, places ok, ucp ok
+parsed: kind shop, max 50; sources: partners disabled, places ok, ucp ok
 
 | # | result | source | price | why |
 |---|---|---|---|---|
@@ -71,7 +71,7 @@ parsed: kind shop, max 50; sources: jmpr disabled, places ok, ucp ok
 
 ## "hoodie" 
 
-parsed: kind shop, max none; sources: jmpr disabled, places ok, ucp ok
+parsed: kind shop, max none; sources: partners disabled, places ok, ucp ok
 
 | # | result | source | price | why |
 |---|---|---|---|---|

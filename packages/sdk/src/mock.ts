@@ -298,7 +298,7 @@ export function createMockSdk(opts: MockOptions = {}): Sdk {
           return { source: "places", merchantId: m.id, title: m.name, kind: m.kind, price: Number(m.price) / 1e7, currency: "USDC" as const, url: null, imageUrl: null, provenRating: avg, reviewCount: m.ratingCount, verifiedCount: m.verifiedCount, score: avg ?? 0, reason: avg ? `${avg.toFixed(1)} from ${m.ratingCount} proven reviews` : "no proven reviews yet" }
         })
         .sort((a, b) => b.score - a.score)
-      return { query: q, parsed: { kind, maxPrice: isNaN(maxPrice) ? null : maxPrice, terms: [] }, results, sources: [{ id: "places", status: "ok" as const, count: results.length }, { id: "ucp", status: "ok" as const, count: 0 }, { id: "jmpr", status: "disabled" as const, count: 0 }] }
+      return { query: q, parsed: { kind, maxPrice: isNaN(maxPrice) ? null : maxPrice, terms: [] }, results, sources: [{ id: "places", status: "ok" as const, count: results.length }, { id: "ucp", status: "ok" as const, count: 0 }, { id: "partners", status: "disabled" as const, count: 0 }] }
     },
   }
 

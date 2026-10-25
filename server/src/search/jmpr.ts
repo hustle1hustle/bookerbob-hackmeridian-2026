@@ -17,7 +17,7 @@ const STOP = /\b(a|an|the|in|at|for|me|some|nearby|near|cheap|find|book|hotel|ho
 
 export function jmprAdapter(enabled: boolean): SearchAdapter {
   return {
-    id: "jmpr",
+    id: "partners",
     enabled,
     async search(q) {
       if (q.kind && q.kind !== "hotel") return []
@@ -33,7 +33,7 @@ export function jmprAdapter(enabled: boolean): SearchAdapter {
         })
         .slice(0, 12)
         .map((h) => ({
-          source: "JMPR hotels",
+          source: "partner hotels",
           merchantId: null,
           title: h.name,
           kind: "hotel",
@@ -44,7 +44,7 @@ export function jmprAdapter(enabled: boolean): SearchAdapter {
           provenRating: null,
           reviewCount: 0,
           verifiedCount: 0,
-          extra: { jmprHotelId: h.hotelId, area: h.area.replace(/\s+/g, " ").trim(), stars: h.stars || null, elitePerks: h.elitePerks, priceNote: "from, per night, pre-tax (JMPR snapshot)", snapshotAt: s.fetchedAt, lat: h.lat, lon: h.lon },
+          extra: { hotelId: h.hotelId, area: h.area.replace(/\s+/g, " ").trim(), stars: h.stars || null, elitePerks: h.elitePerks, priceNote: "from, per night, pre-tax (partner snapshot)", snapshotAt: s.fetchedAt, lat: h.lat, lon: h.lon },
         }))
     },
   }

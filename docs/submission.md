@@ -19,7 +19,7 @@ Customers prove on Stellar that they were customers of a place, with a zero-know
 - **Prove.** The browser makes a Semaphore v4 Groth16 proof (about 0.3 to 1.5 s): "I hold one leaf of this place's tree", with a nullifier whose scope sets the use (review, discount per season, context perk).
 - **Verify and pay in one transaction.** The Soroban contract checks the root against the place's recent roots, computes scope and message itself, runs the BN254 pairing check, burns the nullifier and moves USDC through the SAC. The proof is bound to the paying address, so it cannot be front-run.
 - **Context perks.** A place's policy also rewards groups: a chain of places, and attested groups from context providers such as REP "verified traveler". `book_with_context` stacks one proof per group, caps the total, one transfer.
-- **Agentic checkout.** BookerBob searches our places, a real Shopify test store over UCP, and real Lisbon hotels (a JMPR snapshot). At the store, the agent claims the returning-customer discount with the same proof and pays in test USDC on Stellar.
+- **Agentic checkout.** BookerBob searches our places, a real Shopify test store over UCP, and real Lisbon hotels (a partner snapshot). At the store, the agent claims the returning-customer discount with the same proof and pays in test USDC on Stellar.
 
 ## Stellar, specifically (track Stellar Unlocked)
 

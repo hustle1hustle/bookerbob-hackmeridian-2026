@@ -254,7 +254,7 @@ export interface Disclosure {
 
 /** One federated search hit (docs/search-sources.md). */
 export interface SearchResult {
-  /** Adapter id: "places" (our contract), "ucp" (merchants over UCP), later "jmpr". */
+  /** Adapter id: "places" (our contract), "ucp" (merchants over UCP), "partners" (partner hotels, never ranked). */
   source: string
   /** On-chain merchant id when the hit is tied to a merchant in the contract (perks and proven reviews live there). */
   merchantId: number | null

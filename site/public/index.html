@@ -1473,7 +1473,7 @@ class Component extends DCLogic {
         ranked: rows.map((r, i) => { const P = r.source === 'places' ? this.byId(r.placeId) : null; if (!P) return ucpRow(r, i);
           return { rank: String(i + 1).padStart(2, '0'), rankColor: i === 0 ? 'var(--accent)' : 'var(--ink)', isTop: i === 0 && rows.length > 1, name: P.name, meta: placeMeta(P), score: (r.provenRating * 2).toFixed(1), deal: this.dealLabel(P.id), delay: this.reduced ? '0ms' : i * 90 + 'ms', onOpen: () => this.openPlace(P.id) }; }),
         unranked: un.map(r => this.byId(r.placeId)).filter(Boolean).map(P => ({ tag: 'new', name: P.name, meta: `${P.area.toLowerCase()} · ${this.priceLine(P)}`, deal: this.dealLabel(P.id), onOpen: () => this.openPlace(P.id) }))
-          // federated results from outside BookerBob (JMPR hotels): listed, never ranked, because nothing there is proven
+          // federated results from outside BookerBob (partner hotels): listed, never ranked, because nothing there is proven
           .concat(res.results.filter(r => r.source !== 'places' && r.source !== 'ucp').map(r => ({ tag: '—', name: r.title, meta: `${r.source.toLowerCase()} · from ${this.money(r.price)} usdc${r.kind === 'hotel' ? ' a night' : ''} · no proven reviews, so not ranked`, deal: '', onOpen: () => {} }))),
       };
     })() : null;
