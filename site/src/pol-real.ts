@@ -1383,6 +1383,8 @@ export interface Source {
   tier?: number
   /** Attest tx on testnet (memo.hash = claim digest) — clickable proof. */
   scoreUrl?: string
+  /** REP: this membership was moved from an earlier generation ("start over"). */
+  moved?: boolean
   /** Stellar wallet tier: explainer, held + join tx, or why it cannot join yet. */
   stellarTier?: Awaited<ReturnType<typeof stellarTier.view>>
 }
@@ -1512,10 +1514,55 @@ export const REP_APP_URL = "https://r3p.app"
 let repDemoP: Promise<boolean> | null = null
 export const repDemo = () => (repDemoP ??= fetch(`${API}/api/rep/status`, { credentials: "same-origin" }).then((r) => r.json()).then((d) => !!d.demo).catch(() => false))
 
+// ---- rebind: "start over" MOVES a membership held by an earlier generation instead of being refused ----
+// The browser proves it controls the OLD identity with a Semaphore v4 signature over "rebind:<group>:<new>:<nonce>"
+// (server/src/rebind.ts checks it, then replace_member(group, old, new) on chain). Same field mapping as the server.
+const FR_MOD = 21888242871839275222246405745257275088548364400416034343698204186575808495617n
+export const rebindChallenge = (group: number, newCommitment: string, nonce: string) => `rebind:${group}:${newCommitment}:${nonce}`
+export const challengeField = (text: string) => BigInt(sha256(toUtf8Bytes(text))) % FR_MOD
+export function signRebind(old: { commitment: bigint; publicKey: [bigint, bigint] | bigint[]; signMessage: (m: bigint) => { R8: bigint[]; S: bigint } }, group: number, newCommitment: string, nonce: string) {
+  const sig = old.signMessage(challengeField(rebindChallenge(group, newCommitment, nonce)))
+  return {
+    oldCommitment: old.commitment.toString(),
+    publicKey: [old.publicKey[0].toString(), old.publicKey[1].toString()] as [string, string],
+    signature: { R8: [sig.R8[0].toString(), sig.R8[1].toString()] as [string, string], S: sig.S.toString() },
+  }
+}
+/** The stay identity an EARLIER generation of this browser used for a group membership, or null. It reads that
+ *  generation's namespace (its master secret and stays) and derives the identity the same way the SDK does. */
+export function oldIdentityFor(groupId: number) {
+  const leaves = state?.groupLeaves.get(groupId) ?? []
+  if (!leaves.length) return null
+  const cur = new Set(sdk.stays.list().map((s) => s.commitment))
+  const cred = credHere()
+  const home = cred ? passkeyNs.find(cred) : null
+  const nss = [...generations.list().sort((a, b) => b.n - a.n).map((g) => g.ns), ...(home !== null ? [home] : [])]
+  const seen = new Set<string>()
+  for (const ns of nss) {
+    if (ns === nsNow || seen.has(ns)) continue
+    seen.add(ns)
+    const st = ns ? nsStorage(ns) : LS
+    const master = st?.getItem("pos.master")
+    if (!master) continue
+    let stays: Stay[] = []
+    try {
+      stays = JSON.parse(st!.getItem("pos.stays") ?? "[]")
+    } catch {}
+    const s = stays.find((x) => !cur.has(x.commitment) && leaves.includes(BigInt(x.commitment)))
+    if (s) return d.stayIdentity(master, s.merchant, s.stayIndex)
+  }
+  return null
+}
+const repGroupId = async (): Promise<number | null> => {
+  const st = await fetch(`${API}/api/rep/status`, { credentials: "same-origin" }).then((r) => r.json()).catch(() => null)
+  if (st && typeof st.group === "number") return st.group
+  return groupsMeta.find((g) => g.kind === "attested" && /verified traveler/i.test(g.name))?.id ?? null
+}
+
 // REP verified traveler: the guest approves in the REP Bob app; the backend checks the REP-signed verdict and adds a
 // fresh identity of this browser to the attested group. The identity is a new stay at the store that is never checked
 // in, so the group tree cannot be linked to any place's customer tree.
-let repState: { status: SourceStatus; sid?: string; until?: number; tx?: string | null; why?: string; canReset?: boolean } = { status: "none" }
+let repState: { status: SourceStatus; sid?: string; until?: number; tx?: string | null; why?: string; canReset?: boolean; moving?: boolean; moved?: boolean } = { status: "none" }
 const travelerHeld = () => local.credentials().some((c: any) => c.group === "traveler" && c.held)
 
 export const rep = {
@@ -1529,6 +1576,21 @@ export const rep = {
       .then((x) => x.json())
       .catch(() => ({ error: "Network" }))
     repState = r.error ? { status: "failed", why: "bookerbob could not open a request. try again." } : { status: "pending", sid: r.sid, until: r.expiresAt }
+    // an earlier generation held the traveler membership: sign the move with that identity BEFORE the phone shares
+    if (!r.error && r.nonce) {
+      try {
+        const gid = await repGroupId()
+        const old = gid !== null ? oldIdentityFor(gid) : null
+        if (old && gid !== null) {
+          const rb = await fetch(`${API}/api/rep/rebind`, { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify({ sid: r.sid, rebind: signRebind(old as any, gid, stay.commitment, r.nonce) }) })
+            .then((x) => x.json())
+            .catch(() => null)
+          if (rb && !rb.error) repState.moving = true
+        }
+      } catch {
+        /* no old identity or no rebind endpoint: the normal join runs, with its honest refusal */
+      }
+    }
     return { ...repState }
   },
   /** One poll; call every ~2 s while pending. Only an explicit verdict or the deadline ends the wait. */
@@ -1536,7 +1598,7 @@ export const rep = {
     if (repState.status !== "pending" || !repState.sid) return { ...repState }
     const r = await fetch(`${API}/api/rep/result?sid=${repState.sid}`).then((x) => x.json()).catch(() => null)
     if (r?.status === "passed") {
-      repState = { status: "connected", tx: r.txHash || null }
+      repState = { status: "connected", tx: r.txHash || null, moved: !!r.moved }
       loading = null // the traveler group changed: re-read it so perks count it
       await ready()
     } else if (r?.status === "failed") {
@@ -1602,16 +1664,18 @@ export const stellarTier = {
     const gid = tierGroupId()
     let tx: string | null = null
     let tier: number | null = null
+    let moved = false
     if (h) {
       try {
         const saved = JSON.parse(LS?.getItem(TIER_KEY(h.commitment)) ?? "null")
         tx = saved?.tx ?? null
         tier = saved?.tier ?? null
+        moved = !!saved?.moved
       } catch {}
       if (!tx && gid !== null) tx = await membershipTx({ kind: "group", id: gid }, h.commitment)
     }
     const why = this.reason()
-    return { minTier: tierMin, explainer: EXPLAIN.tier, perk: perkFor("tier"), held: !!h, tx, tier: tier ?? (loyaltyState.tier ?? null), canJoin: !h && !why && tierState.status !== "pending", pending: tierState.status === "pending", reason: h ? "" : tierState.status === "failed" ? (tierState.why ?? why) : why }
+    return { minTier: tierMin, explainer: EXPLAIN.tier, perk: perkFor("tier"), moved, held: !!h, tx, tier: tier ?? (loyaltyState.tier ?? null), canJoin: !h && !why && tierState.status !== "pending", pending: tierState.status === "pending", reason: h ? "" : tierState.status === "failed" ? (tierState.why ?? why) : why }
   },
   async join() {
     await tierInfo()
@@ -1625,10 +1689,18 @@ export const stellarTier = {
       const ch: any = await fetch(`${API}/api/stellar-tier/challenge?address=${addr}&commitment=${commitment}`).then((r) => r.json())
       if (!ch?.message) return (tierState = { status: "failed", why: "bookerbob could not open a request. try again." })
       const signature = await sdk.wallet.signMessage(ch.message)
-      const r: any = await fetch(`${API}/api/stellar-tier/join`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ address: addr, commitment, nonce: ch.nonce, signature }) })
+      // an earlier generation held the tier: move it (signed by that generation's identity) instead of a refused join
+      let rebind: any = undefined
+      try {
+        const info: any = await fetch(`${API}/api/stellar-tier/info`).then((x) => x.json()).catch(() => ({}))
+        const gid = typeof info.groupId === "number" ? info.groupId : tierGroupId()
+        const old = gid !== null ? oldIdentityFor(gid) : null
+        if (old && gid !== null) rebind = signRebind(old as any, gid, commitment, ch.nonce)
+      } catch {}
+      const r: any = await fetch(`${API}/api/stellar-tier/join`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ address: addr, commitment, nonce: ch.nonce, signature, ...(rebind ? { rebind } : {}) }) })
         .then(async (x) => ({ status: x.status, ...(await x.json().catch(() => ({}))) }))
       if (r.ok) {
-        LS?.setItem(TIER_KEY(stay.commitment), JSON.stringify({ tx: r.txHash || null, tier: r.tier ?? null }))
+        LS?.setItem(TIER_KEY(stay.commitment), JSON.stringify({ tx: r.txHash || null, tier: r.tier ?? null, moved: !!r.moved }))
         tierState = { status: "none" }
         loading = null // the tier group changed: re-read it so perks count it
         await ready()
@@ -1717,14 +1789,19 @@ export async function sources(placeId?: number): Promise<Source[]> {
       proves: EXPLAIN.traveler,
       status: held ? "connected" : demo ? repState.status : "soon",
       canReset: !held && demo && !!repState.canReset,
+      moved: held && !!repState.moved,
       txHash: held ? ((await heldTx("traveler")) ?? repState.tx ?? null) : null,
       perk: perkFor("traveler", placeId),
       detail: held
-        ? "verified traveler counts in your perks"
+        ? repState.moved
+          ? "moved your REP verified traveler to this fresh start"
+          : "verified traveler counts in your perks"
         : !demo
           ? "REP verified traveler is coming to the REP app"
           : repState.status === "pending"
-            ? "approve in REP Bob on your phone"
+            ? repState.moving
+              ? "approve in REP Bob on your phone. your earlier start's membership moves here."
+              : "approve in REP Bob on your phone"
             : repState.status === "failed"
               ? (repState.why ?? "")
               : "+5% where places honor it",
