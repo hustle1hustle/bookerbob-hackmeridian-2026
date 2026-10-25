@@ -7,7 +7,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { createHash, randomBytes } from "node:crypto"
 import { Keypair } from "@stellar/stellar-sdk"
 import { SHOP, StoreError, createSingleUseCode, deactivateCode, recordPaidOrder, storeManifest, storeRpc, storeTool, ordersWithCode } from "./shopify.ts"
-import { MERCHANT, NET, insertCommitment, isAccount, merchant, readPayment, simulateDiscount, isSpent, contractError, quotePayment, redeem } from "./core.ts"
+import { MERCHANT, NET, insertCommitment, isAccount, merchant, readPayment, simulateDiscount, isSpent, contractError, quotePayment, redeem, sendSigned } from "./core.ts"
 import { EXT_VERSION, NS, STELLAR_HANDLER_ID, STELLAR_HANDLER_NS, RAW_PER_STORE_MINOR, claims, decorate, openSession, save, session, st, type Session } from "./patronage.ts"
 
 const PORT = Number(process.env.PORT ?? 8787)
@@ -339,8 +339,16 @@ for (const n of ["get_cart", "create_cart", "update_cart", "cancel_cart", "cance
 // ---- public search for the BookerBob site ("Ask Bob" federated search) ------------------
 // GET /search?q=&max_price=   max_price and price are in test USDC (the chain's unit); the store's
 // own price and currency ride along. Backed by the store's UCP catalog search.
+const searchCache = new Map<string, { at: number; found: any }>()
 async function search(q: string, maxPrice: number | null) {
-  const found = await storeTool("search_catalog", { catalog: { query: q || "rep" } })
+  const key = (q || "rep").toLowerCase()
+  let hit = searchCache.get(key)
+  if (!hit || Date.now() - hit.at > 60_000) {
+    hit = { at: Date.now(), found: await storeTool("search_catalog", { catalog: { query: key } }) }
+    if (searchCache.size > 200) searchCache.clear()
+    searchCache.set(key, hit)
+  }
+  const found = hit.found
   const m = await merchant()
   // Store-level ratings from proven buyers only (on chain); no scripted reviews on this real store.
   const proven = { provenRating: m.ratingCount ? Math.round((m.ratingSum / m.ratingCount) * 10) / 10 : null, reviewCount: m.ratingCount, verifiedCount: m.verifiedCount, provenCustomers: m.provenStays }
@@ -371,6 +379,54 @@ async function search(q: string, maxPrice: number | null) {
   return out
 }
 
+// ---- "Buy with Bob": REST over the same UCP steps, for the BookerBob web app -------------
+// The browser's wallet only signs a prepared tx; everything else is the UCP checkout above.
+const lines = (co: any) => co.line_items.map((l: any) => ({ id: l.id, item: { id: l.item.id }, quantity: l.quantity }))
+const total = (co: any, type: string) => co?.totals?.find((t: any) => t.type === type)?.amount ?? null
+const sleep = (ms: number) => new Promise((ok) => setTimeout(ok, ms))
+
+const buy: Record<string, (b: any) => Promise<any>> = {
+  async start(b) {
+    if (typeof b.variantId !== "string") return { error: "variantId required" }
+    const co = await createCheckout({
+      checkout: {
+        line_items: [{ item: { id: b.variantId }, quantity: Math.max(1, Math.min(10, Number(b.qty) || 1)) }],
+        buyer: { email: typeof b.email === "string" ? b.email : "buyer@example.com" },
+        context: { address_country: "PT", ...(b.claim ? { eligibility: [NS] } : {}) },
+        ...(b.nextCommitment ? { [NS]: { next_commitment: String(b.nextCommitment) } } : {}),
+      },
+    })
+    return { checkoutId: co.id, currency: co.currency, subtotal: total(co, "subtotal"), provisionalDiscount: co.discounts?.applied?.find((d: any) => d.provisional)?.amount ?? 0, action: co[NS]?.action ?? null }
+  },
+  async prove(b) {
+    let co = await updateCheckout({ id: b.checkoutId, checkout: { [NS]: { proof: { payer: b.payer, root: b.root, nullifier: b.nullifier, proof: b.proof } } } })
+    if (co?.isError) return { error: JSON.parse(co.content[0].text).content }
+    const v = co[NS]
+    if (v?.status !== "verified") return { verified: false, error: co.messages?.find((m: any) => m.code === "eligibility_invalid")?.content ?? "not verified" }
+    // A new Shopify code takes a few seconds to go live; the bridge applies it for the browser.
+    for (let i = 0; i < 10; i++) {
+      co = await updateCheckout({ id: b.checkoutId, checkout: { line_items: lines(co), discounts: { codes: [v.code] } } })
+      if ((co.discounts?.applied ?? []).some((d: any) => !d.provisional && d.amount > 0)) break
+      await sleep(3000)
+    }
+    const applied = (co.discounts?.applied ?? []).find((d: any) => !d.provisional)
+    return { verified: true, code: v.code, discount: applied?.amount ?? 0, applied: !!applied, subtotal: total(co, "subtotal") }
+  },
+  async quote(b) {
+    const co = await updateCheckout({ id: b.checkoutId, checkout: { [STELLAR_HANDLER_NS]: { payer: b.payer } } })
+    return co?.[STELLAR_HANDLER_NS] ?? { error: "no quote" }
+  },
+  async send(b) {
+    const r = await sendSigned(String(b.signedTxXdr ?? ""))
+    return { txHash: r.txHash, paid: r.amount.toString() }
+  },
+  async complete(b) {
+    const co = await completeCheckout({ meta: { "idempotency-key": randomBytes(16).toString("hex") }, id: b.checkoutId, checkout: { payment: { instruments: [{ id: `pi_${randomBytes(6).toString("hex")}`, handler_id: STELLAR_HANDLER_ID, type: "stellar_tx", credential: { type: "stellar_tx", tx_hash: b.txHash } }] } } })
+    if (co?.isError) return { error: JSON.parse(co.content[0].text).content }
+    return { status: co.status, order: co.order, receipt: co.payment?.receipt, joined: co[NS]?.paid?.joinTx ?? null }
+  },
+}
+
 const readBody = (req: IncomingMessage) =>
   new Promise<string>((ok, no) => {
     let b = ""
@@ -390,6 +446,18 @@ const send = (res: ServerResponse, status: number, body: unknown) => {
 createServer(async (req, res) => {
   try {
     if (req.method === "GET" && req.url === "/.well-known/ucp") return send(res, 200, await profile())
+    if (req.method === "OPTIONS") {
+      res.writeHead(204, { "access-control-allow-origin": "*", "access-control-allow-methods": "GET, POST, OPTIONS", "access-control-allow-headers": "content-type", "access-control-max-age": "86400" })
+      return void res.end()
+    }
+    const step = req.method === "POST" && req.url?.match(/^\/buy\/(start|prove|quote|send|complete)$/)?.[1]
+    if (step) {
+      try {
+        return send(res, 200, await buy[step](JSON.parse(await readBody(req))))
+      } catch (e) {
+        return send(res, 200, { error: (e as Error).message.slice(0, 300) })
+      }
+    }
     if (req.method === "GET" && req.url?.startsWith("/search")) {
       const u = new URL(req.url, PUBLIC_URL)
       const mp = u.searchParams.get("max_price")

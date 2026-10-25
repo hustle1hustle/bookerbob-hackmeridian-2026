@@ -17,11 +17,33 @@ export class StoreError extends Error {
 
 let rpcId = 0
 
+// Agent-tier auth (Dev Dashboard catalog credentials): higher limits than anonymous calls.
+let agentTok: { token: string; until: number } | null = null
+async function agentToken(): Promise<string | null> {
+  if (!env.SHOPIFY_AGENT_CLIENT_ID || !env.SHOPIFY_AGENT_CLIENT_SECRET) return null
+  if (agentTok && Date.now() < agentTok.until) return agentTok.token
+  try {
+    const r = await fetch("https://api.shopify.com/auth/access_token", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      signal: AbortSignal.timeout(15_000),
+      body: JSON.stringify({ client_id: env.SHOPIFY_AGENT_CLIENT_ID, client_secret: env.SHOPIFY_AGENT_CLIENT_SECRET, grant_type: "client_credentials" }),
+    })
+    const j: any = await r.json().catch(() => ({}))
+    if (!r.ok || typeof j.access_token !== "string") return null
+    agentTok = { token: j.access_token, until: Date.now() + 50 * 60_000 }
+    return agentTok.token
+  } catch {
+    return null
+  }
+}
+
 /** One raw JSON-RPC call to the store's UCP MCP endpoint; returns the JSON-RPC `result`. */
-export async function storeRpc(method: string, params: unknown): Promise<any> {
+export async function storeRpc(method: string, params: unknown, buyerIp = "127.0.0.1"): Promise<any> {
+  const tok = await agentToken()
   const res = await fetch(UCP_ENDPOINT, {
     method: "POST",
-    headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
+    headers: { "content-type": "application/json", accept: "application/json, text/event-stream", ...(tok ? { authorization: `Bearer ${tok}`, "shopify-buyer-ip": buyerIp } : {}) },
     signal: AbortSignal.timeout(20_000),
     body: JSON.stringify({ jsonrpc: "2.0", id: ++rpcId, method, params }),
   })

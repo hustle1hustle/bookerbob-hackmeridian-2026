@@ -1,6 +1,6 @@
 // The only file that touches the Proof of Stay core. It consumes the published SDK
 // (.core = public repo, pinned commit; see PRIOR_WORK.md) and the deployed contract by id.
-import { Keypair, contract, rpc, scValToNative, xdr, Address, StrKey } from "@stellar/stellar-sdk"
+import { Keypair, contract, rpc, scValToNative, xdr, Address, StrKey, TransactionBuilder } from "@stellar/stellar-sdk"
 import { getClient, views, write, proofArg, type NetworkConfig, type Signer, TESTNET } from "../.core/packages/sdk/src/contract.ts"
 import { discountScope, discountMessage, semaphoreHash, stayIdentity } from "../.core/packages/sdk/src/derive.ts"
 import { proveMembership, loadArtifacts } from "../.core/packages/sdk/src/prove.ts"
@@ -128,17 +128,31 @@ export async function quotePayment(admin: Keypair, q: { guest: string; amount: b
     : await c.book_amount({ merchant: MERCHANT, guest: q.guest, amount: q.amount, order_ref: q.orderRef })
   if (tx.simulation && "error" in tx.simulation) throw new Error(contractError(tx.simulation.error))
   await tx.signAuthEntries({ address: admin.publicKey(), signAuthEntry: signerOf(admin).signAuthEntry })
+  // Re-simulate with the signed auth entry in place so footprint and fees cover its check; the payer
+  // then only signs the envelope (any wallet, e.g. Freighter signTransaction) and sends it.
+  await tx.simulate()
   return tx.toXDR()
 }
 
-/** Payer side: sign the co-signed tx and send it. */
+/** Payer side: sign the prepared tx envelope and send it. */
 export async function payQuote(payer: Keypair, txXdr: string): Promise<{ txHash: string; amount: bigint }> {
-  const c: any = await clientAs(payer)
-  const tx = c.txFromXDR(txXdr)
-  // Re-simulate with the merchant's signed auth entry in place, so footprint and fees cover its check.
-  await tx.simulate()
-  const sent = await tx.signAndSend()
-  return { txHash: sent.sendTransactionResponse?.hash ?? sent.getTransactionResponse?.txHash, amount: BigInt(sent.result) }
+  const tx = TransactionBuilder.fromXDR(txXdr, NET.networkPassphrase)
+  tx.sign(payer)
+  return sendSigned(tx.toXDR())
+}
+
+/** Sends a payer-signed tx and waits for it; returns hash and the amount the contract charged. */
+export async function sendSigned(signedXdr: string): Promise<{ txHash: string; amount: bigint }> {
+  const server = new rpc.Server(NET.rpcUrl)
+  const sent = await server.sendTransaction(TransactionBuilder.fromXDR(signedXdr, NET.networkPassphrase))
+  if (sent.status === "ERROR") throw new Error(`send failed: ${JSON.stringify(sent.errorResult).slice(0, 200)}`)
+  for (let i = 0; i < 40; i++) {
+    const r: any = await server.getTransaction(sent.hash)
+    if (r.status === "SUCCESS") return { txHash: sent.hash, amount: BigInt(scValToNative(r.returnValue)) }
+    if (r.status === "FAILED") throw new Error(`tx failed ${sent.hash}`)
+    await new Promise((ok) => setTimeout(ok, 1000))
+  }
+  throw new Error(`tx timeout ${sent.hash}`)
 }
 
 /** Card rail: burn the discount nullifier on chain without moving USDC (merchant admin only). */
