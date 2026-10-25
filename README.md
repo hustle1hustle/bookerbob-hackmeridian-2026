@@ -1,3 +1,5 @@
+LFG
+
 # BookerBob: Proof of Loyalty
 
 **BookerBob. Google for agentic commerce. Proof of loyalty, everywhere you go.**
