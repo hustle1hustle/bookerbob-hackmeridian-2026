@@ -64,7 +64,7 @@ Undo afterwards: clear the Issuer URL in DevTools.
 | 14:31:22 | Choly's phone (REP Bob, Oct 15 build) shared an Airbnb-based REP verdict; BookerBob verified it and added the browser's fresh identity to "REP verified traveler" (group 1). Web: "verified traveler. your perks now include it." | [`38bd6a7f38987c745624d363124c27f7a0e2bd8764b2051e3afdbe5474c34106`](https://stellar.expert/explorer/testnet/tx/38bd6a7f38987c745624d363124c27f7a0e2bd8764b2051e3afdbe5474c34106) |
 | 14:23:27 | The first attempt: the server verified and added the member, but the web card showed a failure because `/result` could not read the session id (fixed in d701dc6, deployed 14:30). | [`52f3b3c2…ffc358c`](https://stellar.expert/explorer/testnet/tx/52f3b3c26fc0397fe4da3c165b2d223834156ea09c507dd0a1fd9bd65ffc358c) |
 
-## On-chain check: REP tier credential (`REP_ONCHAIN=1`, off on the live deployment until the upgrade)
+## On-chain check: REP tier credential (`REP_ONCHAIN=1`; live contract upgraded, wasm `d66cd00f…`)
 
 `add_member_with_tier(group, id_commitment, cred, sig)` lets anyone join group 1 with a credential the contract
 checks itself, so membership no longer depends on a trusted operator key, and nothing about the guest's REP
@@ -72,7 +72,7 @@ verdict reaches the ledger. The attester path (`add_member` with the `rep-attest
 the fallback.
 
 - Issuer: the backend sends the verdict and holder proof to the REP tier issuer (`REP_TIER_URL`, default
-  `https://rep-attest-tier.fly.dev`, code `tier-issuer.mjs` in REP-CORE/rep-context-mcp). It runs the full check
+  `https://rep-attest-tier.fly.dev`, code `tier-issuer.mjs` in r3pb0b/rep-context-mcp, branch `choly/rep-tier-issuer`). It runs the full check
   off chain (REP's key, holder binding, nonce, revocation), spends that verdict once, and signs a 106-byte
   credential with its own P-256 key:
   `"REPTIER1" | kid u8 | sha256("<contract>:<group>") | tier u8 | commitment | iat u64 | exp u64 | jti 16B`.
@@ -87,7 +87,8 @@ the fallback.
 - On the ledger: the 106-byte credential and its signature. No spend, dates, source, verdict or device key.
 - Open: one REP presentation mints one credential, but a notarized session can yield several presentations, so
   sybil resistance per account needs a stable account id from REP.
-- Cost: about 3.4M CPU instructions (under 1% of the 400M per-tx limit); the wasm is 53 KB.
+- Cost on testnet: 7.1M CPU instructions declared for the whole join, credential check plus group insert (1.8% of
+  the 400M per-tx limit), tx [`43d46b5e…`](https://stellar.expert/explorer/testnet/tx/43d46b5e8ba297e61c3916b09c15fe45add4491418d49434c8dc813500dc2372) on a mirror of live; the wasm is 55 KB.
 - Tests: `cargo test` in `contracts/proof_of_stay` (`test_tier.rs`, credentials signed in the test with p256: valid,
   high S, the issuer's own test vector (signature layout), forged signature, another commitment, another group or
   deployment, bad magic, unknown kid, tier below policy, expired, not yet
@@ -96,6 +97,19 @@ the fallback.
   replay `#22`, forged `Error(Crypto)`.
 - An earlier version verified the full REP verdict (JWS + KB-JWT) in the contract; it worked, but would have
   published the verdict's bands and the device key, so it was replaced by this credential before going live.
+
+Start over (a user generates a new passkey and a new identity): the membership MOVES, it is never duplicated.
+`replace_member(group, old, new, siblings)` (group operator) or `replace_member_with_tier(group, old, new, siblings,
+cred, sig)` with a 137-byte move credential from the tier issuer (`"REPMOVE1" | kid | audience | old | new | iat | exp
+| jti`, signed only after the old identity proved control). `siblings` are the old leaf's Merkle siblings from
+Semaphore's `group.generateMerkleProof(index).siblings`. The contract checks they hash to the current root, swaps
+the leaf in place (same index), and restarts the group's root history at the new root, so the old identity stops
+proving membership at once. Nullifiers the old identity spent stay spent. About 29M CPU at a full group (1024).
+Errors: 24 NotMember, 4 DuplicateLeaf, 3 BadLeaf, 25 BadPath (stale siblings: re-read the leaves and retry).
+Side effect: other members' in-flight proofs against older roots must be re-made. Testnet, on a mirror of live:
+[`71750161…`](https://stellar.expert/explorer/testnet/tx/717501613aa3a976692d18ac8721357d41154706ced8aa4baaff859cc4d341ab),
+the on-chain root equals Semaphore's `group.updateMember` root, one root left in the history, a second move of the
+old leaf refused with 24.
 
 Turn it on (testnet, after review):
 

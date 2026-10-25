@@ -26,6 +26,9 @@ export type ContractError =
   | "RepHolder"
   | "RepNonce"
   | "RepReplay"
+  | "BadSeason"
+  | "NotMember"
+  | "BadPath"
 export type ClientError = "WalletNotConnected" | "UserRejected" | "InsufficientFunds" | "NotDemoMerchant" | "NotInTree" | "DisclosureRejected" | "Network" | "Unknown"
 export type ErrorName = ContractError | ClientError
 
@@ -319,6 +322,9 @@ export const errorCopy: Record<ErrorName, string> = {
   RepHolder: "the verdict was not presented by its own device",
   RepNonce: "the verdict was presented for another identity",
   RepReplay: "this REP verdict was already used",
+  BadSeason: "that season is over, refresh and retry",
+  NotMember: "that identity is not in this group",
+  BadPath: "the group changed, refresh and retry",
   WalletNotConnected: "connect to continue",
   UserRejected: "signing was cancelled",
   InsufficientFunds: "not enough USDC, get test USDC first",
