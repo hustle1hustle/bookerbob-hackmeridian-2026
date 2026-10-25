@@ -16,7 +16,7 @@ Sources and what they read:
 | Source | Status from | Action |
 |---|---|---|
 | wallet | SDK wallet (passkey, Freighter, or a demo key remembered in this browser) | passkey / freighter / demo key, or disconnect |
-| REP verified traveler | membership in the attested "REP verified traveler" group (connected); a REP session in progress (pending, "approve in REP Bob on your phone"); a refused or expired one (failed) | verify with REP: a fresh stay at the store that is never checked in, `POST /api/rep/session`, then `/api/rep/result` polled every 2 s |
+| REP verified traveler | only for the demo operator's browser (`GET /api/rep/status` → `{demo}`); otherwise "soon": "REP verified traveler is coming to the REP app" with a link to `REP_APP_URL` (pol-real export, one value), and the picker's "connect REP for +5%" opens the REP app too. For the demo browser: membership in the attested "REP verified traveler" group (connected); a REP session in progress (pending, "approve in REP Bob on your phone"); a refused or expired one (failed) | verify with REP: a fresh stay at the store that is never checked in, `POST /api/rep/session`, then `/api/rep/result` polled every 2 s |
 | Stellar Passport | `GET /api/passport/lookup?address=` (verify_onchain_zk `fetchPassport`, read only) | check (needs a wallet) |
 | network member | this browser's checked-in stays | none (comes with the first stay or purchase) |
 

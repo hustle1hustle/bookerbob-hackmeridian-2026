@@ -1173,7 +1173,7 @@ class Component extends DCLogic {
         label: e.label, pct: '−' + e.bps / 100 + '%', reason: this.shortReason(e, P, atCap), checked, notEligible: !e.eligible, mark: checked ? '✓' : '',
         boxBg: checked ? 'var(--ink)' : 'transparent', boxBd: e.eligible ? 'var(--ink)' : 'var(--rule-soft)', labelColor: e.eligible && !atCap ? 'var(--ink)' : 'var(--ink-3)', cursor: e.eligible ? 'pointer' : 'default',
         onToggle: () => { if (e.eligible) this.setState(st => ({ picks: { ...st.picks, [e.group]: st.picks[e.group] === false } })); },
-        needsRep: !e.eligible && e.group === 'traveler', repLink: 'connect REP for +' + e.bps / 100 + '%', openRep: () => this.openSources('rep'),
+        needsRep: !e.eligible && e.group === 'traveler', repLink: 'connect REP for +' + e.bps / 100 + '%', openRep: () => { const rp = ((this.state.src && this.state.src.list) || []).find(x => x.id === 'rep'); if (rp && rp.link) window.open(rp.link, '_blank', 'noopener'); else this.openSources('rep'); },
       };
     });
     return {
@@ -1557,6 +1557,7 @@ class Component extends DCLogic {
     const actions = r => {
       if (r.id === 'wallet') return r.status === 'connected' ? [btn('disconnect', () => this.srcAct('wallet', 'disconnect'))]
         : [btn(busy === 'passkey' ? 'waiting for your passkey…' : 'passkey', () => this.srcAct('wallet', 'passkey'), true, busy), btn(busy === 'freighter' ? 'waiting for freighter…' : 'freighter', () => this.srcAct('wallet', 'freighter'), false, busy), btn(busy === 'demo key' ? 'creating…' : 'demo key', () => this.srcAct('wallet', 'demo key'), false, busy)];
+      if (r.id === 'rep' && r.link) return [btn('get REP', () => window.open(r.link, '_blank', 'noopener'), false)];
       if (r.id === 'rep') return r.status === 'connected' ? [] : r.status === 'pending' ? [btn('waiting for REP Bob…', () => {}, false, true)] : [btn(r.status === 'failed' ? 'try again' : 'verify with REP', () => this.srcAct('rep'), true)];
       if (r.id === 'passport') return r.status === 'connected' || r.status === 'soon' ? [] : [btn(r.status === 'pending' ? 'checking…' : 'check', () => this.srcAct('passport'), false, r.status === 'pending' || !s.wallet)];
       return [];
