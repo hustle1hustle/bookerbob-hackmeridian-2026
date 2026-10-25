@@ -20,7 +20,9 @@ const places = await sdk.chain.listMerchants()
 log("places", places.map((p) => `${p.id}:${p.kind}:${p.name} ${p.ratingCount} reviews`).join(" | "))
 
 const stay = sdk.stays.create(MERCHANT)
-ok("checkout (demo desk)", await sdk.chain.checkout(MERCHANT, stay.commitment))
+// a stay is added only after a real booking at the place
+const firstBooking = ok<any>("first booking (fresh payer)", await sdk.chain.book(MERCHANT))
+ok("checkout (demo desk, with the booking tx)", await sdk.chain.checkout(MERCHANT, stay.commitment, firstBooking.txHash))
 await sdk.stays.sync()
 assert.ok(sdk.stays.list()[0].checkedIn)
 

@@ -632,7 +632,7 @@ export const chain = {
       }
       // the paying browser joins the place's customer tree through the demo desk (a new stay for this purchase)
       const stay = sdk.stays.create(p.mid)
-      const co: any = await sdk.chain.checkout(p.mid, stay.commitment)
+      const co: any = await sdk.chain.checkout(p.mid, stay.commitment, sent.txHash)
       const passTx = co && !co.error ? co.txHash : null
       if (passTx) rememberTx({ kind: "merchant", id: p.mid }, stay.commitment, passTx)
       loading = null

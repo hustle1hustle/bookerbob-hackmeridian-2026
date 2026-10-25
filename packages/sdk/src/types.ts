@@ -152,7 +152,7 @@ export interface Chain {
   explorerContract(): string
 
   /** Merchant role (wallet = merchant admin, or the BookerBob demo desk for demo places). Returns the new root. */
-  checkout(merchant: number, commitment: string): Promise<WriteResult<{ root: string }>>
+  checkout(merchant: number, commitment: string, bookingTx?: string): Promise<WriteResult<{ root: string }>>
   /** Guest, full price. */
   book(merchant: number): Promise<WriteResult<{ paid: Usdc }>>
   /** Guest, returning-guest discount. Drains prover.prove({ kind: "discount" }). */
