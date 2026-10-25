@@ -238,7 +238,7 @@ export interface PassportOptions {
   fetch?: typeof fetch
 }
 
-async function passportGet(base: string, path: string, f: typeof fetch, key?: string): Promise<unknown> {
+export async function passportGet(base: string, path: string, f: typeof fetch, key?: string): Promise<unknown> {
   // Hard timeout: a hanging CORS preflight to a third-party Passport origin must not block connect UI.
   const ctrl = typeof AbortController !== "undefined" ? new AbortController() : null
   const t = ctrl ? setTimeout(() => ctrl.abort(), 4_000) : null
@@ -256,7 +256,7 @@ async function passportGet(base: string, path: string, f: typeof fetch, key?: st
 }
 
 /** Accept a bare array or wrappers ({builders|profiles|data|entries|…}). */
-function rowsOf(payload: unknown): Record<string, unknown>[] {
+export function rowsOf(payload: unknown): Record<string, unknown>[] {
   if (Array.isArray(payload)) return payload as Record<string, unknown>[]
   if (payload && typeof payload === "object") {
     for (const k of ["builders", "profiles", "data", "entries", "leaderboard", "results"]) {
@@ -274,15 +274,15 @@ function nextCursorOf(payload: unknown): string | null {
   return typeof o.next_cursor === "string" && o.next_cursor ? o.next_cursor : null
 }
 
-function numOf(x: unknown): number | undefined {
+export function numOf(x: unknown): number | undefined {
   return typeof x === "number" && Number.isFinite(x) ? x : undefined
 }
 
-function strOf(x: unknown): string | undefined {
+export function strOf(x: unknown): string | undefined {
   return typeof x === "string" && x ? x : undefined
 }
 
-function signalsFromProfile(
+export function signalsFromProfile(
   profile: Record<string, unknown>,
   source: PassportSignals["source"],
   extra: Partial<PassportSignals> = {},
@@ -304,7 +304,7 @@ function signalsFromProfile(
  * Builder slug for /api/builder/public/<slug> from a leaderboard profileUrl.
  * The live API returns relative paths ("/builder/<slug>"); a full github.com URL also works.
  */
-function builderSlug(profileUrl: string | undefined): string | undefined {
+export function builderSlug(profileUrl: string | undefined): string | undefined {
   if (!profileUrl) return undefined
   try {
     const u = new URL(profileUrl, PASSPORT_BASE_URL)
@@ -371,27 +371,11 @@ export async function fetchPassport(address: string, opts: PassportOptions = {})
       }
       return none
     }
-    const payload = await passportGet(base, "/api/leaderboard?metric=points&window=all&limit=10", f)
-    for (const entry of rowsOf(payload).slice(0, 10)) {
-      const slug = builderSlug(strOf(entry.profileUrl))
-      if (!slug) continue
-      const payloadB = await passportGet(base, `/api/builder/public/${slug}`, f)
-      if (!payloadB || typeof payloadB !== "object") continue
-      const wrap = payloadB as Record<string, unknown>
-      const profile = (wrap.builder && typeof wrap.builder === "object" ? wrap.builder : wrap) as Record<string, unknown>
-      if (profile.stellar_address !== address) continue
-      const rawUrl = strOf(entry.profileUrl)
-      const topStats = (wrap.stats ?? {}) as Record<string, unknown>
-      const signals = signalsFromProfile(profile, "keyless", {
-        points: numOf(entry.points) ?? numOf(entry.value),
-        rankName: strOf(entry.rankName),
-        profileUrl: rawUrl ? (rawUrl.startsWith("/") ? `${base}${rawUrl}` : rawUrl) : undefined,
-        totalCommits30d: numOf(topStats.totalCommits30d),
-        activeDays30d: numOf(topStats.activeDays30d),
-      })
-      return { score: ratePassportSignals(signals), matched: true, signals }
-    }
-    return none
+    // keyless builder walk (Passport leaderboard): server only, kept out of browser bundles entirely
+    if (typeof window !== "undefined") return none
+    const spec = "./passport-keyless" + ".ts"
+    const mod = await import(/* @vite-ignore */ spec)
+    return await mod.keylessPassport(address, base, f, none)
   } catch {
     return none
   }
