@@ -1,7 +1,7 @@
 // In-memory mock of all SDK bind points. Same types as the testnet implementation; timings mimic the real flow.
-import type { Chain, Disclosure, Hotel, ProofEvent, ProofRequest, Prover, Review, Sdk, Stay, Stays, Wallet, WalletKind, WriteResult } from "./types.ts"
+import type { Chain, Disclosure, Merchant, ProofEvent, ProofRequest, Prover, Review, Sdk, Stay, Stays, Wallet, WalletKind, WriteResult } from "./types.ts"
 import { isErr } from "./types.ts"
-import { fixtureHotels, fixtureReviews, mockDec, mockHex } from "./fixtures.ts"
+import { fixtureMerchants, fixtureReviews, mockDec, mockHex } from "./fixtures.ts"
 
 export interface MockOptions {
   /** Multiplies all delays; 0 makes the mock instant (tests, screenshots). */
@@ -13,7 +13,7 @@ export interface MockOptions {
 export function createMockSdk(opts: MockOptions = {}): Sdk {
   const speed = opts.speed ?? 1
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms * speed))
-  const hotels: Hotel[] = structuredClone(fixtureHotels)
+  const merchants: Merchant[] = structuredClone(fixtureMerchants)
   const reviews: Review[] = structuredClone(fixtureReviews)
   const spent = new Set<string>()
   const leaves = new Set<string>()
@@ -53,27 +53,27 @@ export function createMockSdk(opts: MockOptions = {}): Sdk {
 
   // ---- stays (local) ----
   const myStays: Stay[] = [
-    { hotel: 0, stayIndex: 0, commitment: mockDec(900), createdAt: Date.now() - 86_400_000 * 40, checkedIn: true, reviewId: null, discountSeasonsUsed: [] },
-    { hotel: 1, stayIndex: 0, commitment: mockDec(901), createdAt: Date.now() - 86_400_000 * 10, checkedIn: true, reviewId: 10, discountSeasonsUsed: [] },
+    { merchant: 0, stayIndex: 0, commitment: mockDec(900), createdAt: Date.now() - 86_400_000 * 40, checkedIn: true, reviewId: null, discountSeasonsUsed: [] },
+    { merchant: 1, stayIndex: 0, commitment: mockDec(901), createdAt: Date.now() - 86_400_000 * 10, checkedIn: true, reviewId: 10, discountSeasonsUsed: [] },
   ]
-  myStays.forEach((s) => leaves.add(`${s.hotel}:${s.commitment}`))
+  myStays.forEach((s) => leaves.add(`${s.merchant}:${s.commitment}`))
   const stays: Stays = {
     list: () => myStays,
-    create(hotel) {
-      const idx = myStays.filter((s) => s.hotel === hotel).length
-      const s: Stay = { hotel, stayIndex: idx, commitment: mockDec(1000 + myStays.length), createdAt: Date.now(), checkedIn: false, reviewId: null, discountSeasonsUsed: [] }
+    create(merchant) {
+      const idx = myStays.filter((s) => s.merchant === merchant).length
+      const s: Stay = { merchant, stayIndex: idx, commitment: mockDec(1000 + myStays.length), createdAt: Date.now(), checkedIn: false, reviewId: null, discountSeasonsUsed: [] }
       myStays.push(s)
       return s
     },
     async sync() {
       await sleep(200)
-      for (const s of myStays) s.checkedIn = leaves.has(`${s.hotel}:${s.commitment}`)
+      for (const s of myStays) s.checkedIn = leaves.has(`${s.merchant}:${s.commitment}`)
       return myStays
     },
   }
 
   const need = <T>(): WriteResult<T> | null => (address ? null : { error: "WalletNotConnected" })
-  const hotelOr = (id: number) => hotels.find((h) => h.id === id)
+  const merchantOr = (id: number) => merchants.find((h) => h.id === id)
 
   // ---- prover ----
   const prover: Prover = {
@@ -94,10 +94,10 @@ export function createMockSdk(opts: MockOptions = {}): Sdk {
       await sleep(700)
       yield { stage: "verifying" }
       await sleep(1500)
-      const h = hotelOr(req.stay.hotel)
+      const h = merchantOr(req.stay.merchant)
       const f = forced()
       if (f) return yield { stage: "done", result: { error: f } }
-      if (!h) return yield { stage: "done", result: { error: "HotelNotFound" } }
+      if (!h) return yield { stage: "done", result: { error: "MerchantNotFound" } }
       if (!req.stay.checkedIn) return yield { stage: "done", result: { error: "UnknownRoot" } }
       if (req.kind === "review") {
         const key = `review:${h.id}:${req.stay.commitment}`
@@ -105,7 +105,7 @@ export function createMockSdk(opts: MockOptions = {}): Sdk {
         spent.add(key)
         const r: Review = {
           id: reviews.length,
-          hotel: h.id,
+          merchant: h.id,
           rating: req.rating,
           contentHash: mockHex(5000 + reviews.length),
           text: req.text,
@@ -139,46 +139,46 @@ export function createMockSdk(opts: MockOptions = {}): Sdk {
 
   // ---- chain ----
   const chain: Chain = {
-    async listHotels() {
+    async listMerchants() {
       await sleep(250)
-      return structuredClone(hotels)
+      return structuredClone(merchants)
     },
-    async getHotel(id) {
+    async getMerchant(id) {
       await sleep(150)
-      const h = hotelOr(id)
-      if (!h) throw new Error("HotelNotFound")
+      const h = merchantOr(id)
+      if (!h) throw new Error("MerchantNotFound")
       return structuredClone(h)
     },
-    async getReviews(hotel) {
+    async getReviews(merchant) {
       await sleep(200)
-      return structuredClone(reviews.filter((r) => r.hotel === hotel).reverse())
+      return structuredClone(reviews.filter((r) => r.merchant === merchant).reverse())
     },
     explorerTx: (h) => `https://stellar.expert/explorer/testnet/tx/${h}`,
     explorerContract: () => "https://stellar.expert/explorer/testnet/contract/CBZ7I3VOQEMK5LKDZLCUJ4VU6KQX5WT747XN4KLGM23EIUCISTDX5MTL",
-    async checkout(hotel, commitment) {
+    async checkout(merchant, commitment) {
       const nw = need<{ root: string }>()
       if (nw) return nw
       await sleep(1200)
       const f = forced()
       if (f) return { error: f }
-      const h = hotelOr(hotel)
-      if (!h) return { error: "HotelNotFound" }
+      const h = merchantOr(merchant)
+      if (!h) return { error: "MerchantNotFound" }
       if (!/^\d+$/.test(commitment) || commitment === "0") return { error: "BadLeaf" }
-      const key = `${hotel}:${commitment}`
+      const key = `${merchant}:${commitment}`
       if (leaves.has(key)) return { error: "DuplicateLeaf" }
       leaves.add(key)
       h.provenStays += 1
       h.root = mockDec(8000 + h.provenStays)
       return { txHash: tx(), root: h.root }
     },
-    async book(hotel) {
+    async book(merchant) {
       const nw = need<{ paid: bigint }>()
       if (nw) return nw
       await sleep(1200)
       const f = forced()
       if (f) return { error: f }
-      const h = hotelOr(hotel)
-      if (!h) return { error: "HotelNotFound" }
+      const h = merchantOr(merchant)
+      if (!h) return { error: "MerchantNotFound" }
       return { txHash: tx(), paid: h.price }
     },
     bookWithDiscount: (stay, season) => drain({ kind: "discount", stay, season }),
@@ -191,7 +191,7 @@ export function createMockSdk(opts: MockOptions = {}): Sdk {
       if (!r) return { error: "ReviewNotFound" }
       if (!r.verified) {
         r.verified = true
-        hotelOr(r.hotel)!.verifiedCount += 1
+        merchantOr(r.merchant)!.verifiedCount += 1
       }
       return { txHash: tx() }
     },
@@ -203,7 +203,7 @@ export function createMockSdk(opts: MockOptions = {}): Sdk {
       await sleep(300)
       return {
         reviewId: stay.reviewId ?? -1,
-        hotel: stay.hotel,
+        merchant: stay.merchant,
         commitment: stay.commitment,
         leafIndex: 3,
         dk: mockDec(9100 + stay.stayIndex),

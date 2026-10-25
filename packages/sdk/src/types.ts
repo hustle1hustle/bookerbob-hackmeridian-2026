@@ -4,7 +4,7 @@
 
 /** Contract errors (contracts/proof_of_stay `Error`), plus client-side failures. */
 export type ContractError =
-  | "HotelNotFound"
+  | "MerchantNotFound"
   | "TreeFull"
   | "BadLeaf"
   | "DuplicateLeaf"
@@ -27,15 +27,19 @@ export const isErr = <T>(r: WriteResult<T>): r is WriteErr => "error" in r
 /** USDC amounts are raw token units, 7 decimals (1 USDC = 10_000_000n). */
 export type Usdc = bigint
 
-export interface Hotel {
+/** A place where someone was a customer. Hotels are the hero kind of the demo. */
+export type MerchantKind = "hotel" | "cafe" | "restaurant" | "shop" | "service" | "event" | (string & {})
+
+export interface Merchant {
   id: number
   admin: string
+  kind: MerchantKind
   name: string
-  /** Fictional demo hotel (seed data) vs real hotel (later stage). */
+  /** Fictional demo place (seed data) vs a real one (later stage). */
   demo: boolean
   price: Usdc
   discountBps: number
-  /** Proven stays = leaves in the hotel's tree. */
+  /** Proven customers (stays, visits, orders) = leaves in the merchant's tree. */
   provenStays: number
   /** Current tree root, decimal string. Show short hex, secondary. */
   root: string
@@ -46,7 +50,7 @@ export interface Hotel {
 
 export interface Review {
   id: number
-  hotel: number
+  merchant: number
   rating: 1 | 2 | 3 | 4 | 5
   /** sha256 of the text, hex without 0x. The chain stores only this. */
   contentHash: string
@@ -63,15 +67,15 @@ export interface Review {
   txHash: string | null
 }
 
-/** A stay this browser holds a per-stay Semaphore identity for. Local only, never on chain. */
+/** A stay (or visit, order) this browser holds a per-stay Semaphore identity for. Local only, never on chain. */
 export interface Stay {
-  hotel: number
-  /** Per-hotel stay counter used in the identity derivation. */
+  merchant: number
+  /** Per-merchant stay counter used in the identity derivation. */
   stayIndex: number
-  /** Identity commitment (decimal string): the only thing the guest gives the hotel at checkout. */
+  /** Identity commitment (decimal string): the only thing the guest gives the merchant at checkout. */
   commitment: string
   createdAt: number
-  /** Set once the hotel checked this commitment in. */
+  /** Set once the merchant checked this commitment in. */
   checkedIn: boolean
   reviewId: number | null
   discountSeasonsUsed: number[]
@@ -93,16 +97,16 @@ export type ProofEvent =
 
 export interface Chain {
   /** Views: free, no wallet. */
-  listHotels(): Promise<Hotel[]>
-  getHotel(id: number): Promise<Hotel>
-  getReviews(hotel: number): Promise<Review[]>
+  listMerchants(): Promise<Merchant[]>
+  getMerchant(id: number): Promise<Merchant>
+  getReviews(merchant: number): Promise<Review[]>
   explorerTx(txHash: string): string
   explorerContract(): string
 
-  /** Hotel role (wallet = hotel admin). Returns the new root. */
-  checkout(hotel: number, commitment: string): Promise<WriteResult<{ root: string }>>
+  /** Merchant role (wallet = merchant admin, or the BookerBob demo desk for demo places). Returns the new root. */
+  checkout(merchant: number, commitment: string): Promise<WriteResult<{ root: string }>>
   /** Guest, full price. */
-  book(hotel: number): Promise<WriteResult<{ paid: Usdc }>>
+  book(merchant: number): Promise<WriteResult<{ paid: Usdc }>>
   /** Guest, returning-guest discount. Drains prover.prove({ kind: "discount" }). */
   bookWithDiscount(stay: Stay, season: number): Promise<WriteResult<DiscountDone>>
   /** Guest, anonymous review. Drains prover.prove({ kind: "review" }). */
@@ -132,8 +136,8 @@ export interface Wallet {
 /** Guest-side local stays (per-stay identities derived from a master secret in this browser). */
 export interface Stays {
   list(): Stay[]
-  /** New stay identity for a hotel; show its commitment (QR / copy) at the checkout desk. */
-  create(hotel: number): Stay
+  /** New stay identity for a merchant; show its commitment (QR / copy) at the checkout desk. */
+  create(merchant: number): Stay
   /** Refresh checkedIn by looking the commitment up on chain. */
   sync(): Promise<Stay[]>
 }
@@ -141,7 +145,7 @@ export interface Stays {
 /** What the guest privately hands the arbiter in a dispute. */
 export interface DisclosurePackage {
   reviewId: number
-  hotel: number
+  merchant: number
   commitment: string
   leafIndex: number
   /** Secret behind disclosure_commit = Poseidon(dk). */
@@ -174,11 +178,11 @@ export interface Sdk {
 
 /** Human copy for each error, per the design handoff. */
 export const errorCopy: Record<ErrorName, string> = {
-  HotelNotFound: "this hotel does not exist",
-  TreeFull: "this hotel's guest tree is full",
+  MerchantNotFound: "this place does not exist",
+  TreeFull: "this place's customer tree is full",
   BadLeaf: "that is not a valid stay code",
-  DuplicateLeaf: "this guest is already checked in",
-  UnknownRoot: "this proof is for an older state of the hotel, refresh and retry",
+  DuplicateLeaf: "this customer is already checked in",
+  UnknownRoot: "this proof is for an older state of the place, refresh and retry",
   NullifierUsed: "this stay already used it",
   NonCanonical: "the proof did not check out",
   InvalidProof: "the proof did not check out",
@@ -197,9 +201,13 @@ export const nullifierCopy = { review: "this stay already reviewed", discount: "
 
 export const USDC_DECIMALS = 7
 export const formatUsdc = (v: Usdc, digits = 2): string => (Number(v) / 10 ** USDC_DECIMALS).toFixed(digits)
-export const averageRating = (h: Pick<Hotel, "ratingSum" | "ratingCount">): number | null =>
+export const averageRating = (h: Pick<Merchant, "ratingSum" | "ratingCount">): number | null =>
   h.ratingCount === 0 ? null : h.ratingSum / h.ratingCount
 export const shortHex = (dec: string, n = 6): string => {
   const h = BigInt(dec).toString(16).padStart(64, "0")
   return `0x${h.slice(0, n)}…${h.slice(-4)}`
 }
+
+/** Display label per kind; unknown kinds fall back to the raw symbol. */
+export const kindLabel = (k: MerchantKind): string =>
+  ({ hotel: "hotel", cafe: "café", restaurant: "restaurant", shop: "shop", service: "service", event: "event" } as Record<string, string>)[k] ?? k

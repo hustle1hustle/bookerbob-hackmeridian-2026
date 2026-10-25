@@ -3,9 +3,10 @@ import assert from "node:assert/strict"
 import { createSdk, isErr, averageRating, formatUsdc } from "./index.ts"
 
 const sdk = createSdk({ mode: "mock", mock: { speed: 0 } })
-const hotels = await sdk.chain.listHotels()
-assert.equal(hotels.length, 4)
-assert.equal(averageRating(hotels[3]), null)
+const places = await sdk.chain.listMerchants()
+assert.equal(places.length, 5)
+assert.equal(places.filter((p) => p.kind === "hotel").length, 3)
+assert.equal(averageRating(places[4]), null)
 
 assert.deepEqual(await sdk.chain.book(0), { error: "WalletNotConnected" })
 await sdk.wallet.connect()

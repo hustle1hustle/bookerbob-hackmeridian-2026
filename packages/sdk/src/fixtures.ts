@@ -1,6 +1,6 @@
-// Mock fixture data matching the seed reality: 3 fictional Lisbon hotels, 5 to 12 reviews each,
-// 1 to 3 arbiter-verified, plus one real-hotel slot with 0 reviews to exercise empty states.
-import type { Hotel, Review } from "./types.ts"
+// Mock fixture data matching the seed reality: 3 fictional Lisbon hotels (the hero), a café and a shop,
+// 5 to 12 reviews per hotel, 1 to 3 arbiter-verified, and one place with 0 reviews to exercise empty states.
+import type { Merchant, Review } from "./types.ts"
 
 const U = 10_000_000n
 const hex = (seed: number, len = 64) => {
@@ -14,11 +14,12 @@ const hex = (seed: number, len = 64) => {
 }
 const dec = (seed: number) => BigInt("0x" + hex(seed, 62)).toString()
 
-export const fixtureHotels: Hotel[] = [
-  { id: 0, admin: "GBNGYFWKDGSH6JFWKH4ADSVPTN4F6YWUOEQSJHE2NVPTPU4RVJ2YX4LK", name: "Casa Azulejo Nove", demo: true, price: 110n * U, discountBps: 1500, provenStays: 14, root: dec(1), ratingSum: 0, ratingCount: 0, verifiedCount: 0 },
-  { id: 1, admin: "GA2MOCKHOTEL2XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", name: "Pátio das Gaivotas", demo: true, price: 95n * U, discountBps: 2000, provenStays: 9, root: dec(2), ratingSum: 0, ratingCount: 0, verifiedCount: 0 },
-  { id: 2, admin: "GA3MOCKHOTEL3XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", name: "Ribeira Slow House", demo: true, price: 140n * U, discountBps: 1000, provenStays: 6, root: dec(3), ratingSum: 0, ratingCount: 0, verifiedCount: 0 },
-  { id: 3, admin: "GA4MOCKHOTEL4XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", name: "Miradouro Rooms", demo: true, price: 120n * U, discountBps: 1000, provenStays: 1, root: dec(4), ratingSum: 0, ratingCount: 0, verifiedCount: 0 },
+export const fixtureMerchants: Merchant[] = [
+  { id: 0, kind: "hotel", admin: "GBNGYFWKDGSH6JFWKH4ADSVPTN4F6YWUOEQSJHE2NVPTPU4RVJ2YX4LK", name: "Casa Azulejo Nove", demo: true, price: 110n * U, discountBps: 1500, provenStays: 14, root: dec(1), ratingSum: 0, ratingCount: 0, verifiedCount: 0 },
+  { id: 1, kind: "hotel", admin: "GA2MOCKHOTEL2XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", name: "Pátio das Gaivotas", demo: true, price: 95n * U, discountBps: 2000, provenStays: 9, root: dec(2), ratingSum: 0, ratingCount: 0, verifiedCount: 0 },
+  { id: 2, kind: "hotel", admin: "GA3MOCKHOTEL3XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", name: "Ribeira Slow House", demo: true, price: 140n * U, discountBps: 1000, provenStays: 6, root: dec(3), ratingSum: 0, ratingCount: 0, verifiedCount: 0 },
+  { id: 3, kind: "cafe", admin: "GA4MOCKCAFE4XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", name: "Café Lento", demo: true, price: 4n * U, discountBps: 2500, provenStays: 11, root: dec(4), ratingSum: 0, ratingCount: 0, verifiedCount: 0 },
+  { id: 4, kind: "shop", admin: "GA5MOCKSHOP5XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", name: "Fio de Linho", demo: true, price: 38n * U, discountBps: 1000, provenStays: 2, root: dec(5), ratingSum: 0, ratingCount: 0, verifiedCount: 0 },
 ]
 
 const texts: [number, 1 | 2 | 3 | 4 | 5, string | null, boolean][] = [
@@ -39,11 +40,14 @@ const texts: [number, 1 | 2 | 3 | 4 | 5, string | null, boolean][] = [
   [2, 4, "breakfast until noon, perfect after fado", false],
   [2, 3, "stairs only, heavy bags were a workout", false],
   [2, 5, "best sleep I had in Lisbon", false],
+  [3, 5, "the pastel de nata comes out warm at 9", false],
+  [3, 4, "good flat white, tiny tables", true],
+  [3, 4, "quiet enough to work for an hour", false],
 ]
 
-export const fixtureReviews: Review[] = texts.map(([hotel, rating, text, verified], i) => ({
+export const fixtureReviews: Review[] = texts.map(([merchant, rating, text, verified], i) => ({
   id: i,
-  hotel,
+  merchant,
   rating,
   contentHash: hex(100 + i),
   text,
@@ -56,8 +60,8 @@ export const fixtureReviews: Review[] = texts.map(([hotel, rating, text, verifie
 }))
 
 // Derive aggregates from the reviews so the numbers are consistent.
-for (const h of fixtureHotels) {
-  const rs = fixtureReviews.filter((r) => r.hotel === h.id)
+for (const h of fixtureMerchants) {
+  const rs = fixtureReviews.filter((r) => r.merchant === h.id)
   h.ratingSum = rs.reduce((a, r) => a + r.rating, 0)
   h.ratingCount = rs.length
   h.verifiedCount = rs.filter((r) => r.verified).length

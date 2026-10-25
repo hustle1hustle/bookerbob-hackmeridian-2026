@@ -12,7 +12,7 @@ The contract takes the token address in its constructor, so Circle's testnet USD
 
 ## Golden proof gate
 
-Current contract (Sun 25 Oct, ~13:10 Lisbon), `scripts/gate.sh`:
+Current contract (Sun 25 Oct, ~12:40 Lisbon), `scripts/gate.sh`:
 
 | Input | Result | Tx |
 |---|---|---|

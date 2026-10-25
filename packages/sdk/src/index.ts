@@ -5,7 +5,7 @@
 export * from "./types.ts"
 export { createMockSdk } from "./mock.ts"
 export type { MockOptions } from "./mock.ts"
-export { fixtureHotels, fixtureReviews } from "./fixtures.ts"
+export { fixtureMerchants, fixtureReviews } from "./fixtures.ts"
 
 import type { Sdk } from "./types.ts"
 import { createMockSdk, type MockOptions } from "./mock.ts"
