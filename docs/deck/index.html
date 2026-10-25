@@ -93,15 +93,35 @@
   </svg>
 </section>
 
-<!-- 5 zk facts -->
+<!-- 5 zk, one purchase traced -->
 <section class="s dark">
   <div class="lbl">Applied zero-knowledge, concretely</div><div class="no">05</div>
-  <div style="margin-top:120px;display:grid;gap:56px">
-    <div style="display:grid;grid-template-columns:120px 1fr;align-items:baseline"><span class="fig" style="font-size:96px;color:#8EA0FF">1</span><span style="font-size:56px;letter-spacing:-.03em;color:var(--bg)">Semaphore v4 Groth16 proofs, made in your browser in ~0.3&nbsp;s</span></div>
-    <div style="display:grid;grid-template-columns:120px 1fr;align-items:baseline"><span class="fig" style="font-size:96px;color:#8EA0FF">2</span><span style="font-size:56px;letter-spacing:-.03em;color:var(--bg)">verified natively on Stellar (BN254, Poseidon)</span></div>
-    <div style="display:grid;grid-template-columns:120px 1fr;align-items:baseline"><span class="fig" style="font-size:96px;color:#8EA0FF">3</span><span style="font-size:56px;letter-spacing:-.03em;color:var(--bg)">one proof, one use (nullifiers)</span></div>
+  <h2 style="color:var(--bg);font-size:84px;margin-top:16px">one purchase, traced.</h2>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:60px;margin-top:48px">
+    <div>
+      <div class="lbl" style="color:#8EA0FF">01 · your device</div>
+      <div style="font-size:40px;letter-spacing:-.03em;margin-top:10px;color:var(--bg)">prove you belong</div>
+      <div style="height:240px;margin-top:28px;border:1px solid rgba(236,234,227,.25);padding:14px 16px;display:flex;align-items:center"><svg viewBox="0 0 520 220" width="100%" height="210"><rect x="4.0" y="170" width="28" height="24" fill="#3A3934"/><rect x="36.0" y="170" width="28" height="24" fill="#3A3934"/><rect x="68.0" y="170" width="28" height="24" fill="#3A3934"/><rect x="100.0" y="170" width="28" height="24" fill="#3A3934"/><rect x="132.0" y="170" width="28" height="24" fill="#3A3934"/><rect x="164.0" y="170" width="28" height="24" fill="#3A3934"/><rect x="196.0" y="170" width="28" height="24" fill="#3A3934"/><rect x="228.0" y="170" width="28" height="24" fill="#3A3934"/><rect x="260.0" y="170" width="28" height="24" fill="#3A3934"/><rect x="292.0" y="170" width="28" height="24" fill="#3A3934"/><rect x="324.0" y="170" width="28" height="24" fill="#3A3934"/><rect x="356.0" y="170" width="28" height="24" fill="#3A3934"/><rect x="388.0" y="170" width="28" height="24" fill="#3A3934"/><rect x="420.0" y="170" width="28" height="24" fill="#8EA0FF"/><rect x="452.0" y="170" width="28" height="24" fill="#3A3934"/><rect x="484.0" y="170" width="28" height="24" fill="#3A3934"/><rect x="20.0" y="134" width="28" height="24" fill="#3A3934"/><rect x="84.0" y="134" width="28" height="24" fill="#3A3934"/><rect x="148.0" y="134" width="28" height="24" fill="#3A3934"/><rect x="212.0" y="134" width="28" height="24" fill="#3A3934"/><rect x="276.0" y="134" width="28" height="24" fill="#3A3934"/><rect x="340.0" y="134" width="28" height="24" fill="#3A3934"/><rect x="404.0" y="134" width="28" height="24" fill="#8EA0FF"/><rect x="468.0" y="134" width="28" height="24" fill="#3A3934"/><rect x="52.0" y="98" width="28" height="24" fill="#3A3934"/><rect x="180.0" y="98" width="28" height="24" fill="#3A3934"/><rect x="308.0" y="98" width="28" height="24" fill="#3A3934"/><rect x="436.0" y="98" width="28" height="24" fill="#8EA0FF"/><rect x="116.0" y="62" width="28" height="24" fill="#3A3934"/><rect x="372.0" y="62" width="28" height="24" fill="#8EA0FF"/><rect x="244.0" y="26" width="28" height="24" fill="#8EA0FF"/><text x="434" y="218" font-size="22" fill="#8EA0FF" text-anchor="middle" font-family="Geist Mono">you</text><text x="286" y="40" font-size="22" fill="#8C897F" font-family="Geist Mono">root</text></svg></div>
+      <p style="font-size:30px;line-height:1.25;letter-spacing:-.01em;color:var(--bg);margin:28px 0 0">your secret is one leaf in the store's Poseidon tree. you prove you are a leaf, not which one.</p>
+      <p style="font-size:24px;line-height:1.3;color:#B4B1A8;margin:16px 0 0">Semaphore v4 proof, about 0.3 to 1.5 s in a browser. only the proof leaves your device.</p>
+    </div>
+    <div>
+      <div class="lbl" style="color:#8EA0FF">02 · stellar contract</div>
+      <div style="font-size:40px;letter-spacing:-.03em;margin-top:10px;color:var(--bg)">check it on chain</div>
+      <div style="height:240px;margin-top:28px;border:1px solid rgba(236,234,227,.25);padding:14px 16px;display:flex;align-items:center"><svg viewBox="0 0 520 210" width="100%" height="200"><path d="M4 30 l10 10 20 -22" fill="none" stroke="#8EA0FF" stroke-width="5"/><text x="48" y="40" font-size="28" fill="#ECEAE3">root is in this store's history</text><path d="M4 82 l10 10 20 -22" fill="none" stroke="#8EA0FF" stroke-width="5"/><text x="48" y="92" font-size="28" fill="#ECEAE3">nullifier never used</text><path d="M4 134 l10 10 20 -22" fill="none" stroke="#8EA0FF" stroke-width="5"/><text x="48" y="144" font-size="28" fill="#ECEAE3">Groth16 pairing on BN254: valid</text><path d="M4 186 l10 10 20 -22" fill="none" stroke="#8EA0FF" stroke-width="5"/><text x="48" y="196" font-size="28" fill="#ECEAE3">USDC paid in the same tx</text></svg></div>
+      <p style="font-size:30px;line-height:1.25;letter-spacing:-.01em;color:var(--bg);margin:28px 0 0">native BN254 and Poseidon. the proof check is 7.8% of one transaction.</p>
+      <p style="font-size:24px;line-height:1.3;color:#B4B1A8;margin:16px 0 0">31.1M CPU of 400M · <a class="tx" style="font-size:24px;color:#8EA0FF" href="https://stellar.expert/explorer/testnet/tx/fa5b8795b006a947cd7e36428aeacb95d1b10ee1ece137ffb76f06015d764236">tx fa5b8795…</a></p>
+    </div>
+    <div>
+      <div class="lbl" style="color:#8EA0FF">03 · what the store sees</div>
+      <div style="font-size:40px;letter-spacing:-.03em;margin-top:10px;color:var(--bg)">a verified customer paid</div>
+      <div style="height:240px;margin-top:28px;border:1px solid rgba(236,234,227,.25);padding:14px 16px;display:flex;align-items:center"><div style="background:#F6F5F1;color:#121211;width:100%;padding:22px 26px;font-family:var(--mono)"><div style="font-size:20px;color:#6B685F">REP STORE · ORDER #1028</div><div style="font-size:24px;margin-top:14px;text-decoration:line-through;color:#6B685F">40.80 usdc</div><div style="font-family:var(--sans);font-size:64px;font-weight:500;letter-spacing:-.04em;line-height:1">34.68 <span style="font-size:24px">usdc</span></div><div style="font-size:20px;margin-top:12px;color:#1D3BD1">✓ verified returning customer</div></div></div>
+      <p style="font-size:30px;line-height:1.25;letter-spacing:-.01em;color:var(--bg);margin:28px 0 0">not who. not which past order.</p>
+      <p style="font-size:24px;line-height:1.3;color:#B4B1A8;margin:16px 0 0"><span style="color:#FF8F70">✗</span> same proof again: refused, nullifier already spent.</p>
+    </div>
   </div>
-  <aside class="notes">Browser proving 0.29 to 0.42 s per proof once the 4.1 MB proving files are cached (measured in the UX audit). Groth16 check 7.8% of a transaction. A nullifier per scope and season makes a second use fail.</aside>
+  <div style="position:absolute;left:120px;right:120px;bottom:64px;border-top:1px solid rgba(236,234,227,.2);padding-top:18px;font-family:var(--mono);font-size:22px;color:#8C897F">Semaphore v4 · Poseidon LeanIMT depth 10 · Groth16 on BN254 · nullifier per place and season</div>
+  <aside class="notes">One real purchase: Bob at the REP Store (Shopify) over UCP, 40.80 to 34.68 USDC (returning customer 10% + network 5%), tx fa5b8795, Shopify order #1028 (evidence/run-7-after-upgrade.log in the ucp module). Groth16 verify 31,121,024 CPU, 7.8% of the 400M limit (docs/bench.md). Browser proving about 0.3 to 1.5 s after a one-time ~4.2 MB download (docs/bench.md). Replay of a spent proof: the contract refuses with NullifierUsed (evidence/replay.log). The tree glyph is a drawing, not this store's real tree.</aside>
 </section>
 
 <!-- 6 flywheel -->
