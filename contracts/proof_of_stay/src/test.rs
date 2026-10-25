@@ -432,3 +432,181 @@ fn upgrade_by_non_admin_is_refused() {
     }]);
     assert!(c.client.try_upgrade(&hash).is_err());
 }
+
+// ---- context groups ----
+
+use crate::{Claim, GroupRef, Policy, PolicyItem};
+
+const GFX: &str = include_str!("../../../circuits/golden/depth10/fixtures-groups.json");
+
+struct GCtx<'a> {
+    c: Ctx<'a>,
+    gx: serde_json::Value,
+    guest: Address,
+    attester: Address,
+}
+
+/// Merchant 0 joins chain group 0 before checkouts, attested group 1 holds stay 2 only.
+fn gsetup<'a>() -> GCtx<'a> {
+    let env = Env::default();
+    env.mock_all_auths();
+    env.cost_estimate().budget().reset_unlimited();
+    let (vk, _, _) = load(&env);
+    let admin = Address::generate(&env);
+    let arbiter = Address::generate(&env);
+    let sac = env.register_stellar_asset_contract_v2(Address::generate(&env));
+    let id = env.register(ProofOfStay, (admin, arbiter, sac.address(), vk));
+    let client = ProofOfStayClient::new(&env, &id);
+    let usdc = token::Client::new(&env, &sac.address());
+    let hotel_admin = Address::generate(&env);
+    let attester = Address::generate(&env);
+    let gx: serde_json::Value = serde_json::from_str(GFX).unwrap();
+    client.register_merchant(&hotel_admin, &Symbol::new(&env, "hotel"), &SString::from_str(&env, "Casa"), &1_000_000_000, &2000);
+    let chain = client.create_group(&Symbol::new(&env, "chain"), &hotel_admin, &SString::from_str(&env, "Lisbon stays network"));
+    let att = client.create_group(&Symbol::new(&env, "attested"), &attester, &SString::from_str(&env, "verified traveler"));
+    assert_eq!((chain, att), (0, 1));
+    client.join_chain(&0, &0);
+    for cm in gx["commitments"].as_array().unwrap() {
+        client.checkout(&0, &u256_dec(&env, cm.as_str().unwrap()));
+    }
+    client.add_member(&1, &u256_dec(&env, gx["attested"][0].as_str().unwrap()));
+    let guest = Address::from_str(&env, gx["guest"].as_str().unwrap());
+    soroban_sdk::token::StellarAssetClient::new(&env, &sac.address()).mint(&guest, &5_000_000_000);
+    let fx: serde_json::Value = serde_json::from_str(FIXTURES).unwrap();
+    GCtx { c: Ctx { env, client, usdc, hotel_admin, fx }, gx, guest, attester }
+}
+
+fn claim(g: &GCtx, name: &str, group: GroupRef) -> Claim {
+    let j = &g.gx["claims"][name];
+    Claim { group, proof: proof_from(&g.c.env, &j["proof"]), root: u256_dec(&g.c.env, j["root"].as_str().unwrap()), nullifier: u256_dec(&g.c.env, j["nullifier"].as_str().unwrap()) }
+}
+
+fn policy(g: &GCtx, items: &[(GroupRef, u32)], max_bps: u32) {
+    let mut v = Vec::new(&g.c.env);
+    for (gr, bps) in items {
+        v.push_back(PolicyItem { group: gr.clone(), bps: *bps });
+    }
+    g.c.client.set_policy(&0, &Policy { items: v, max_bps });
+}
+
+fn std_policy(g: &GCtx) {
+    policy(g, &[(GroupRef::Merchant(0), 1000), (GroupRef::Group(0), 500), (GroupRef::Group(1), 500)], 1500);
+}
+
+fn claims(g: &GCtx, cs: &[Claim]) -> Vec<Claim> {
+    let mut v = Vec::new(&g.c.env);
+    for c in cs {
+        v.push_back(c.clone());
+    }
+    v
+}
+
+#[test]
+fn chain_group_mirrors_checkouts_and_roots_match_js() {
+    let g = gsetup();
+    let groups = g.c.client.list_groups();
+    assert_eq!(groups.len(), 2);
+    assert_eq!(groups.get_unchecked(0).size, 3);
+    assert_eq!(groups.get_unchecked(1).size, 1);
+    assert_eq!(g.c.client.get_group(&0).tree.root(&g.c.env), u256_dec(&g.c.env, g.gx["roots"]["chain"].as_str().unwrap()));
+    assert_eq!(g.c.client.get_group(&1).tree.root(&g.c.env), u256_dec(&g.c.env, g.gx["roots"]["attested"].as_str().unwrap()));
+}
+
+#[test]
+fn stacked_claims_are_capped() {
+    let g = gsetup();
+    std_policy(&g);
+    let cs = claims(&g, &[claim(&g, "self", GroupRef::Merchant(0)), claim(&g, "chain", GroupRef::Group(0)), claim(&g, "attested", GroupRef::Group(1))]);
+    // 10% + 5% + 5% = 20%, capped at 15%
+    let paid = g.c.client.book_with_context(&0, &g.guest, &1, &None, &cs);
+    assert_eq!(paid, 850_000_000);
+    std::println!("book_with_context x3 cpu={}", g.c.env.cost_estimate().budget().cpu_instruction_cost());
+}
+
+#[test]
+fn stacked_claims_below_cap_add_up() {
+    let g = gsetup();
+    std_policy(&g);
+    let cs = claims(&g, &[claim(&g, "chain", GroupRef::Group(0)), claim(&g, "attested", GroupRef::Group(1))]);
+    assert_eq!(g.c.client.book_with_context(&0, &g.guest, &1, &None, &cs), 900_000_000);
+}
+
+#[test]
+fn claim_outside_policy_is_refused() {
+    let g = gsetup();
+    policy(&g, &[(GroupRef::Merchant(0), 1000), (GroupRef::Group(0), 500)], 1500);
+    let cs = claims(&g, &[claim(&g, "attested", GroupRef::Group(1))]);
+    let err = g.c.client.try_book_with_context(&0, &g.guest, &1, &None, &cs);
+    assert_eq!(err.err().unwrap().unwrap(), Error::NotInPolicy.into());
+}
+
+#[test]
+fn group_nullifier_reuse_is_refused() {
+    let g = gsetup();
+    std_policy(&g);
+    let cs = claims(&g, &[claim(&g, "chain", GroupRef::Group(0))]);
+    g.c.client.book_with_context(&0, &g.guest, &1, &None, &cs);
+    let err = g.c.client.try_book_with_context(&0, &g.guest, &1, &None, &cs);
+    assert_eq!(err.err().unwrap().unwrap(), Error::NullifierUsed.into());
+}
+
+#[test]
+fn self_claim_shares_the_plain_discount_nullifier() {
+    let g = gsetup();
+    std_policy(&g);
+    let s = claim(&g, "self", GroupRef::Merchant(0));
+    g.c.client.book_with_discount(&0, &g.guest, &1, &s.proof, &s.root, &s.nullifier);
+    let err = g.c.client.try_book_with_context(&0, &g.guest, &1, &None, &claims(&g, &[s]));
+    assert_eq!(err.err().unwrap().unwrap(), Error::NullifierUsed.into());
+}
+
+#[test]
+fn wrong_root_for_group_is_refused() {
+    let g = gsetup();
+    std_policy(&g);
+    let mut c = claim(&g, "chain", GroupRef::Group(0));
+    c.root = u256_dec(&g.c.env, g.gx["roots"]["attested"].as_str().unwrap());
+    let err = g.c.client.try_book_with_context(&0, &g.guest, &1, &None, &claims(&g, &[c]));
+    assert_eq!(err.err().unwrap().unwrap(), Error::UnknownRoot.into());
+}
+
+#[test]
+fn duplicate_group_claim_is_refused() {
+    let g = gsetup();
+    std_policy(&g);
+    let c = claim(&g, "chain", GroupRef::Group(0));
+    let err = g.c.client.try_book_with_context(&0, &g.guest, &1, &None, &claims(&g, &[c.clone(), c]));
+    assert_eq!(err.err().unwrap().unwrap(), Error::DuplicateClaim.into());
+}
+
+#[test]
+fn claim_proof_for_another_group_fails() {
+    let g = gsetup();
+    std_policy(&g);
+    // attested proof presented as a chain claim with the attested root: root check passes only if
+    // the root were in the chain history; give it the chain root instead so the proof itself fails
+    let mut c = claim(&g, "attested", GroupRef::Group(0));
+    c.root = u256_dec(&g.c.env, g.gx["roots"]["chain"].as_str().unwrap());
+    let err = g.c.client.try_book_with_context(&0, &g.guest, &1, &None, &claims(&g, &[c]));
+    assert_eq!(err.err().unwrap().unwrap(), Error::InvalidProof.into());
+}
+
+#[test]
+fn add_member_by_non_attester_is_refused() {
+    let g = gsetup();
+    let stranger = Address::generate(&g.c.env);
+    let cm = U256::from_u32(&g.c.env, 12345);
+    let args = (1u32, cm.clone()).into_val(&g.c.env);
+    g.c.env.mock_auths(&[MockAuth { address: &stranger, invoke: &MockAuthInvoke { contract: &g.c.client.address, fn_name: "add_member", args, sub_invokes: &[] } }]);
+    assert!(g.c.client.try_add_member(&1, &cm).is_err());
+    let _ = &g.attester;
+}
+
+#[test]
+fn create_group_needs_contract_admin() {
+    let g = gsetup();
+    let stranger = Address::generate(&g.c.env);
+    let args = (Symbol::new(&g.c.env, "attested"), stranger.clone(), SString::from_str(&g.c.env, "x")).into_val(&g.c.env);
+    g.c.env.mock_auths(&[MockAuth { address: &stranger, invoke: &MockAuthInvoke { contract: &g.c.client.address, fn_name: "create_group", args, sub_invokes: &[] } }]);
+    assert!(g.c.client.try_create_group(&Symbol::new(&g.c.env, "attested"), &stranger, &SString::from_str(&g.c.env, "x")).is_err());
+}
