@@ -53,7 +53,14 @@ Every technical claim below was checked against primary sources. Sources and det
 8. JMPR: real hotels, free sandbox bookings, BookerBob confirms the stay.
 9. zkTLS: import past stays from Booking.
 
-**Roadmap:** night resale on SDEX, a night as an asset, path payments, x402 and OpenZeppelin policies, anonymous cashback, hidden ratings revealed at k>=5, portable loyalty inside a hotel network.
+**Roadmap:** beyond hotels (see 2.1), night resale on SDEX, a night as an asset, path payments, x402 and OpenZeppelin policies, anonymous cashback, hidden ratings revealed at k>=5, portable loyalty inside a hotel network.
+
+### 2.1 Beyond hotels: one module for any merchant
+We build for hotels, but the primitive is not about hotels. In the contract a hotel is simply "a place where you were a customer": one tree of customers per merchant, and a nullifier per (action, merchant, period). The same circuit and contract shape covers:
+- **Merchants over UCP (Universal Commerce Protocol):** reviews only from proven buyers, and a returning-customer discount that the buyer's own agent applies at agentic checkout.
+- Restaurants, services, events, subscriptions: anywhere there is "was a customer" and where reviews and loyalty are today paid for with someone else's data.
+- The hackathon code stays on hotels; nothing in the contract is renamed. The generalization (`Hotel` to `Merchant`, a merchant type, a UCP order as an entry into the tree) is on the roadmap.
+- Pitch and README: a "beyond hotels" paragraph and slide. Proof of patronage as a module for any merchant: first medium hotels, next agentic commerce over UCP.
 
 ## 3. Architecture
 
@@ -188,7 +195,7 @@ Roles: A circuits, converter, verifier. B tree, contract, USDC, deploy, seed. C 
 7. Post-quantum: Groth16 zero-knowledge is perfect, so review-author anonymity survives a quantum computer; soundness (forging new proofs) is quantum-vulnerable; migration path is lattice-based SNARKs with ZK as they mature. No drop-in PQ replacement for pairing SNARKs exists yet.
 8. Setup / install / env vars / deploy / seed / run agent.
 9. Starting point and what was built during the hackathon; prior work ([`PRIOR_WORK.md`](PRIOR_WORK.md)); AI usage ([`docs/ai-usage.md`](docs/ai-usage.md)).
-10. Roadmap: night resale on SDEX, hidden ratings revealed at k>=5, portable loyalty, blind arbiter in a TEE, agent spending limits via OpenZeppelin policies and x402.
+10. Roadmap: beyond hotels (generalize `Hotel` to `Merchant`, merchant types, UCP orders as tree entries, proven-buyer reviews and returning-customer discounts at agentic checkout), night resale on SDEX, hidden ratings revealed at k>=5, portable loyalty, blind arbiter in a TEE, agent spending limits via OpenZeppelin policies and x402.
 
 ## 8. Video, deck, submission
 
