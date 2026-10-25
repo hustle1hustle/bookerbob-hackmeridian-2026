@@ -77,6 +77,8 @@ export function createRep(deps: RepDeps) {
   // A line without group/hash (legacy) cannot be moved.
   type Spent = { viaOperator: boolean; group?: number; ch?: string }
   const spent = new Map<string, Spent>()
+  // presentations with a join in flight: a concurrent second session is refused, but nothing is recorded until the add succeeds
+  const inflight = new Set<string>()
   if (spentFile && existsSync(spentFile)) {
     for (const line of readFileSync(spentFile, "utf8").split("\n").filter(Boolean)) {
       const [k, op, g, ch] = line.split(" ")
@@ -168,6 +170,7 @@ export function createRep(deps: RepDeps) {
     if (typeof ah !== "string" || ah.length < 16) return fail(s, "no attestation hash")
     const pk = proofKey(ah)
     const group = await groupOf()
+    if (inflight.has(pk)) return fail(s, "a join with this presentation is in progress")
     if (spent.has(pk)) {
       // Already joined: only a MOVE is allowed, proven by the old identity (signed at /rebind for this session).
       // The move is the group operator's replace_member in every mode (the attester key also operates the
@@ -187,17 +190,28 @@ export function createRep(deps: RepDeps) {
         return fail(s, `replace_member failed: ${String((e as Error).message).slice(0, 80)}`)
       }
     }
-    // sessions open only for the demo operator today, so this join is an operator join
-    record(pk, { viaOperator: s.viaOperator !== false, group, ch: commitmentKey(salt, s.commitment) })
+    // sessions open only for the demo operator today, so this join is an operator join. The presentation is
+    // recorded as spent only AFTER the add succeeds: a failed add must not turn every retry into "already joined".
+    inflight.add(pk)
     try {
       // The off-chain checks above still run first (they also cover revocation, which the contract cannot read).
-      s.txHash = deps.addMemberWithRep
-        ? await deps.addMemberWithRep(BigInt(s.commitment), a.jws, a.kbJwt, s.nonce)
-        : await deps.addMember(BigInt(s.commitment))
+      if (deps.addMemberWithRep) {
+        try {
+          s.txHash = await deps.addMemberWithRep(BigInt(s.commitment), a.jws, a.kbJwt, s.nonce)
+        } catch (e) {
+          // The tier issuer keeps its own spent set per presentation, which the demo reset cannot clear. For the
+          // operator's own rehearsal joins only, the operator key adds the member instead.
+          if (!(s.viaOperator !== false && /already minted/i.test(String((e as Error).message)))) throw e
+          s.txHash = await deps.addMember(BigInt(s.commitment))
+        }
+      } else s.txHash = await deps.addMember(BigInt(s.commitment))
+      record(pk, { viaOperator: s.viaOperator !== false, group, ch: commitmentKey(salt, s.commitment) })
       s.status = "passed"
       return { code: 200, body: { ok: true } }
     } catch (e) {
       return fail(s, `add_member failed: ${String((e as Error).message).slice(0, 80)}`)
+    } finally {
+      inflight.delete(pk)
     }
   }
   const fail = (s: Session, reason: string) => {
@@ -325,7 +339,7 @@ const done = (r: Awaited<ReturnType<typeof write>>) => {
 export async function tierCredential(base: string, b: { jws: string; kbJwt: string; nonce: string; commitment: string; contract?: string; group?: number }): Promise<{ cred: Buffer; sig: Buffer }> {
   const r = await fetch(`${base.replace(/\/$/, "")}/issue`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(b), signal: AbortSignal.timeout(15_000) })
   const j: any = await r.json().catch(() => ({}))
-  if (!r.ok || typeof j.cred !== "string" || typeof j.sig !== "string") throw new Error(`tier issuer ${r.status}${j.reasons ? " " + j.reasons.join(",") : ""}`)
+  if (!r.ok || typeof j.cred !== "string" || typeof j.sig !== "string") throw new Error(`tier issuer ${r.status}${j.reasons ? " " + j.reasons.join(",") : ""}${j.error ? ` (${j.error})` : ""}`)
   const cred = Buffer.from(j.cred, "base64url")
   const sig = Buffer.from(j.sig, "base64url")
   if (cred.length !== 106 || sig.length !== 64) throw new Error("tier issuer returned a malformed credential")

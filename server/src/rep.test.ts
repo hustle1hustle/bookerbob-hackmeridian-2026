@@ -397,3 +397,41 @@ test("in tier mode (REP_ONCHAIN=1) a move still goes through the operator's repl
   assert.deepEqual([...h.members], [b.commitment])
   h.close()
 })
+
+test("a failed add does not spend the presentation; a tier issuer reuse falls back to the operator key for the demo", async () => {
+  await ready
+  const dir = mkdtempSync(join(tmpdir(), "rep-retry-"))
+  let failNext = true
+  const added: bigint[] = []
+  const rep = createRep({
+    demoToken: DEMO, stateDir: dir, jwks: { keys: [JWK] }, now: () => NOW * 1000,
+    addMember: async (c) => (added.push(c), "op-tx"),
+    addMemberWithRep: async () => {
+      if (failNext) throw new Error("tier issuer 503")
+      throw new Error("tier issuer 409 (this presentation already minted a credential)")
+    },
+  })
+  const server = createServer((req, res) => rep.handle(req, res, new URL(req.url!, "http://x").pathname))
+  const base = await new Promise<string>((ok) => server.listen(0, "127.0.0.1", () => ok(`http://127.0.0.1:${(server.address() as any).port}/api/rep`)))
+  const call = async (path: string, body?: unknown) => {
+    const r = await fetch(`${base}${path}`, { method: "POST", headers: { "content-type": "application/json", "x-bb-demo": DEMO }, body: JSON.stringify(body ?? {}) })
+    return { status: r.status, body: (await r.json()) as any }
+  }
+  const AH = "retry-proof-" + "c".repeat(40)
+  const joinOnce = async (c: string) => {
+    await call("/session", { commitment: c })
+    const p = (await (await fetch(`${base}/pending`)).json()) as any
+    const v = verdict({ attestation_hash: AH })
+    return { sid: p.sid, r: await call("/present", { sid: p.sid, attestations: [{ jws: v, kbJwt: kb(v, p.nonce) }] }) }
+  }
+  const first = await joinOnce("601")
+  assert.equal(first.r.status, 400)
+  const res1 = (await (await fetch(`${base}/result?sid=${first.sid}`)).json()) as any
+  assert.match(res1.reason, /add_member failed: tier issuer 503/)
+  failNext = false
+  // the retry is not "already joined": the issuer says it minted before, so the operator key adds it (demo only)
+  const second = await joinOnce("602")
+  assert.equal(second.r.status, 200)
+  assert.deepEqual(added, [602n])
+  server.close()
+})
