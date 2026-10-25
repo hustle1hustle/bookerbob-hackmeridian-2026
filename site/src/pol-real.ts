@@ -948,7 +948,7 @@ export async function sources(placeId?: number): Promise<Source[]> {
       label: addr ? (wallet.method ?? (sdk.wallet.kind === "local" ? "demo key" : "wallet")) : "wallet",
       proves: "pays for you. a fresh address for every payment, so purchases do not link.",
       status: addr ? "connected" : "none",
-      detail: addr ? `${addr.slice(0, 4)}…${addr.slice(-4)}` : "passkey, freighter or a demo key in this browser",
+      detail: addr ? `${addr.slice(0, 4)}…${addr.slice(-4)}` : "face id. no seed phrase. your proofs come back on any of your devices.",
       ...(addr ? { accountUrl: `https://stellar.expert/explorer/testnet/account/${addr}` } : {}),
     },
     {
