@@ -2,9 +2,9 @@
 
 HackMeridian allows AI tools and asks for attribution. This file lists where AI substantially generated code or assets. It is updated as the project moves.
 
-Tool: Claude Code (Anthropic, model Claude Opus 5.5), directed and reviewed by the team. Commits with substantial AI-written content carry a `Co-Authored-By: Claude` trailer.
+Tools: Claude Code (Anthropic, model Claude Opus 5.5) and Claude Design (Anthropic) for the visual design, directed and reviewed by the team; Cursor for one teammate's commits. Commits with substantial AI-written content carry a `Co-Authored-By: Claude` or `Co-authored-by: Cursor` trailer.
 
-## Written with Claude Code so far
+## Where AI wrote code or assets
 
 | Area | Files | What the AI did | What the team did |
 |---|---|---|---|
@@ -21,9 +21,16 @@ Tool: Claude Code (Anthropic, model Claude Opus 5.5), directed and reviewed by t
 | Testnet deploy | `scripts/deploy.sh`, `docs/testnet.md` | wrote the deploy script, ran deploy and the golden-proof gate on testnet | reviewed |
 | Contributing guide, design handoff | `CONTRIBUTING.md`, `docs/design-handoff.md` | edited from the team's flow and handoff docs | wrote the flow and the handoff |
 | Web app functional shell | `app/*` | wrote the Vite + React app over the SDK: routing, role switcher, read-only mode, per-action state machines, thin presentational components, neutral styling, screenshots | defined screens, moments, copy rules and the functional-shell scope; the visual layer comes from the team's design pass |
+| UCP module | `ucp/*` | wrote the UCP bridge for the Shopify test store (patronage extension, Stellar USDC payment handler, Buy with Bob REST, Ask Bob search), the buyer's agent, the context-perk checkout and the evidence runs (Claude Code, the UCP session) | chose UCP and the store, set the flow and the trust model, reviewed; see `ucp/PRIOR_WORK.md` |
+| Ask Bob search and JMPR | `server/src/search/*`, `scripts/jmpr-snapshot.ts`, `server/data/jmpr-lisbon.json` | wrote the federated search over places, the UCP store and JMPR, and the static Lisbon snapshot builder | decided snapshot-only (no live JMPR calls from the site), reviewed |
+| REP verified traveler handoff | `server/src/rep.ts`, `server/src/rep.test.ts`, `app/src/views/RepVerify.tsx`, `docs/rep-handoff.md` | wrote the push-consent handoff, the attester path to group 1 and its tests; `server/src/verify-rep.mjs` is REP's kit, copied unmodified | defined what is kept (pass or fail only), ran the device test, reviewed |
+| On-chain REP check | `contracts/proof_of_stay/src/rep.rs`, `src/test_rep.rs`, `fixtures/gen-rep.mjs`, `scripts/rep-onchain.sh` | wrote the native P-256 verdict check, its tests and fixtures, the `REP_ONCHAIN` server flag and the runbook | approved the plan, decided to keep it off in the demo for privacy, reviewed |
+| Ops | `server/src/ops*`, `ucp/src/ops.ts`, `scripts/ops-watch.sh`, `docs/deploys.md` | wrote the error tracker (no external account, no personal data) and the watch script; ran deploys and kept the deploy log | set the deploy protocol, reviewed |
+| UI design | `site/*`, `docs/design-parity/*`, `docs/design-binding.md` | the visual design was generated with Claude Design (Anthropic) from the team's handoff docs; Claude Code ported it to `site/` over real data (pol-real adapter) and recorded parity renders | wrote the handoff docs, chose the direction, reviewed the renders |
+| Teammate modules and redesign | `packages/pass_connect`, `packages/verify_onchain_zk`, `app/` restyle (REP Labs style), Fly config | AI-assisted (Cursor), share not itemized; these commits carry a `Co-authored-by: Cursor` trailer | written and directed by the teammate |
 
 ## Not AI-generated
-- Product idea, problem framing, scope and cut decisions.
+- Product idea, problem framing, scope and cut decisions, the trust model, the design handoff docs.
 - Semaphore circuits and trusted setup (third party, see `PRIOR_WORK.md`).
 
 Prompt logs are not committed.

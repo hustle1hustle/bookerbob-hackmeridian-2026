@@ -45,7 +45,7 @@ Contract (Stellar testnet, upgraded in place, ID kept): [`CBEGVNZFDZMOBKYVP27D5Q
 | [`bacf4990…`](https://stellar.expert/explorer/testnet/tx/bacf4990eb6ed224e82dd54f55c02787fc63bc9cd80a3fd7342e31753e6376dd) | returning-guest booking: proof and USDC in one tx, 110 to 93.5 USDC |
 | [`f9c5b201…`](https://stellar.expert/explorer/testnet/tx/f9c5b2019acd616db39074a5e4442fe7b3d253cdbeb1e676d1349427a4fadb9d) | stacked context perks (network + verified traveler), 95 to 85.5 USDC |
 | [`5f4ff99f…`](https://stellar.expert/explorer/testnet/tx/5f4ff99fcd8b2724d233a51d50ead3e8992c99c518a5dea9399538ea822c3fb7) | AI agent at a real Shopify store over UCP: returning-customer proof + network perk, 34.68 USDC, Shopify order #1009 |
-| [`38bd6a7f…`](https://stellar.expert/explorer/testnet/tx/38bd6a7f38987c745624d363124c27f7a0e2bd8764b2051e3afdbe5474c34106) | a real REP verdict (zkTLS over the guest's own lodging account) admits a fresh identity to "REP verified traveler" |
+| [`38bd6a7f…`](https://stellar.expert/explorer/testnet/tx/38bd6a7f38987c745624d363124c27f7a0e2bd8764b2051e3afdbe5474c34106) | a real REP verdict (zkTLS over the guest's own lodging account), checked by the REP attester, admits a fresh identity to "REP verified traveler": `add_member(1, commitment)` |
 
 Golden proof gate on chain: valid proof `true` [`0637fea7…`](https://stellar.expert/explorer/testnet/tx/0637fea7161f51651e9d6323e22f936cf807f17cbd36dba159c174065366e6ad), tampered input `false` [`b97d19f0…`](https://stellar.expert/explorer/testnet/tx/b97d19f03aa2fa3509cddfafc30c468da752342d74e5ca8a12223c1a2d424b97). Full record: `docs/testnet.md`, `ucp/README.md`.
 
@@ -62,7 +62,7 @@ Golden proof gate on chain: valid proof `true` [`0637fea7…`](https://stellar.e
 
 ## AI attribution
 
-Most of the code and docs were written with Claude Code (Anthropic, Claude Opus 5.5), directed and reviewed by the team: the Soroban contract and its tests (verifier, Poseidon tree, reviews, discounts, context groups, the P-256 REP check), the TypeScript SDK and browser proving, the backend (demo desk, relayer, arbiter, faucet, fee-bumped one-time payers, REP handoff, Ask Bob search), the UCP bridge and buyer agent, the deploy, seed and benchmark scripts, the fictional seed places and review texts, and the docs. 87 of 114 commits on `main` at drafting time carry a `Co-Authored-By: Claude` trailer. The team owned the product idea, the problem framing, scope and cut decisions, the trust model and the mandatory contract checks, the design pass, and reviewed every change. Per-area detail: `docs/ai-usage.md`, `ucp/PRIOR_WORK.md`.
+Most of the code and docs were written with Claude Code (Anthropic, Claude Opus 5.5), directed and reviewed by the team: the Soroban contract and its tests (verifier, Poseidon tree, reviews, discounts, context groups, the P-256 REP check), the TypeScript SDK and browser proving, the backend (demo desk, relayer, arbiter, faucet, fee-bumped one-time payers, REP handoff, Ask Bob search with the JMPR snapshot, error tracker), the UCP bridge and buyer agent, the deploy, seed and benchmark scripts, the fictional seed places and review texts, and the docs. The visual design is AI-generated: Claude Design (Anthropic) produced it from our handoff docs, and Claude Code ported it to the site over real data. One teammate's modules (passkey session, wallet scoring) and the app restyle were AI-assisted with Cursor, share not itemized. On `main` at drafting time, 91 of 122 commits carry a `Co-Authored-By: Claude` trailer and 8 a Cursor trailer. The team owned the product idea, the problem framing, scope and cut decisions, the trust model and the mandatory contract checks, the design handoff, and reviewed every change. Per-area detail: `docs/ai-usage.md`, `ucp/PRIOR_WORK.md`.
 
 ## Security model
 
@@ -74,7 +74,7 @@ Most of the code and docs were written with Claude Code (Anthropic, Claude Opus 
 
 ## Built during the event
 
-Every commit in the repository was made during the hackathon: `aae8033` (Sun 25 Oct 2026, 11:52 UTC) through `main` HEAD at submission (`a3c26c2` when this draft was written). Contract, circuits test vectors, SDK, backend, web app, UCP bridge and agent, REP handoff, Ask Bob search, passkey and wallet modules, and all testnet evidence.
+Every commit in the repository was made during the hackathon: `aae8033` (Sun 25 Oct 2026, 11:52 UTC) through `main` HEAD at submission (`26677a3` when this draft was written). Contract, circuits test vectors, SDK, backend, web app, UCP bridge and agent, REP handoff, Ask Bob search, passkey and wallet modules, and all testnet evidence.
 
 ## Video
 
@@ -91,11 +91,7 @@ Video link: _TBD_
 
 ## Facts not verified while drafting
 
-- The live URL: README and `docs/deploys.md` say `stellarbob2026.xyz` (responds 200); the founder plan names `bookerbob-proof-of-loyalty.fly.dev`, which did not respond. Used the former.
-- The OpenZeppelin relayer (Channels) is in the plan but not in the code: payers are fee-bumped by our own backend. Left it out of Composed; confirm.
-- Passkeys are a WebAuthn PRF-derived Ed25519 key (`packages/pass_connect`), not an on-chain secp256r1 smart account. Worded accordingly.
-- That `38bd6a7f…` is the REP add to group 1 is taken from the brief; Horizon confirms only a successful tx at 14:31:22 UTC.
-- `docs/ai-usage.md` does not yet list the UCP bridge, Ask Bob search, the REP handoff, or `pass_connect` / `verify_onchain_zk` (commits by teammate Surfer; their AI share is unknown). The attribution paragraph above is general for that reason.
-- Whether the redesign (design pass) used AI-generated assets is unknown.
-- The P-256 REP cost is from the unit-test budget, not a testnet run on the live contract (a throwaway testnet instance accepted it).
+- The P-256 REP cost is from the unit-test budget and a throwaway testnet instance, not the live contract (the path is off there).
 - "Every commit during the hackathon" relies on `PRIOR_WORK.md`; the first commit is at 11:52 UTC, after the 09:00 Lisbon start.
+
+Confirmed by the team: live URL `stellarbob2026.xyz`; no OpenZeppelin relayer; passkey wording; `38bd6a7f…` is `add_member(1, commitment)` by the REP attester at 14:31:22 UTC; the redesign is Claude Design output.
