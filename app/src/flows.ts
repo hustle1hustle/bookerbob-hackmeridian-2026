@@ -93,10 +93,13 @@ function useMachine<R>(action: Action) {
 /** Review or discount: drives the UI from sdk.prover.prove(req) events. */
 export function useProofFlow<R>(action: "review" | "discount") {
   const { state, send } = useMachine<R>(action)
+  /** Whether the proving files were already cached when this run started (the view drops the download step). */
+  const cachedAtStart = useRef(sdk.prover.ready())
   const run = useCallback(
     async (req: ProofRequest) => {
       if (!sdk.wallet.address) return send({ type: "noWallet" })
-      send({ type: "start", cached: sdk.prover.ready() })
+      cachedAtStart.current = sdk.prover.ready()
+      send({ type: "start", cached: cachedAtStart.current })
       try {
         for await (const ev of sdk.prover.prove(req)) send({ type: "proof", ev })
       } catch {
@@ -106,7 +109,7 @@ export function useProofFlow<R>(action: "review" | "discount") {
     },
     [send],
   )
-  return { state, run, reset: () => send({ type: "reset" }) }
+  return { state, run, cached: cachedAtStart.current, reset: () => send({ type: "reset" }) }
 }
 
 /** Book, checkout, attest: one write call, no proof. */

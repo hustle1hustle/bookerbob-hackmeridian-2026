@@ -101,7 +101,7 @@ a {
   font-size: 13px;
   padding: 6px 0;
 }
-main {
+main.wrap {
   padding-top: 20px;
   padding-bottom: 48px;
   min-height: 60vh;
