@@ -1,12 +1,8 @@
 // UCP store checkout through the BookerBob UCP bridge (browser-callable, CORS *). Reference client:
 // ucp-module/scripts/buy-rest.ts. Steps: /buy/start -> (/buy/prove) -> /buy/quote -> wallet signs -> /buy/send -> /buy/complete.
-//
-// SDK gaps this works around (no SDK edit): the Wallet interface exposes no signer, and Stays exposes no identity,
-// so this reads the SDK's own browser storage keys ("pos.localKey", "pos.master"). Asked upstream for
-// wallet.signTransaction(xdr) and stays.identity(stay).
-import { Keypair, TransactionBuilder } from "@stellar/stellar-sdk"
+// The wallet signs through sdk.wallet.signTransaction and the stay identity comes from sdk.stays.identity.
 import { getClient, views, TESTNET } from "../../packages/sdk/src/contract.ts"
-import { discountMessage, discountScope, stayIdentity } from "../../packages/sdk/src/derive.ts"
+import { discountMessage, discountScope } from "../../packages/sdk/src/derive.ts"
 import { DEFAULT_ARTIFACTS_URL, loadArtifacts, proveMembership } from "../../packages/sdk/src/prove.ts"
 import type { Stay } from "@bookerbob/pos-sdk"
 import { sdk } from "./sdk"
@@ -72,30 +68,18 @@ const network = () => (netP ??= fetch("/api/config").then((r) => r.json()).then(
  * Same derivation the SDK uses (identity from the browser's master secret, discount message bound to the payer).
  */
 export async function proveStoreClaim(stay: Stay, payer: string, season: number, onDownload?: (loaded: number, total: number) => void) {
-  const master = localStorage.getItem("pos.master")
-  if (!master) throw new UcpError("no stay identity in this browser")
   const net = await network()
   const leaves = await views.leaves(await getClient(net), stay.merchant)
   const artifacts = await loadArtifacts(DEFAULT_ARTIFACTS_URL, onDownload)
-  const mp = await proveMembership(stayIdentity(master, stay.merchant, stay.stayIndex), leaves, discountMessage(payer), discountScope(stay.merchant, season), artifacts)
+  const mp = await proveMembership(sdk.stays.identity(stay), leaves, discountMessage(payer), discountScope(stay.merchant, season), artifacts)
   return { root: mp.root.toString(), nullifier: mp.nullifier.toString(), proof: mp.proof }
 }
 
 /** Sign the quote envelope with the connected wallet (source = payer). The envelope already carries the merchant's auth. */
 export async function signEnvelope(xdr: string): Promise<string> {
-  const net = await network()
-  if (sdk.wallet.kind === "local") {
-    const secret = localStorage.getItem("pos.localKey")
-    if (!secret) throw new UcpError("demo key not found in this browser")
-    const tx = TransactionBuilder.fromXDR(xdr, net.networkPassphrase)
-    tx.sign(Keypair.fromSecret(secret))
-    return tx.toXDR()
+  try {
+    return await sdk.wallet.signTransaction(xdr)
+  } catch (e) {
+    throw new UcpError(e instanceof Error ? e.message : "signing was cancelled")
   }
-  if (sdk.wallet.kind === "freighter") {
-    const fr = await import("@stellar/freighter-api")
-    const r = await fr.signTransaction(xdr, { networkPassphrase: net.networkPassphrase, address: sdk.wallet.address ?? undefined })
-    if (r.error) throw new UcpError(String((r.error as { message?: string }).message ?? r.error))
-    return r.signedTxXdr
-  }
-  throw new UcpError("this wallet cannot sign store payments yet; use the demo key or Freighter")
 }
