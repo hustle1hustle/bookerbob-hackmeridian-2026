@@ -504,7 +504,7 @@ async function freshPayer(kp: Keypair, amountRaw: bigint) {
   const c = await apiConfig()
   const post = (path: string, body: any) => fetch(`${API}${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body, (_, v) => (typeof v === "bigint" ? v.toString() : v)) }).then((r) => r.json())
   const o = await post("/api/payer/open", { publicKey: kp.publicKey() })
-  if (o.error) throw new Error(o.error)
+  if (o.error) throw new Error(o.message ?? o.error)
   const tx = TransactionBuilder.fromXDR(o.xdr, c.networkPassphrase)
   tx.sign(kp)
   const a = await post("/api/payer/activate", { xdr: tx.toXDR(), amount: amountRaw })
@@ -617,7 +617,7 @@ export const chain = {
           address: p.m.admin,
           signAuthEntry: async (preimage: string) => {
             const r = await post("/api/cosign", { quoteId: quote.quoteId, preimage })
-            if (r.error) throw new Error(r.error)
+            if (r.error) throw new Error(r.message ?? r.error)
             return { signedAuthEntry: r.signature, signerAddress: p.m.admin }
           },
         })
@@ -806,13 +806,16 @@ async function ensureWallet() {
   if (!sdk.wallet.address) await sdk.wallet.connect("local")
   if (((await sdk.chain.balance()) ?? 0n) < 100n * 10_000_000n) {
     for (let i = 0; i < 2; i++) {
-      const f: any = await sdk.chain.faucet()
+      const f: any = await sdk.chain.faucet().catch((e: any) => ({ error: String(e?.message ?? e) }))
       if (!f.error) break
       await sleep(4000)
     }
   }
   return sdk.wallet.address!
 }
+// the payment's failure in plain words: USDC contract #13 is a missing USDC trustline on the paying wallet, #10 too little USDC
+const payFailure = (e: string) =>
+  /#13\b|trustline/i.test(e) ? "your wallet wasn't set up for test USDC yet. run bob again: it sets that up first." : /#10\b|balance/i.test(e) ? "not enough test USDC in your wallet. run bob again: it tops up first." : `the payment didn't go through: ${e}`
 
 async function* ucpRun(reuse: boolean, noClaim = false): AsyncGenerator<any> {
   const cart: any = { items: [], discounts: [], total: 0, currency: "USDC", paid: false, tx: null }
@@ -915,10 +918,18 @@ async function* ucpRun(reuse: boolean, noClaim = false): AsyncGenerator<any> {
   }
   yield step(7, "running")
   const q = await bpost("/buy/quote", { checkoutId: st.checkoutId, payer })
-  if (q.error) return yield step(7, "failed", { error: q.error, detail: String(q.error) })
+  if (q.error) {
+    const why = payFailure(String(q.error))
+    yield step(7, "failed", { error: q.error, headline: why, reason: why, detail: why })
+    return yield { type: "headline", text: why, reason: why, error: String(q.error) }
+  }
   const signed = await sdk.wallet.signTransaction(q.quote.tx_xdr)
   const sent = await bpost("/buy/send", { signedTxXdr: signed })
-  if (sent.error) return yield step(7, "failed", { error: sent.error, detail: String(sent.error) })
+  if (sent.error) {
+    const why = payFailure(String(sent.error))
+    yield step(7, "failed", { error: sent.error, headline: why, reason: why, detail: why })
+    return yield { type: "headline", text: why, reason: why, error: String(sent.error) }
+  }
   cart.paid = true
   cart.tx = sent.txHash
   cart.total = Number(BigInt(q.quote.pays_raw)) / 1e7

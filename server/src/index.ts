@@ -105,7 +105,7 @@ const isDec = (v: unknown) => typeof v === "string" && /^\d{1,78}$/.test(v)
 const isHex = (v: unknown, n: number) => typeof v === "string" && new RegExp(`^(0x)?[0-9a-f]{${n}}$`, "i").test(v)
 const fail = (res: ServerResponse, r: { error: string; message?: string }) => json(res, 400, { error: r.error, message: r.message })
 
-// naive per-IP rate limit for writes
+// naive per-IP rate limit for writes: one booking is ~8 POSTs and judges on venue Wi-Fi share one NAT IP
 const hits = new Map<string, number[]>()
 const limited = (req: IncomingMessage) => {
   const ip = String(req.headers["fly-client-ip"] ?? req.socket.remoteAddress)
@@ -113,7 +113,7 @@ const limited = (req: IncomingMessage) => {
   const h = (hits.get(ip) ?? []).filter((t) => now - t < 60_000)
   h.push(now)
   hits.set(ip, h)
-  return h.length > 30
+  return h.length > 120
 }
 
 const MIME: Record<string, string> = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png", ".json": "application/json", ".wasm": "application/wasm", ".zkey": "application/octet-stream", ".woff2": "font/woff2", ".ico": "image/x-icon" }
@@ -242,7 +242,7 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
     )
   }
   if (req.method !== "POST") return json(res, 404, { error: "NotFound" })
-  if (limited(req)) return json(res, 429, { error: "RateLimited" })
+  if (limited(req)) return json(res, 429, { error: "RateLimited", message: "busy, retry in a few seconds" })
   const b = await body(req)
 
   // Context provider hook (docs/context-providers.md): a provider verifies its own evidence, then add_member.

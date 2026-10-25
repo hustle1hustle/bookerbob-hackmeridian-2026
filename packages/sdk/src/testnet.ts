@@ -462,7 +462,11 @@ export function createTestnetSdk(opts: TestnetOptions = {}): Sdk {
         const s = new rpc.Server(c.rpcUrl)
         const issuer = c.usdcIssuer
         if (!issuer) return { error: "Unknown", message: "no issuer" }
-        const acct = await s.getAccount(address)
+        // a key that was never funded (a passkey generation, a local key whose friendbot call failed) has no account yet
+        const acct = await s.getAccount(address).catch(async () => {
+          await fetch(`https://friendbot.stellar.org/?addr=${address}`).catch(() => null)
+          return s.getAccount(address!)
+        })
         const tx = new TransactionBuilder(acct, { fee: BASE_FEE, networkPassphrase: c.networkPassphrase }).addOperation(Operation.changeTrust({ asset: new Asset("USDC", issuer) })).setTimeout(60).build()
         const signed = await signer.signTransaction(tx.toXDR(), { networkPassphrase: c.networkPassphrase })
         const sent = await s.sendTransaction(TransactionBuilder.fromXDR(signed.signedTxXdr, c.networkPassphrase))
