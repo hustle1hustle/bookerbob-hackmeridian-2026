@@ -21,6 +21,7 @@ import { checkDisclosure } from "../../packages/sdk/src/disclosure.ts"
 import { federatedSearch } from "./search/index.ts"
 import { placesAdapter } from "./search/places.ts"
 import { ucpAdapter } from "./search/ucp.ts"
+import { opsApi, opsClient } from "./ops.ts" // importing installs the error hooks
 import { jmprAdapter } from "./search/jmpr.ts"
 import { PayerService } from "./payer.ts"
 import type { Merchant, Review } from "../../packages/sdk/src/types.ts"
@@ -90,6 +91,7 @@ async function checkStored(d: { pkg: import("@bookerbob/pos-sdk").DisclosurePack
 }
 
 async function api(req: IncomingMessage, res: ServerResponse, path: string) {
+  if (path.startsWith("/api/ops/")) return opsApi(req, res, path)
   if (path.startsWith("/api/rep/")) return (await import("./rep.ts")).repApi(req, res, path)
   const read = await ops.read()
   let m: RegExpMatchArray | null
@@ -211,6 +213,7 @@ createServer(async (req, res) => {
       return res.end()
     }
     if (path.startsWith("/api/")) return await api(req, res, path)
+    if (path === "/ops.js") return opsClient(res)
     serveStatic(res, path)
   } catch (e) {
     json(res, 500, { error: "Unknown", message: String((e as any)?.message ?? e).slice(0, 200) })
