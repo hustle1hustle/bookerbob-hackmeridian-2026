@@ -99,6 +99,18 @@ describe("isLoyaltyAttestDust", () => {
   })
 })
 
+describe("loyaltyIdentity + SCORE_RUBRIC", () => {
+  it("is stable for the same address/season", async () => {
+    const { loyaltyIdentity, SCORE_RUBRIC } = await import("./index.ts")
+    const a = loyaltyIdentity(ADDR, 202610)
+    const b = loyaltyIdentity(ADDR, 202610)
+    assert.equal(a.commitment, b.commitment)
+    assert.notEqual(loyaltyIdentity(ADDR, 202611).commitment, a.commitment)
+    assert.equal(SCORE_RUBRIC.horizon.reduce((s, x) => s + x.cap, 0), 100)
+    assert.equal(SCORE_RUBRIC.passportCap, 20)
+  })
+})
+
 describe("inspectWallet (Horizon READ — no write tx)", () => {
   it("scores from stubbed Horizon without posting any write", async () => {
     let writes = 0
@@ -197,7 +209,7 @@ describe("verifyOnConnect", () => {
       if (init?.method === "POST") posts++
       return horizonFetch()(input, init)
     }
-    const r = await verifyOnConnect(ADDR, { fetch: f, attest: false, merchantId: 0, season: 202610 })
+    const r = await verifyOnConnect(ADDR, { fetch: f, attest: false, proveScore: false, merchantId: 0, season: 202610 })
     assert.equal(r.inspect.exists, true)
     assert.ok(r.claim.rating >= 0)
     assert.match(r.digest, /^[0-9a-f]{64}$/)
@@ -216,7 +228,7 @@ describe("verifyOnConnect", () => {
       }
       return horizonFetch()(input, init)
     }
-    const r = await verifyOnConnect(ADDR, { fetch: f, attest: true, apiBase: "", merchantId: 2, season: 202610 })
+    const r = await verifyOnConnect(ADDR, { fetch: f, attest: true, proveScore: false, apiBase: "", merchantId: 2, season: 202610 })
     assert.equal(attestPosts, 1)
     assert.ok(r.attest)
     assert.equal(r.attest!.txHash, "ff".repeat(32))
@@ -432,7 +444,7 @@ describe("verifyOnConnect + passport", () => {
       }
       return combinedFetch(passportKeylessFetch(true))(input, init)
     }
-    const r = await verifyOnConnect(ADDR, { fetch: f, merchantId: 0, season: 202610 })
+    const r = await verifyOnConnect(ADDR, { fetch: f, proveScore: false, merchantId: 0, season: 202610 })
     assert.equal(r.inspect.passport?.matched, true)
     assert.ok(r.inspect.passport!.score > 0)
     assert.ok(r.claim.rating >= r.inspect.rating - 0) // claim carries the boosted rating

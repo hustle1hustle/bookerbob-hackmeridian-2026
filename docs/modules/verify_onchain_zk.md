@@ -11,13 +11,50 @@ Downstream modules (discount, context perks) consume the claim — this module d
 
 ```
 address (Freighter / passkey / local)
-  → inspectWallet()         // Horizon READ — no write tx
+  → inspectWallet()         // Horizon READ (+ optional Passport) — no write tx
   → buildLoyaltyClaim()     // discountHintBps, scopeLabel
   → claimDigest()           // SHA-256 of claim fields
   → attestLoyaltyClaim()    // POST /api/loyalty/attest → WRITE tx (1 stroop + memo.hash)
-  → proveLoyaltyClaim()     // optional ZK, when identity ∈ leaves
+  → issueScoreProof()       // Groth16 (default on connect): binds rating|tier|address
   → other module            // clamp bps, book / redeem
 ```
+
+## How we score
+
+Exported as `SCORE_RUBRIC`.
+
+| Horizon signal | Cap |
+|---|---|
+| Account age (~1 year → full) | 40 |
+| log10(1 + ops scored) | 35 |
+| log10(1 + payment ops) | 25 |
+| **Horizon total** | **100** |
+
+1-stroop loyalty-attest payments are **excluded** so re-verify does not inflate the score.
+
+| Passport bonus (optional) | Cap |
+|---|---|
+| Linked builder + points + rank + scf_tier + 30d stats | **20** |
+
+Final rating = clamp(horizon + passport, 0, 100).
+
+| Tier | Rating |
+|---|---|
+| 5 | ≥ 85 |
+| 4 | ≥ 70 |
+| 3 | ≥ 50 |
+| 2 | ≥ 30 |
+| 1 | below |
+
+## ZK score proof
+
+`issueScoreProof` / `verifyOnConnect({ proveScore: true })` (default):
+
+- Identity: `loyaltyIdentity(address, season)` (deterministic per wallet·season).
+- Default tree: **self-membership** (one leaf) — real Groth16 on the Proof of Stay Semaphore stack; message binds `address|rating|tier`, scope = `loyalty,{merchantId},{season}`.
+- Group tree: pass `leaves` from checkout / context enroll for a real anonymity set (`proofMode: "group"`).
+
+Honest limit: self-membership proves binding + knowledge of the loyalty identity, not “anonymous among N guests” until enrolled.
 
 **Is there a tx on verify?**  
 - `inspectWallet` / `verifyWallet` alone → **no**. Horizon reads only.  
@@ -117,9 +154,16 @@ Server (`Ops.attestLoyalty`): classic payment **1 stroop** from relayer → gues
 
 Nullifier is unique per (identity, scope) — one loyalty proof per season per stay identity, same pattern as reviews/discounts.
 
-## Design (app)
+## Design / where in UX
 
-Home card **pass_connect · verify_onchain_zk**: Freighter **or** passkey. On connect (also from header Connect), auto-runs `verifyOnConnect` → verdict + **clickable attest tx**.
+| Surface | What to show |
+|---|---|
+| **`#pass-connect` (primary)** | Tier ladder 5→1, score rubric `<details>`, attest tx link, ZK nullifier |
+| Ask Bob header (after connect) | `LoyaltyTierChip` — **tier N** (+ zk) → `#pass-connect` |
+| Place / Buy | `WalletScoreHint` — `discountHintBps` clamped to place; stay-proof discount stays separate |
+| Agent handoff | Pass `claim` + `proved.publicSignals` JSON — do not put secrets on chain |
+
+Home card auto-runs `verifyOnConnect` on Freighter/passkey connect. Cache key: `bookerbob.loyalty.v2.{season}.{addr}` (`app/src/loyaltyClaim.ts`).
 
 ## Tests
 

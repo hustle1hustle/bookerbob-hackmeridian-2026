@@ -1,6 +1,7 @@
-// Presentational + thin wiring: passkey / Freighter connect → auto verify_onchain_zk (score + attest tx).
+// Presentational + thin wiring: passkey / Freighter → score + attest + ZK score proof.
 import { useEffect, useRef, useState } from "react"
 import { errorCopy, type WalletKind } from "@bookerbob/pos-sdk"
+import { loyaltyCacheKey, loyaltySeason, readLoyaltyClaim } from "../loyaltyClaim"
 import { sdk } from "../sdk"
 import { useWallet } from "../store"
 import { TxLink } from "../ui"
@@ -18,25 +19,60 @@ type ClaimView = {
   binding?: string
   kind?: string
   passport: { score: number; matched: boolean; rankName?: string; scfTier?: string; profileUrl?: string } | null
+  proof: {
+    mode: "group" | "self" | null
+    nullifier: string | null
+    publicSignals: string[] | null
+  } | null
 }
 
-const seasonNow = () => new Date().getUTCFullYear() * 100 + (new Date().getUTCMonth() + 1)
-const cacheKey = (addr: string, season: number) => `bookerbob.loyalty.v1.${season}.${addr}`
+const seasonNow = loyaltySeason
 
 function loadCache(addr: string, season: number): ClaimView | null {
-  try {
-    const raw = localStorage.getItem(cacheKey(addr, season))
-    return raw ? (JSON.parse(raw) as ClaimView) : null
-  } catch {
-    return null
-  }
+  return readLoyaltyClaim(addr, season) as ClaimView | null
 }
 
 function saveCache(addr: string, season: number, claim: ClaimView) {
   try {
-    localStorage.setItem(cacheKey(addr, season), JSON.stringify(claim))
+    localStorage.setItem(loyaltyCacheKey(addr, season), JSON.stringify(claim))
   } catch {
     /* quota */
+  }
+}
+
+function fromResult(r: Awaited<ReturnType<typeof import("@bookerbob/verify_onchain_zk").verifyOnConnect>>, prev?: ClaimView | null): ClaimView {
+  const nullifier =
+    r.proved?.proof?.nullifier != null
+      ? String(r.proved.proof.nullifier)
+      : r.proved?.publicSignals?.[1] != null
+        ? String(r.proved.publicSignals[1])
+        : null
+  return {
+    rating: r.claim.rating,
+    tier: r.claim.tier,
+    discountHintBps: r.claim.discountHintBps,
+    txCount: r.inspect.txCount,
+    digest: r.digest,
+    txHash: r.attest?.txHash ?? prev?.txHash ?? null,
+    explorerUrl: r.attest?.explorerUrl ?? prev?.explorerUrl ?? (prev?.txHash ? sdk.chain.explorerTx(prev.txHash) : null),
+    binding: typeof localStorage !== "undefined" ? localStorage.getItem("pos.pass_binding") ?? undefined : undefined,
+    kind: sdk.wallet.kind ?? undefined,
+    passport: r.inspect.passport
+      ? {
+          score: r.inspect.passport.score,
+          matched: r.inspect.passport.matched,
+          rankName: r.inspect.passport.signals.rankName,
+          scfTier: r.inspect.passport.signals.scfTier,
+          profileUrl: r.inspect.passport.signals.profileUrl,
+        }
+      : null,
+    proof: r.proved
+      ? {
+          mode: r.proofMode,
+          nullifier: nullifier ? String(nullifier) : null,
+          publicSignals: r.proved.publicSignals ?? null,
+        }
+      : prev?.proof ?? null,
   }
 }
 
@@ -62,28 +98,50 @@ function VerifiedScore({ tier, rating, pending }: { tier: number; rating?: numbe
   )
 }
 
+function ScoreRubric() {
+  return (
+    <details className="score-rubric">
+      <summary>how we score</summary>
+      <ul>
+        <li>
+          <b>Horizon</b> (0–100): account age ≤40 · log ops ≤35 · log payments ≤25. 1-stroop loyalty-attest dust ignored.
+        </li>
+        <li>
+          <b>Stellar Passport</b> (0–20 bonus, then clamp 100): linked builder · points · rank · scf_tier · 30d activity.
+        </li>
+        <li>
+          <b>Tier</b>: 5 ≥85 · 4 ≥70 · 3 ≥50 · 2 ≥30 · 1 below.
+        </li>
+        <li>
+          <b>ZK</b>: Groth16 binds rating|tier|address into message (Semaphore stack). Default self-membership; group leaves when enrolled.
+        </li>
+      </ul>
+    </details>
+  )
+}
+
 export function PassConnectPanel({ merchantId = 0, season }: { merchantId?: number; season?: number }) {
   const address = useWallet()
   const [phase, setPhase] = useState<Phase>("idle")
   const [copy, setCopy] = useState<string | null>(null)
   const [claim, setClaim] = useState<ClaimView | null>(null)
+  const [proving, setProving] = useState(false)
   const lastVerified = useRef<string | null>(null)
   const seasonVal = season ?? seasonNow()
 
   const runVerify = async (addr: string, opts: { force?: boolean } = {}) => {
     const cached = loadCache(addr, seasonVal)
-    // Same address + season: keep stable claim; only force re-reads Horizon (no new attest).
     if (!opts.force && lastVerified.current === addr && claim) return
     if (!opts.force && cached && lastVerified.current !== addr) {
       setClaim(cached)
       lastVerified.current = addr
       setPhase("ready")
-      // Soft refresh in background without posting another attest tx (that was inflating the score).
       void refreshQuiet(addr, cached)
       return
     }
 
     setPhase("inspecting")
+    setProving(true)
     setCopy(null)
     try {
       const { verifyOnConnect } = await import("@bookerbob/verify_onchain_zk")
@@ -91,37 +149,20 @@ export function PassConnectPanel({ merchantId = 0, season }: { merchantId?: numb
       const r = await verifyOnConnect(addr, {
         merchantId,
         season: seasonVal,
-        // Re-attest only the first time this season — each attest is a 1-stroop payment that used to bump the score.
         attest: !alreadyAttested,
+        proveScore: true,
         passportProxyBase: "",
       })
       lastVerified.current = addr
-      const next: ClaimView = {
-        rating: r.claim.rating,
-        tier: r.claim.tier,
-        discountHintBps: r.claim.discountHintBps,
-        txCount: r.inspect.txCount,
-        digest: r.digest,
-        txHash: r.attest?.txHash ?? cached?.txHash ?? null,
-        explorerUrl: r.attest?.explorerUrl ?? cached?.explorerUrl ?? (cached?.txHash ? sdk.chain.explorerTx(cached.txHash) : null),
-        binding: typeof localStorage !== "undefined" ? localStorage.getItem("pos.pass_binding") ?? undefined : undefined,
-        kind: sdk.wallet.kind ?? undefined,
-        passport: r.inspect.passport
-          ? {
-              score: r.inspect.passport.score,
-              matched: r.inspect.passport.matched,
-              rankName: r.inspect.passport.signals.rankName,
-              scfTier: r.inspect.passport.signals.scfTier,
-              profileUrl: r.inspect.passport.signals.profileUrl,
-            }
-          : null,
-      }
+      const next = fromResult(r, cached)
       setClaim(next)
       saveCache(addr, seasonVal, next)
       setPhase("ready")
     } catch (e) {
       setPhase("error")
       setCopy(e instanceof Error ? e.message : "verify failed")
+    } finally {
+      setProving(false)
     }
   }
 
@@ -132,29 +173,15 @@ export function PassConnectPanel({ merchantId = 0, season }: { merchantId?: numb
         merchantId,
         season: seasonVal,
         attest: false,
+        // Keep prior ZK if we already have one; skip re-download unless missing.
+        proveScore: !prev.proof?.nullifier,
         passportProxyBase: "",
       })
-      const next: ClaimView = {
-        ...prev,
-        rating: r.claim.rating,
-        tier: r.claim.tier,
-        discountHintBps: r.claim.discountHintBps,
-        txCount: r.inspect.txCount,
-        digest: r.digest,
-        passport: r.inspect.passport
-          ? {
-              score: r.inspect.passport.score,
-              matched: r.inspect.passport.matched,
-              rankName: r.inspect.passport.signals.rankName,
-              scfTier: r.inspect.passport.signals.scfTier,
-              profileUrl: r.inspect.passport.signals.profileUrl,
-            }
-          : null,
-      }
+      const next = fromResult(r, prev)
       setClaim(next)
       saveCache(addr, seasonVal, next)
     } catch {
-      /* keep cached claim */
+      /* keep cached */
     }
   }
 
@@ -188,11 +215,11 @@ export function PassConnectPanel({ merchantId = 0, season }: { merchantId?: numb
   }
 
   return (
-    <section id="pass-connect" className="card pass-connect" aria-label="wallet connect and verify">
-      <span className="label">passkey · wallet check</span>
-      <h2>connect · score · attest</h2>
+    <section id="pass-connect" className="card pass-connect" aria-label="wallet connect and on-chain verify">
+      <span className="label">pass_connect · verify_onchain_zk</span>
+      <h2>connect · score · prove</h2>
       <p className="muted">
-        Freighter or platform passkey. on connect we score a verified tier (5→1), build a loyalty claim, and post one testnet attestation tx for the season.
+        Freighter or passkey → verified tier (5→1), loyalty claim, one season attest tx, and a Groth16 score proof on the Proof of Stay stack.
       </p>
       <div className="row" style={{ marginTop: 14 }}>
         {!address ? (
@@ -215,7 +242,7 @@ export function PassConnectPanel({ merchantId = 0, season }: { merchantId?: numb
           onClick={() => address && void runVerify(address, { force: true })}
           disabled={phase === "inspecting" || !address}
         >
-          {phase === "inspecting" ? "scoring…" : "re-check score"}
+          {phase === "inspecting" ? (proving ? "proving…" : "scoring…") : "re-check score"}
         </button>
       </div>
       {copy && (
@@ -226,7 +253,7 @@ export function PassConnectPanel({ merchantId = 0, season }: { merchantId?: numb
       {phase === "inspecting" && !claim && (
         <div className="verdict" style={{ marginTop: 18 }} aria-live="polite">
           <VerifiedScore tier={0} pending />
-          <p className="cap">reading Horizon · optional Passport · then one attest tx if this season has none yet</p>
+          <p className="cap">Horizon → Passport → attest → ZK score proof (first artifacts download ~4 MB)</p>
         </div>
       )}
       {claim && (phase === "ready" || phase === "inspecting") && (
@@ -236,6 +263,7 @@ export function PassConnectPanel({ merchantId = 0, season }: { merchantId?: numb
             <span className="label">season {seasonVal}</span>
           </div>
           <VerifiedScore tier={claim.tier} rating={claim.rating} pending={phase === "inspecting"} />
+          <ScoreRubric />
           <dl className="kv">
             <dt>ops scored</dt>
             <dd>{claim.txCount}</dd>
@@ -248,14 +276,6 @@ export function PassConnectPanel({ merchantId = 0, season }: { merchantId?: numb
                       builder bonus +{claim.passport.score}
                       {claim.passport.rankName ? ` · ${claim.passport.rankName}` : ""}
                       {claim.passport.scfTier ? ` · ${claim.passport.scfTier}` : ""}
-                      {claim.passport.profileUrl ? (
-                        <>
-                          {" · "}
-                          <a href={claim.passport.profileUrl} target="_blank" rel="noreferrer">
-                            profile
-                          </a>
-                        </>
-                      ) : null}
                     </>
                   ) : (
                     <span className="muted">no linked builder (bonus 0)</span>
@@ -265,14 +285,21 @@ export function PassConnectPanel({ merchantId = 0, season }: { merchantId?: numb
             )}
             <dt>discount hint</dt>
             <dd>{(claim.discountHintBps / 100).toFixed(0)}% (bps {claim.discountHintBps})</dd>
+            <dt>zk score proof</dt>
+            <dd>
+              {claim.proof?.nullifier ? (
+                <>
+                  ready · {claim.proof.mode === "group" ? "group membership" : "self-membership"} · nullifier{" "}
+                  <span className="mono">{claim.proof.nullifier.slice(0, 10)}…</span>
+                </>
+              ) : proving || phase === "inspecting" ? (
+                <span className="muted">proving…</span>
+              ) : (
+                <span className="muted">not issued (artifacts failed or skipped)</span>
+              )}
+            </dd>
             <dt>claim digest</dt>
             <dd className="mono">{claim.digest.slice(0, 10)}…</dd>
-            {claim.binding && (
-              <>
-                <dt>pass binding</dt>
-                <dd className="mono">{claim.binding}</dd>
-              </>
-            )}
             <dt>attest tx</dt>
             <dd>
               {claim.txHash ? (
@@ -287,7 +314,7 @@ export function PassConnectPanel({ merchantId = 0, season }: { merchantId?: numb
             </dd>
           </dl>
           <p className="cap">
-            tier ladder 5→1 · same address keeps one attest per season (re-check does not mint another dust payment)
+            UX home for this flow: this card (#pass-connect). Also surface tier chip in Ask Bob header after connect, and discount hint on Place/Buy.
           </p>
         </div>
       )}

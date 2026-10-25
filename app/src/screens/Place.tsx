@@ -10,6 +10,7 @@ import { Empty, Loading, TxLink } from "../ui"
 import { FlowStatus } from "../views/flow"
 import { PlaceHeader, ReviewFeed, discountPct } from "../views/places"
 import { RatingCompare } from "../views/explainer"
+import { WalletScoreHint } from "../views/LoyaltyChip"
 
 /** Static demo copy for the comparison block (handoff), not data. */
 const PUBLIC_DEMO = { rating: "9.1", count: "2,000" }
@@ -79,6 +80,10 @@ export function PlaceScreen({ id }: { id: number }) {
               )
             }
           />
+
+          <div className="section">
+            <WalletScoreHint merchantDiscountBps={p.discountBps} />
+          </div>
 
           {p.discountBps > 0 && (
             <div className="section">
