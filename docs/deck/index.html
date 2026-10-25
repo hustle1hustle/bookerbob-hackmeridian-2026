@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<title>BookerBob · Proof of Loyalty · deck</title>
+<link rel="stylesheet" href="bookerbob-tokens.css">
+<style>
+  @page { size: 1920px 1080px; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #777; }
+  body { font-family: var(--sans); color: var(--ink); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .s { width: 1920px; height: 1080px; background: var(--bg); position: relative; overflow: hidden; padding: 96px 120px; page-break-after: always; break-after: page; margin: 0 auto 24px; }
+  @media print { .s { margin: 0; } body { background: var(--bg); } }
+  .dark { background: var(--ink); color: var(--bg); }
+  .lbl { font-family: var(--mono); font-size: 18px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+  .dark .lbl { color: #8C897F; }
+  .no { position: absolute; top: 96px; right: 120px; font-family: var(--mono); font-size: 18px; color: var(--ink-3); }
+  .foot { position: absolute; left: 120px; right: 120px; bottom: 56px; display: flex; justify-content: space-between; font-family: var(--mono); font-size: 16px; color: var(--ink-3); border-top: 1px solid var(--rule-soft); padding-top: 16px; }
+  .dark .foot { border-color: rgba(236,234,227,.14); color: #8C897F; }
+  h1 { font-size: 196px; font-weight: 500; letter-spacing: -.06em; line-height: .84; margin: 0; }
+  h2 { font-size: 104px; font-weight: 500; letter-spacing: -.06em; line-height: .88; margin: 28px 0 0; max-width: 15ch; }
+  h3 { font-size: 34px; font-weight: 500; letter-spacing: -.035em; margin: 0 0 10px; }
+  p, li { font-size: 26px; line-height: 1.38; color: var(--ink-2); }
+  .dark p, .dark li { color: #B4B1A8; }
+  .sub { font-size: 72px; font-weight: 500; letter-spacing: -.05em; line-height: .95; color: var(--ink-2); margin: 24px 0 0; }
+  .accent { color: var(--accent); }
+  .deal { background: var(--deal); color: var(--deal-ink); padding: 2px 10px; font-family: var(--mono); font-size: .8em; }
+  .row { display: grid; gap: 0; border-top: 1px solid var(--rule); margin-top: 56px; }
+  .row > div { padding: 28px 32px 28px 0; border-right: 1px solid var(--rule-soft); }
+  .row > div:last-child { border-right: 0; }
+  .row > div + div { padding-left: 32px; }
+  .c3 { grid-template-columns: repeat(3, 1fr); } .c4 { grid-template-columns: repeat(4, 1fr); } .c2 { grid-template-columns: 1fr 1fr; }
+  .big { font-size: 96px; font-weight: 500; letter-spacing: -.05em; line-height: 1; color: var(--ink); }
+  .shot { border: 1px solid var(--ink); box-shadow: var(--shadow-hard); display: block; }
+  .mono { font-family: var(--mono); }
+  .log { font-family: var(--mono); font-size: 17.5px; line-height: 1.6; background: #121211; color: #ECEAE3; padding: 28px 32px; border: 1px solid var(--ink); white-space: pre; overflow: hidden; }
+  .log b { color: #F4C430; font-weight: 500; } .log i { color: #8EA0FF; font-style: normal; }
+  table { border-collapse: collapse; width: 100%; margin-top: 48px; }
+  td, th { text-align: left; font-size: 25px; padding: 20px 24px 20px 0; border-bottom: 1px solid var(--rule-soft); vertical-align: top; color: var(--ink-2); }
+  th { font-family: var(--mono); font-size: 17px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); font-weight: 400; border-bottom: 1px solid var(--rule); }
+  td:first-child { color: var(--ink); font-weight: 500; }
+  .tick { color: var(--accent); } .cross { color: var(--ink-3); }
+  ul { margin: 0; padding-left: 0; list-style: none; } li { margin: 0 0 10px; }
+  li::before { content: "/ "; color: var(--accent); font-family: var(--mono); }
+</style>
+</head>
+<body>
+
+<!-- 1 cover -->
+<section class="s">
+  <div class="lbl">HackMeridian 2026 · Stellar · Lisbon</div>
+  <div style="display:grid;grid-template-columns:1.05fr .95fr;gap:72px;margin-top:120px;align-items:start">
+    <div>
+      <h1>BookerBob.</h1>
+      <div class="sub">Google for agentic commerce.</div>
+      <p style="font-size:36px;color:var(--ink);margin-top:40px">Proof of loyalty, everywhere you go.</p>
+    </div>
+    <img class="shot" src="img/hero.jpg" style="width:100%;margin-top:8px" alt="live site">
+  </div>
+  <div class="foot"><span>stellarbob2026.xyz · live on Stellar testnet</span><span>Semaphore v4 · BN254 · Poseidon · USDC</span></div>
+</section>
+
+<!-- 2 problem -->
+<section class="s">
+  <div class="lbl">The problem</div><div class="no">02</div>
+  <h2>Trust in travel is bought, and loyalty costs your data.</h2>
+  <div class="row c2">
+    <div><h3>Reviews anyone can buy</h3><p>Platforms show thousands of stars and none of them prove a stay. A guest, or the guest's AI agent, cannot tell a real review from a paid one.</p></div>
+    <div><h3>Loyalty paid for with your data</h3><p>A returning-guest discount means handing over your identity and your history. You pay for the perk with a profile that follows you everywhere.</p></div>
+  </div>
+  <p style="margin-top:56px;font-size:30px;color:var(--ink)">Agents now shop for people. They need context they can verify, and people need it to stay theirs.</p>
+  <div class="foot"><span>BookerBob</span><span>problem</span></div>
+</section>
+
+<!-- 3 solution -->
+<section class="s">
+  <div class="lbl">The solution</div><div class="no">03</div>
+  <h2>Prove you were a customer. Reveal nothing else.</h2>
+  <p style="font-size:30px;margin-top:32px;max-width:60ch">One zero-knowledge membership proof, verified on Stellar. Only its scope changes between uses.</p>
+  <div class="row c3">
+    <div><div class="lbl accent">01 reviews</div><h3 style="margin-top:14px">reviews nobody can buy</h3><p>One review per proven stay. The author stays anonymous, the nullifier stops a second one.</p></div>
+    <div><div class="lbl accent">02 perks</div><h3 style="margin-top:14px">perks that stack, privately</h3><p>Returning guest 10%, BookerBob network 5%, REP verified traveler 5%, capped at 15%. One USDC payment.</p></div>
+    <div><div class="lbl accent">03 agent checkout</div><h3 style="margin-top:14px">your agent shops for you</h3><p>Over UCP, the open protocol agents shop with, at a real Shopify store, with your proven discount.</p></div>
+  </div>
+  <div class="foot"><span>BookerBob</span><span>scope = (action, merchant, season)</span></div>
+</section>
+
+<!-- 4 how it works -->
+<section class="s">
+  <div class="lbl">How it works</div><div class="no">04</div>
+  <h2 style="max-width:none">proof → Stellar → perk</h2>
+  <svg viewBox="0 0 1680 520" width="1680" height="520" style="margin-top:56px" font-family="Geist, sans-serif">
+    <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#121211"/></marker></defs>
+    <g font-size="30" fill="#121211">
+      <rect x="0" y="70" width="400" height="300" fill="#F6F5F1" stroke="#121211"/>
+      <text x="32" y="122" font-family="Geist Mono" font-size="17" fill="#6B685F" letter-spacing="1.5">GUEST DEVICE</text>
+      <text x="32" y="176">secret never leaves</text>
+      <text x="32" y="222" fill="#4A4842" font-size="24">checkout: gives the place</text>
+      <text x="32" y="254" fill="#4A4842" font-size="24">only a fresh commitment</text>
+      <text x="32" y="316" fill="#1D3BD1" font-size="24">Semaphore proof, ~0.5 s</text>
+
+      <rect x="640" y="0" width="400" height="440" fill="#121211"/>
+      <text x="672" y="52" font-family="Geist Mono" font-size="17" fill="#8C897F" letter-spacing="1.5">STELLAR CONTRACT</text>
+      <text x="672" y="110" fill="#ECEAE3">Poseidon tree</text>
+      <text x="672" y="146" fill="#B4B1A8" font-size="22">of customers per merchant</text>
+      <text x="672" y="206" fill="#ECEAE3">Groth16 on BN254</text>
+      <text x="672" y="242" fill="#B4B1A8" font-size="22">31M CPU, 7.8% of a tx</text>
+      <text x="672" y="302" fill="#ECEAE3">nullifier spent</text>
+      <text x="672" y="338" fill="#B4B1A8" font-size="22">once per scope and season</text>
+      <text x="672" y="398" fill="#8EA0FF" font-size="22">roots: own history, never 0</text>
+
+      <rect x="1280" y="70" width="400" height="300" fill="#F4C430" stroke="#121211"/>
+      <text x="1312" y="122" font-family="Geist Mono" font-size="17" fill="#121211" letter-spacing="1.5">PERK</text>
+      <text x="1312" y="176">review counted, or</text>
+      <text x="1312" y="216">price drops</text>
+      <text x="1312" y="282" font-size="24">40.80 → 34.68 USDC</text>
+      <text x="1312" y="316" font-size="24">in the same transaction</text>
+    </g>
+    <line x1="400" y1="220" x2="636" y2="220" stroke="#121211" stroke-width="2" marker-end="url(#a)"/>
+    <line x1="1040" y1="220" x2="1276" y2="220" stroke="#121211" stroke-width="2" marker-end="url(#a)"/>
+    <text x="420" y="204" font-family="Geist Mono" font-size="17" fill="#4A4842">proof + nullifier</text>
+    <text x="1060" y="204" font-family="Geist Mono" font-size="17" fill="#4A4842">verified, paid</text>
+    <text x="0" y="500" font-size="24" fill="#4A4842" font-family="Geist">The place learns: a valid proof for its own customer list, a payer used once, a new commitment. Not who, not which visit.</text>
+  </svg>
+  <div class="foot"><span>Semaphore v4 artifacts 4.13.0 (400+ participant ceremony) · depth 10</span><span>message binds the payer: no front-running</span></div>
+</section>
+
+<!-- 5 why stellar -->
+<section class="s">
+  <div class="lbl">Why Stellar</div><div class="no">05</div>
+  <h2>Zero-knowledge is native here.</h2>
+  <div class="row c4">
+    <div><div class="lbl">BN254 host functions</div><div class="big" style="margin-top:18px">31M</div><p>CPU to verify a Groth16 proof on chain. 7.8% of the 400M per-transaction limit.</p></div>
+    <div><div class="lbl">Poseidon permutation</div><div class="big" style="margin-top:18px">1.1M</div><p>CPU for a customer-tree insert, circomlib compatible, the same root as the browser.</p></div>
+    <div><div class="lbl">USDC via SAC</div><div class="big" style="margin-top:18px">1 tx</div><p>Proof, nullifier, discount and payment settle together. Nothing to reconcile.</p></div>
+    <div><div class="lbl">Cost</div><div class="big" style="margin-top:18px">1.13</div><p>XLM for a discounted booking on testnet, mostly storage rent. Proof on chain: 256 bytes.</p></div>
+  </div>
+  <p style="margin-top:44px">Protocol 29 · soroban-sdk 28 · Semaphore v4. Passkey login today derives an Ed25519 key; secp256r1 (P-256) verification on chain is the next step for passkey smart accounts.</p>
+  <div class="foot"><span>docs/bench.md, measured 25 Oct 2026</span><span>testnet</span></div>
+</section>
+
+<!-- 6 demo -->
+<section class="s">
+  <div class="lbl">Live demo</div><div class="no">06</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:48px;margin-top:40px">
+    <div>
+      <div class="lbl" style="margin-bottom:14px">Ask Bob: ranked by proven reviews only</div>
+      <img class="shot" src="img/ranking.jpg" style="width:100%;height:380px;object-fit:cover;object-position:top" alt="ranking">
+      <div class="lbl" style="margin:36px 0 14px">REP verified traveler: phone approves, Bob keeps yes or no</div>
+      <img class="shot" src="img/rep-card.jpg" style="width:100%" alt="REP card">
+      <p style="font-size:20px;margin-top:14px" class="mono">device run 25 Oct 14:31 · tx 38bd6a7f…4106</p>
+    </div>
+    <div>
+      <div class="lbl" style="margin-bottom:14px">Agent at a real Shopify store, over UCP, perks stacked</div>
+<div class="log">store offers: returning customer 10%, BookerBob
+  Lisbon network 5%, REP verified traveler 5%; cap 15%
+2 proof(s) generated: returning customer 10%
+  + BookerBob Lisbon network 5% <i>(cap 15%)</i>
+store verified 2 claim(s) against the Stellar
+  contract: 15% off, single-use code BB-563A…
+code applied by the store: <b>-22.50 AED</b>
+store co-signed book_with_context:
+  40.80 USDC before discount, <b>pays 34.68 USDC</b>
+paid 34.68 USDC on Stellar, tx 7ad07439…
+order #1012 completed
+store saw: a valid proof, a fresh payer, a fresh
+  customer code. Not who the buyer is.</div>
+      <img class="shot" src="img/perks.jpg" style="width:100%;margin-top:28px;height:250px;object-fit:cover;object-position:top" alt="perks">
+    </div>
+  </div>
+  <div class="foot"><span>stellarbob2026.xyz · bookerbob-ucp-bridge.fly.dev</span><span>real runs, Stellar testnet, Shopify test store</span></div>
+</section>
+
+<!-- 7 context providers -->
+<section class="s">
+  <div class="lbl">Context providers are pluggable</div><div class="no">07</div>
+  <h2>Anyone who can vouch adds a group. Places choose what to reward.</h2>
+  <div class="row c3">
+    <div><div class="lbl accent">attested group</div><h3 style="margin-top:14px">REP verified traveler</h3><p>Past Airbnb or Booking stays proven with zkTLS in the REP app. BookerBob checks REP's signed verdict and adds a fresh identity. Live since today's device run.</p></div>
+    <div><div class="lbl accent">chain group</div><h3 style="margin-top:14px">BookerBob network</h3><p>A stay at any member place enrolls you, so a guest of one Lisbon place is a known guest at all of them, without anyone knowing who.</p></div>
+    <div><div class="lbl accent">next</div><h3 style="margin-top:14px">Stellar wallet history</h3><p>Already in the app as connect, score, attest from Horizon. It plugs in the same way: one operator key, one group, one line of policy.</p></div>
+  </div>
+  <p style="margin-top:48px">Each provider owns its group and only it can add members. The provider never learns where a perk is used; the place never learns who used it.</p>
+  <div class="foot"><span>create_group · add_member · set_policy · book_with_context</span><span>docs/context-providers.md</span></div>
+</section>
+
+<!-- 8 security -->
+<section class="s">
+  <div class="lbl">Security model</div><div class="no">08</div>
+  <h2>Private by default. Accountable when needed.</h2>
+  <table>
+    <tr><th>Party</th><th>Sees</th><th>Never sees</th></tr>
+    <tr><td>The place</td><td><span class="tick">✓</span> an order, a proven badge, a fresh commitment</td><td><span class="cross">×</span> who you are, which past visit</td></tr>
+    <tr><td>The public</td><td><span class="tick">✓</span> reviews and their proofs, tree roots</td><td><span class="cross">×</span> names, wallets behind reviews</td></tr>
+    <tr><td>The arbiter</td><td><span class="tick">✓</span> one stay, only if you disclose in a dispute</td><td><span class="cross">×</span> anything else</td></tr>
+    <tr><td>BookerBob</td><td><span class="tick">✓</span> "REP verified: yes or no"</td><td><span class="cross">×</span> your tier, spend, platform or device key</td></tr>
+    <tr><td>Nobody</td><td colspan="2">sees your secret. It never leaves your browser.</td></tr>
+  </table>
+  <div class="foot"><span>contract rejects root 0 and non-canonical inputs · nullifiers persistent</span><span>verifier unaudited, testnet</span></div>
+</section>
+
+<!-- 9 roadmap -->
+<section class="s dark">
+  <div class="lbl">Beyond hotels</div><div class="no" style="color:#8C897F">09</div>
+  <h2 style="color:var(--bg)">Any place where you were a customer.</h2>
+  <div class="row c4" style="border-color:#ECEAE3">
+    <div style="border-color:rgba(236,234,227,.14)"><div class="lbl">live today</div><h3 style="margin-top:14px;color:var(--bg)">UCP merchants</h3><p>One Shopify store works end to end. Any UCP merchant takes the same extension.</p></div>
+    <div style="border-color:rgba(236,234,227,.14)"><div class="lbl">next</div><h3 style="margin-top:14px;color:var(--bg)">Tier-only REP</h3><p>Store-scoped verdicts that carry only a tier, so even the attester's signature says nothing more.</p></div>
+    <div style="border-color:rgba(236,234,227,.14)"><div class="lbl">next</div><h3 style="margin-top:14px;color:var(--bg)">Multisig upgrade</h3><p>The contract upgrades in place today with one admin key; that key moves to a multisig.</p></div>
+    <div><div class="lbl">next</div><h3 style="margin-top:14px;color:var(--bg)">JMPR booking</h3><p>Real Lisbon hotels already in Ask Bob. Booking through JMPR, with the stay checked in as proof.</p></div>
+  </div>
+  <p style="margin-top:48px">Restaurants, events, subscriptions: anywhere reviews and loyalty are paid for with someone else's data today.</p>
+  <div class="foot"><span>BookerBob</span><span>roadmap</span></div>
+</section>
+
+<!-- 10 team -->
+<section class="s">
+  <div class="lbl">Team</div><div class="no">10</div>
+  <h1 style="margin-top:120px">BookerBob.</h1>
+  <div class="sub">Built in Lisbon, for Stellar.</div>
+  <div class="row c2" style="margin-top:80px">
+    <div><div class="lbl">Track record</div><p style="font-size:32px;color:var(--ink);margin-top:14px">ETHGlobal Lisbon: 2nd place World AgentKit, 2nd place The Graph.</p></div>
+    <div><div class="lbl">Try it</div><p style="font-size:32px;color:var(--ink);margin-top:14px">stellarbob2026.xyz<br><span class="mono" style="font-size:22px;color:var(--ink-2)">github.com/hustle1hustle/bookerbob-hackmeridian-2026</span></p></div>
+  </div>
+  <div class="foot"><span>Proof of loyalty, everywhere you go.</span><span>HackMeridian 2026</span></div>
+</section>
+
+</body>
+</html>
