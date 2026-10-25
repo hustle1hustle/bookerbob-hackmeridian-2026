@@ -750,6 +750,18 @@ export const backend = {
 // The store's catalog over UCP (bridge /search): what Bob can buy, and which one the next run buys.
 let storeCatalogP: Promise<any[]> | null = null
 let chosenVariant: string | null = null
+/** Ask Bob: the backend search (GET /api/search), places mapped to this site's place ids. */
+export async function search(q: string) {
+  const r: any = await fetch(`${API}/api/search?q=${encodeURIComponent(q)}`).then((x) => x.json())
+  const results = (r?.results ?? []).map((x: any) => ({
+    source: String(x.source), placeId: typeof x.merchantId === "number" ? toPlace(x.merchantId) : null,
+    title: String(x.title ?? ""), kind: kindOut(String(x.kind ?? "")), price: Number(x.price ?? 0), currency: String(x.currency ?? "USDC"),
+    provenRating: typeof x.provenRating === "number" ? x.provenRating : null, reviewCount: Number(x.reviewCount ?? 0), verifiedCount: Number(x.verifiedCount ?? 0),
+    url: x.url ?? null, variantId: x.extra?.variantId ?? x.variantId ?? null,
+  }))
+  return { query: q, kind: r?.parsed?.kind ? kindOut(String(r.parsed.kind)) : null, results }
+}
+
 export const store = {
   async orders() {
     return []

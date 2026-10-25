@@ -13,7 +13,8 @@ export function RatingLine({ place }: { place: Merchant }) {
   return (
     <p className="row">
       <Stars value={avg} />
-      <strong>{avg.toFixed(1)}</strong>
+      {/* same scale as the main site: the 1-5 star average shown out of 10 */}
+      <strong>{(avg * 2).toFixed(1)}</strong> <span className="muted small">/10</span>
       <span className="muted small">
         from {plural(place.ratingCount, "proven review")}
         {place.verifiedCount > 0 && `, ${place.verifiedCount} verified by an arbiter`}
