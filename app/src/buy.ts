@@ -24,9 +24,9 @@ export interface BuyState {
   error?: { name: ErrorName; copy: string }
 }
 
-const describeParse = (p: SearchResponse["parsed"]) =>
+export const describeParse = (p: SearchResponse["parsed"]) =>
   [p.kind ? `kind ${p.kind}` : "any kind", p.maxPrice !== null ? `under ${p.maxPrice} USDC` : "no price cap", p.terms.length ? `terms: ${p.terms.join(" ")}` : ""].filter(Boolean).join(", ")
-const describeSources = (s: SearchResponse["sources"]) => s.map((x) => `${x.id} ${x.status === "ok" ? x.count : x.status}`).join(", ")
+export const describeSources = (s: SearchResponse["sources"]) => s.map((x) => `${x.id} ${x.status === "ok" ? x.count : x.status}`).join(", ")
 const pct = (bps: number) => `${(bps / 100).toFixed(bps % 100 ? 1 : 0)}%`
 
 export function useBuyFlow(merchantId: number, query: string) {

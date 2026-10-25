@@ -3,7 +3,7 @@ import { useEffect, useState, type ReactNode } from "react"
 import { autoOnce } from "./demo"
 import { errorCopy, formatUsdc, type WalletKind } from "@bookerbob/pos-sdk"
 import { useWriteFlow } from "./flows"
-import { sdk } from "./sdk"
+import { faucet, sdk } from "./sdk"
 import { useAsync, useRoute, useWallet, type Role } from "./store"
 
 const roles: { id: Role; label: string; to: string }[] = [
@@ -31,10 +31,10 @@ type ConnectState = { status: "idle" } | { status: "choosing" } | { status: "con
 /** "get test USDC": sdk.chain.faucet() through the faucet state machine. Also offered on InsufficientFunds. */
 export function FaucetButton() {
   const flow = useWriteFlow("faucet")
-  const run = () => flow.run(() => sdk.chain.faucet())
+  const run = () => flow.run(faucet)
   const runFlow = flow.run
   useEffect(() => {
-    if (sdk.wallet.address && autoOnce("faucet")) void runFlow(() => sdk.chain.faucet())
+    if (sdk.wallet.address && autoOnce("faucet")) void runFlow(faucet)
   }, [runFlow])
   return (
     <span className="row">

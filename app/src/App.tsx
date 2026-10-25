@@ -4,6 +4,7 @@ import { Empty } from "./ui"
 import { PlacesScreen } from "./screens/Places"
 import { AskBobScreen } from "./screens/AskBob"
 import { BuyScreen } from "./screens/Buy"
+import { BuyUcpScreen } from "./screens/BuyUcp"
 import { PlaceScreen } from "./screens/Place"
 import { DeskScreen, FeedScreen } from "./screens/Hotel"
 import { ArbiterScreen } from "./screens/Arbiter"
@@ -14,6 +15,7 @@ import { DiscloseScreen, DiscountScreen, ReviewScreen, StayScreen, StaysScreen }
 //   #/                 guest: Ask Bob (landing)
 //   #/ask/<query>      guest: Ask Bob results for a query
 //   #/buy/:id/<query>  guest: Buy with Bob, the agent run for one place
+//   #/buy-ucp/<variantId>/<query>   guest: Buy with Bob at a UCP store (bridge checkout)
 //   #/places           guest: all places
 //   #/place/:id        guest: place page
 //   #/stays            guest: my stays (+ start a stay)
@@ -45,6 +47,8 @@ function render(path: string[]) {
       return <AskBobScreen key={path[1] ?? ""} initial={safeDecode(path[1])} />
     case "buy":
       return <BuyScreen key={path.join("/")} merchantId={n(1)} query={safeDecode(path[2])} />
+    case "buy-ucp":
+      return <BuyUcpScreen key={path.join("/")} variantId={safeDecode(path[1])} query={safeDecode(path[2])} title="store item" />
     case "places":
       return <PlacesScreen />
     case "place":
