@@ -1,0 +1,9 @@
+node_modules
+.core
+.env
+.env.*
+data
+agent
+evidence
+*.log
+.git

@@ -336,6 +336,37 @@ handlers.lookup_catalog = (a) => storeTool("lookup_catalog", forStore(a))
 handlers.get_product = (a) => storeTool("get_product", forStore(a))
 for (const n of ["get_cart", "create_cart", "update_cart", "cancel_cart", "cancel_checkout", "get_order"]) handlers[n] = (a) => storeTool(n, forStore(a))
 
+// ---- public search for the BookerBob site ("Ask Bob" federated search) ------------------
+// GET /search?q=&max_price=   max_price and price are in test USDC (the chain's unit); the store's
+// own price and currency ride along. Backed by the store's UCP catalog search.
+async function search(q: string, maxPrice: number | null) {
+  const found = await storeTool("search_catalog", { catalog: { query: q || "rep" } })
+  const out = []
+  for (const p of found.products ?? []) {
+    const v = (p.variants ?? []).find((x: any) => x.availability?.available !== false) ?? p.variants?.[0]
+    if (!v?.price) continue
+    const price = Number(BigInt(v.price.amount) * RAW_PER_STORE_MINOR) / 1e7
+    if (maxPrice !== null && price > maxPrice) continue
+    out.push({
+      source: "ucp",
+      title: p.title,
+      kind: "shop",
+      price: Math.round(price * 100) / 100,
+      currency: "USDC",
+      storePrice: v.price.amount / 100,
+      storeCurrency: v.price.currency,
+      productId: p.id,
+      variantId: v.id,
+      merchantId: MERCHANT,
+      imageUrl: v.media?.[0]?.url ?? p.media?.[0]?.url ?? null,
+      url: p.url ?? null,
+      ucp: `${PUBLIC_URL}/.well-known/ucp`,
+      returningDiscountBps: (await merchant()).discountBps,
+    })
+  }
+  return out
+}
+
 const readBody = (req: IncomingMessage) =>
   new Promise<string>((ok, no) => {
     let b = ""
@@ -355,6 +386,12 @@ const send = (res: ServerResponse, status: number, body: unknown) => {
 createServer(async (req, res) => {
   try {
     if (req.method === "GET" && req.url === "/.well-known/ucp") return send(res, 200, await profile())
+    if (req.method === "GET" && req.url?.startsWith("/search")) {
+      const u = new URL(req.url, PUBLIC_URL)
+      const mp = u.searchParams.get("max_price")
+      const max = mp !== null && mp !== "" && Number.isFinite(Number(mp)) ? Number(mp) : null
+      return send(res, 200, await search((u.searchParams.get("q") ?? "").slice(0, 100), max))
+    }
     if (req.method === "GET" && req.url === "/health") return send(res, 200, { ok: true, shop: SHOP, merchant: MERCHANT })
     if (req.method === "POST" && req.url === "/mcp") {
       const out = await rpcCall(JSON.parse(await readBody(req)))
