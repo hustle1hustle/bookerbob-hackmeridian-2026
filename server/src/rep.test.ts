@@ -2,6 +2,9 @@
 // rep-attest.fly.dev; the holder signs a key-binding JWT the way REP Bob does. Run: node --test server/src/rep.test.ts
 import { test, after } from "node:test"
 import assert from "node:assert/strict"
+import { mkdtempSync, writeFileSync, readFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { createServer, type Server } from "node:http"
 import { createHash, generateKeyPairSync, sign } from "node:crypto"
 import { deflateRawSync } from "node:zlib"
@@ -265,4 +268,37 @@ test("one REP presentation joins once, even re-attested with another holder key"
   assert.match((await h.call(`/result?sid=${b.sid}`)).body.reason, /already joined/)
   assert.deepEqual(h.added, [101n])
   h.close()
+})
+
+test("operator demo reset: lets the same presentation join again; 403 for others; non-operator joins survive", async () => {
+  await ready
+  const dir = mkdtempSync(join(tmpdir(), "rep-reset-"))
+  // a join recorded from a non-operator flow (future public path) must survive any reset
+  writeFileSync(join(dir, "rep-spent-proofs.txt"), "user-record-key user\n")
+  const added: bigint[] = []
+  const rep = createRep({ demoToken: DEMO, stateDir: dir, jwks: { keys: [JWK] }, now: () => NOW * 1000, addMember: async (c) => (added.push(c), "tx") })
+  const server = createServer((req, res) => rep.handle(req, res, new URL(req.url!, "http://x").pathname))
+  const base = await new Promise<string>((ok) => server.listen(0, "127.0.0.1", () => ok(`http://127.0.0.1:${(server.address() as any).port}/api/rep`)))
+  const call = async (path: string, body?: unknown, op = true) => {
+    const r = await fetch(`${base}${path}`, { method: "POST", headers: { "content-type": "application/json", ...(op ? { "x-bb-demo": DEMO } : {}) }, body: JSON.stringify(body ?? {}) })
+    return { status: r.status, body: (await r.json()) as any }
+  }
+  const pending = async () => (await (await fetch(`${base}/pending`)).json()) as any
+  const AH = "demo-reset-proof-" + "a".repeat(40)
+  const joinOnce = async (c: string) => {
+    await call("/session", { commitment: c })
+    const p = await pending()
+    const v = verdict({ attestation_hash: AH })
+    return call("/present", { sid: p.sid, attestations: [{ jws: v, kbJwt: kb(v, p.nonce) }] })
+  }
+  assert.equal((await joinOnce("501")).status, 200)
+  assert.equal((await joinOnce("502")).status, 400) // already joined
+  assert.equal((await call("/demo-reset", {}, false)).status, 403)
+  const r = await call("/demo-reset")
+  assert.equal(r.status, 200)
+  assert.equal(r.body.cleared, 1)
+  assert.equal((await joinOnce("503")).status, 200) // the same presentation joins again after the reset
+  assert.deepEqual(added, [501n, 503n])
+  assert.match(readFileSync(join(dir, "rep-spent-proofs.txt"), "utf8"), /user-record-key user/)
+  server.close()
 })
