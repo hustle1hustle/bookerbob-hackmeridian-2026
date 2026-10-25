@@ -14,6 +14,9 @@ Tool: Claude Code (Anthropic, model Claude Opus 5.5), directed and reviewed by t
 | Proof converter | `scripts/proof_to_soroban.ts` | wrote it | reviewed |
 | Shared derivation | `scripts/lib/pos.ts` | wrote scope, message and stay-identity derivation | reviewed |
 | Soroban contract | `contracts/proof_of_stay/src/*.rs` | wrote the BN254 Groth16 verifier, incremental LeanIMT, reviews, discount with USDC, attestation, and all tests | specified the design and the mandatory checks, reviewed |
+| SDK types and mock | `packages/sdk/src/*` | wrote the chain / prover / wallet interfaces, the in-memory mock, fixtures (fictional hotels and review copy) and the smoke test | defined the bind points and data contract in the design handoff, reviewed |
+| Testnet deploy | `scripts/deploy.sh`, `docs/testnet.md` | wrote the deploy script, ran deploy and the golden-proof gate on testnet | reviewed |
+| Contributing guide, design handoff | `CONTRIBUTING.md`, `docs/design-handoff.md` | edited from the team's flow and handoff docs | wrote the flow and the handoff |
 
 ## Not AI-generated
 - Product idea, problem framing, scope and cut decisions.
