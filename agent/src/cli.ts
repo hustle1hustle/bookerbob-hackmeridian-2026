@@ -13,7 +13,7 @@ import { DEMO_SEASON, parseQuery, pickHeadline, rank } from "./rank.ts"
 const args = process.argv.slice(2)
 const book = args.includes("--book")
 const apiIdx = args.indexOf("--api")
-const api = (apiIdx >= 0 ? args[apiIdx + 1] : process.env.API) ?? "https://bookerbob-proof-of-loyalty.fly.dev"
+const api = (apiIdx >= 0 ? args[apiIdx + 1] : process.env.API) ?? "https://stellarbob2026.xyz"
 const text = args.filter((a, i) => !a.startsWith("--") && args[i - 1] !== "--api").join(" ").trim()
 if (!text) {
   console.log('usage: node agent/src/cli.ts "hotel in lisbon under 120" [--book] [--api URL]')
