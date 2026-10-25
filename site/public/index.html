@@ -78,9 +78,11 @@ html,body{margin:0;padding:0;background:#EDEBE5}
               <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px"><span style="font-size:15px">{{ r.label }}</span><span style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:{{ r.statusColor }}">{{ r.status }}</span></div>
               <sc-if value="{{ r.hasPerk }}" hint-placeholder-val="{{ false }}"><div style="margin-top:4px;font-family:var(--mono);font-size:11px;font-weight:600;color:var(--deal-ink);background:var(--deal);display:inline-block;padding:2px 6px">{{ r.perk }}</div></sc-if>
               <p style="margin:4px 0 0;font-size:13px;line-height:1.45;color:var(--ink-2)">{{ r.proves }}</p>
-              <p style="margin:2px 0 0;font-size:13px;line-height:1.45;color:var(--ink-3)">{{ r.detail }}<sc-if value="{{ r.hasAccount }}" hint-placeholder-val="{{ false }}"> · <a href="{{ r.accountUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">account ↗</a></sc-if><sc-if value="{{ r.hasScore }}" hint-placeholder-val="{{ false }}"> · <a href="{{ r.scoreHref }}" target="{{ r.scoreTarget }}" rel="noopener" onClick="{{ r.onScore }}" title="wallet score {{ r.score }}/100 · tier {{ r.tier }}" style="font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">score{{ r.scoreArrow }}</a></sc-if><sc-if value="{{ r.scorePending }}" hint-placeholder-val="{{ false }}"> · <span style="font-family:var(--mono);font-size:12px">scoring…</span></sc-if></p>
-              <!-- Score line is NOT behind sc-if alone: Freighter path used to leave src.list stale. Always emit when hasScore. -->
-              <p style="margin:4px 0 0;font-size:12px;line-height:1.45;color:var(--ink-2);display:{{ r.scoreDisplay }}">wallet score <strong style="color:var(--ink)">{{ r.score }}</strong>/100 · tier {{ r.tier }}<sc-if value="{{ r.hasScoreProof }}" hint-placeholder-val="{{ false }}"> · <a href="{{ r.scoreUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">proof tx {{ r.scoreTxShort }} ↗</a></sc-if><sc-if value="{{ r.noScoreProof }}" hint-placeholder-val="{{ false }}"> · <span style="color:var(--ink-3)">proof tx pending / unavailable</span></sc-if></p>
+              <p style="margin:2px 0 0;font-size:13px;line-height:1.45;color:var(--ink-3)">{{ r.detail }}<sc-if value="{{ r.hasAccount }}" hint-placeholder-val="{{ false }}"> · <a href="{{ r.accountUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">account ↗</a></sc-if></p>
+              <!-- Always visible for a connected wallet — never hide behind sc-if / display:none (Freighter was painting account-only). -->
+              <sc-if value="{{ r.showScoreRow }}" hint-placeholder-val="{{ false }}">
+                <p style="margin:6px 0 0;font-size:12px;line-height:1.5;color:var(--ink)">{{ r.scoreLine }}<sc-if value="{{ r.hasScoreProof }}" hint-placeholder-val="{{ false }}"> · <a href="{{ r.scoreUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">proof tx {{ r.scoreTxShort }} ↗</a></sc-if></p>
+              </sc-if>
               <sc-if value="{{ r.hasGens }}" hint-placeholder-val="{{ false }}">
                 <div style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--rule-soft)">
                   <button onClick="{{ r.onStartOver }}" style="appearance:none;border:1px solid var(--ink);background:transparent;color:var(--ink);font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;height:30px;padding:0 10px;cursor:pointer">{{ r.startLabel }}</button>
@@ -1816,10 +1818,25 @@ class Component extends DCLogic {
       srcChips: list.map(r => ({ short: short[r.id] || r.id, dot: (dots[r.status] || dots.none)[0], dotBd: (dots[r.status] || dots.none)[1], title: r.label + ': ' + (word[r.status] || r.status) })),
       srcCta: connected ? '' : 'connect →',
       srcRows: list.map((r, i) => {
-        // Live loyalty.state beats stale src.list (Freighter connect was painting account-only when list lagged).
+        const addr = (s.wallet && s.wallet.address) || (this.m && this.m.wallet && this.m.wallet.address) || null;
         const live = r.id === 'wallet' && this.m && this.m.loyalty ? this.m.loyalty.state : null;
-        const liveOk = !!(live && live.status === 'ready' && live.address && s.wallet && live.address === s.wallet.address && live.rating != null);
-        const livePending = !!(live && live.status === 'pending' && s.wallet && live.address === s.wallet.address);
+        // Kick score whenever Freighter/passkey is connected and we have no ready claim yet.
+        if (r.id === 'wallet' && r.status === 'connected' && addr && this.m && this.m.loyalty) {
+          const st = this.m.loyalty.state.status;
+          const wrong = !!(live && live.address && live.address !== addr);
+          if (wrong) this.m.loyalty.clear();
+          if (st === 'none' || st === 'failed' || wrong) {
+            void this.m.loyalty.ensure(addr).then(() => this.loadSources());
+          } else if (st === 'pending' && !this._scorePoll) {
+            this._scorePoll = setInterval(() => {
+              if (!this.m || !this.m.loyalty || this.m.loyalty.state.status !== 'pending') {
+                clearInterval(this._scorePoll); this._scorePoll = null;
+              }
+              this.loadSources();
+            }, 800);
+          }
+        }
+        const liveOk = !!(live && live.status === 'ready' && live.rating != null && (!live.address || !addr || live.address === addr));
         const score = liveOk ? live.rating : (r.score != null ? r.score : null);
         const tier = liveOk ? live.tier : (r.tier != null ? r.tier : null);
         const liveTx = liveOk ? (live.txHash || null) : (r.txHash || null);
@@ -1827,13 +1844,15 @@ class Component extends DCLogic {
         const scoreTx = r.id === 'wallet' && liveTx ? this.tx(liveTx) : null;
         const joinedTx = r.id !== 'wallet' && r.txHash;
         const hasScore = r.id === 'wallet' && score != null;
-        const scorePending = r.id === 'wallet' && (livePending || /scoring/i.test(String(r.detail || '')));
-        const detail = hasScore
-          ? `${(s.wallet && s.wallet.address) ? (s.wallet.address.slice(0, 4) + '…' + s.wallet.address.slice(-4)) : r.detail} · score ${score} · tier ${tier}`
-          : scorePending
-            ? `${(s.wallet && s.wallet.address) ? (s.wallet.address.slice(0, 4) + '…' + s.wallet.address.slice(-4)) : r.detail} · scoring…`
-            : r.detail;
-        return { ...this.genRow(r), hasNote: r.id === 'wallet' && !!src.fallback, note: r.id === 'wallet' ? (src.fallback || '') : '', hasAccount: !!r.accountUrl, accountUrl: r.accountUrl || '', hasScore, scorePending, scoreOpen: !!hasScore, scoreDisplay: hasScore ? 'block' : 'none', hasScoreProof: !!(hasScore && scoreUrl), noScoreProof: !!(hasScore && !scoreUrl), score: score != null ? score : '', tier: tier != null ? tier : '', scoreUrl: scoreUrl || '', scoreHref: scoreUrl || '#', scoreTarget: scoreUrl ? '_blank' : '', scoreArrow: scoreUrl ? ' ↗' : '', onScore: (e) => { if (e && e.preventDefault && !scoreUrl) e.preventDefault(); this.setState(st => ({ src: { ...st.src, scoreOpen: true, focus: 'wallet' } })); }, scoreTxShort: scoreTx ? scoreTx.short : '', head: i === 1 ? 'add for more perks' : '', hasHead: i === 1, perk: r.perk || '', hasPerk: !!r.perk, hasTx: !!joinedTx, txUrl: joinedTx ? this.tx(r.txHash).url : '', txShort: joinedTx ? this.tx(r.txHash).short : '', label: r.label, proves: r.proves, detail, status: word[r.status] || r.status, statusColor: r.status === 'connected' ? 'var(--accent)' : r.status === 'failed' ? 'var(--warn)' : 'var(--ink-3)', rule: i ? 'var(--rule-soft)' : 'transparent', bg: src.focus === r.id ? 'var(--accent-soft)' : 'transparent', actions: actions(r) };
+        const showScoreRow = r.id === 'wallet' && r.status === 'connected';
+        const scoreLine = hasScore
+          ? `wallet score ${score}/100 · tier ${tier}`
+          : (live && live.status === 'failed')
+            ? 'wallet score: could not score — disconnect and connect Freighter again'
+            : 'wallet score: scoring…';
+        const shortAddr = addr ? addr.slice(0, 4) + '…' + addr.slice(-4) : '';
+        const detail = shortAddr || r.detail;
+        return { ...this.genRow(r), hasNote: r.id === 'wallet' && !!src.fallback, note: r.id === 'wallet' ? (src.fallback || '') : '', hasAccount: !!r.accountUrl, accountUrl: r.accountUrl || '', hasScore, showScoreRow, scoreLine, hasScoreProof: !!(hasScore && scoreUrl), score: score != null ? score : '', tier: tier != null ? tier : '', scoreUrl: scoreUrl || '', scoreTxShort: scoreTx ? scoreTx.short : '', head: i === 1 ? 'add for more perks' : '', hasHead: i === 1, perk: r.perk || '', hasPerk: !!r.perk, hasTx: !!joinedTx, txUrl: joinedTx ? this.tx(r.txHash).url : '', txShort: joinedTx ? this.tx(r.txHash).short : '', label: r.label, proves: r.proves, detail, status: word[r.status] || r.status, statusColor: r.status === 'connected' ? 'var(--accent)' : r.status === 'failed' ? 'var(--warn)' : 'var(--ink-3)', rule: i ? 'var(--rule-soft)' : 'transparent', bg: src.focus === r.id ? 'var(--accent-soft)' : 'transparent', actions: actions(r) };
       }),
     };
   }
