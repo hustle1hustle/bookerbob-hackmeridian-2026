@@ -5,7 +5,11 @@ import { Asset, BASE_FEE, Keypair, Operation, TransactionBuilder, FeeBumpTransac
 import type { Ops } from "./core.ts"
 
 const BOOKING_FNS = new Set(["book", "book_with_discount", "book_with_context", "book_amount", "book_with_discount_amount"])
-const MAX_FEE_STROOPS = 100_000_000n // 10 XLM cap per sponsored transaction
+// Fee cap per sponsored transaction: a base plus a per-proof allowance (each Groth16 check + nullifier write and its
+// rent costs a few XLM on testnet), bounded overall. The refundable part comes back to the relayer.
+const BASE_FEE_CAP = 100_000_000n // 10 XLM
+const PER_PROOF_CAP = 60_000_000n // 6 XLM per proof
+const ABS_FEE_CAP = 400_000_000n // 40 XLM
 
 const wait = async (s: rpc.Server, hash: string) => {
   for (let i = 0; i < 40; i++) {
@@ -79,7 +83,10 @@ export class PayerService {
     // plain-object view works across XDR library versions
     const call = JSON.parse(JSON.stringify(op.func, (_, v) => (typeof v === "bigint" ? v.toString() : v)))?.invoke_contract
     if (!call || call.contract_address !== this.ops.net.contractId || !BOOKING_FNS.has(call.function_name)) throw new Error("BadParams")
-    if (BigInt(inner.fee) > MAX_FEE_STROOPS) throw new Error("BadParams")
+    // proofs in this call: book_with_context carries a vec of claims (arg 4); the discount calls carry one proof
+    const claims = call.function_name === "book_with_context" ? (Array.isArray(call.args?.[4]?.vec) ? call.args[4].vec.length : 1) : /discount/.test(call.function_name) ? 1 : 0
+    const cap = BASE_FEE_CAP + PER_PROOF_CAP * BigInt(claims)
+    if (BigInt(inner.fee) > (cap > ABS_FEE_CAP ? ABS_FEE_CAP : cap)) throw new Error(`FeeTooHigh ${inner.fee} > ${cap}`)
     const bump = TransactionBuilder.buildFeeBumpTransaction(this.sponsor, String(BigInt(inner.fee) * 2n), inner, this.ops.net.networkPassphrase)
     bump.sign(this.sponsor)
     const s = this.server()
