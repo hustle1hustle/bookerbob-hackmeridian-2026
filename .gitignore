@@ -10,3 +10,5 @@ agent/.payers.json
 agent/.payers-used.json
 agent/.buyer-v1.json
 .export/
+!evidence/*.log
+!evidence/v1/*.log

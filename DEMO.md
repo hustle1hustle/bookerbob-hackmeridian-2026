@@ -18,4 +18,4 @@ Setup off camera: bridge running (`npm run bridge`), buyer already has one past 
 | 1:02 | `npx tsx scripts/replay.ts` -> `NullifierUsed` | "Reuse the same proof: Stellar says no. One discount per purchase per season." |
 | 1:12 | end card: tagline + merchant 5 contract link | "Proof of loyalty, everywhere you go." |
 
-Fallback if the network is slow: play `evidence/run-3-returning.log` timings as captured (real run, Sun 25 Oct 13:13).
+Fallback if the network is slow: play `evidence/v1/run-3-returning.log` timings as captured (real run, Sun 25 Oct 13:13).
