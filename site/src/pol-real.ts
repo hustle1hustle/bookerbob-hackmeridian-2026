@@ -818,7 +818,13 @@ async function* ucpRun(reuse: boolean, noClaim = false): AsyncGenerator<any> {
   yield step(1, "done", { detail: `1 × ${String(item.title).toLowerCase()} · ${Number(item.price).toFixed(2)} usdc${item.storePrice ? ` (${Number(item.storePrice).toFixed(2)} ${String(item.storeCurrency ?? "").toLowerCase()} in the store)` : ""} · shopify variant ${String(item.variantId ?? "").split("/").pop()}`, ...(item.url ? { link: { url: item.url, label: "product page on Shopify" } } : {}) })
   const payer = await ensureWallet()
   await ready()
-  const shopStay = sdk.stays.list().find((s) => s.merchant === UCP_MERCHANT && (findP(4)?.leaves ?? []).includes(BigInt(s.commitment)))
+  const shopStay = pastShopStay()
+  // the replay demo needs a proof that was used before: without a past purchase there is nothing to replay
+  if (reuse && !shopStay) {
+    const headline = "you need a past purchase first."
+    yield step(2, "failed", { error: "NoPastPurchase", headline, detail: "a reused proof replays the proof from your last purchase at this store. this browser has none yet: run bob once, then try it." })
+    return yield { type: "headline", text: headline, reason: "no past purchase in this browser", error: "NoPastPurchase" }
+  }
   let claim = (!!shopStay || reuse) && !noClaim
   const next = sdk.stays.create(UCP_MERCHANT)
   yield step(2, "running")
@@ -855,7 +861,15 @@ async function* ucpRun(reuse: boolean, noClaim = false): AsyncGenerator<any> {
     const leaves = await views.leaves(await getClient({ ...TESTNET, contractId: (await apiConfig()).contractId }), UCP_MERCHANT)
     const holder = shopStay ?? next
     const t0 = performance.now()
-    const mp = await proveMembership(sdk.stays.identity(holder), leaves, d.discountMessage(payer), d.discountScope(UCP_MERCHANT, st.action.scope.season), artifacts)
+    let mp: any
+    try {
+      mp = await proveMembership(sdk.stays.identity(holder), leaves, d.discountMessage(payer), d.discountScope(UCP_MERCHANT, st.action.scope.season), artifacts)
+    } catch (e: any) {
+      const notIn = /NotInTree/i.test(String(e?.message ?? e))
+      const headline = notIn ? "you need a past purchase first." : "the proof could not be made on this device."
+      yield step(4, "failed", { error: notIn ? "NotInTree" : "ProveFailed", headline, detail: notIn ? "this browser is not in the store's customer group yet. buy once at full price, then the discount is yours." : "proving stopped on this device. try again." })
+      return yield { type: "headline", text: headline, reason: headline, error: notIn ? "NotInTree" : "ProveFailed" }
+    }
     yield step(4, "done", { detail: `made on this device in ${Math.round(performance.now() - t0)} ms. your secret never leaves it.` })
     yield step(5, "running")
     const pr = await bpost("/buy/prove", { checkoutId: st.checkoutId, payer, root: mp.root.toString(), nullifier: mp.nullifier.toString(), proof: mp.proof })
@@ -918,7 +932,18 @@ async function payUcp(cart: { items: { title: string; price: number }[] }, group
   return { txHash: tx ?? null, subtotal, discounts: [], total: subtotal, saved: 0 }
 }
 
+/** This browser's purchase at the UCP store that is in its customer group (the basis of the returning-customer discount). */
+function pastShopStay() {
+  if (!state) return undefined
+  const leaves = (state.places.find((p) => p.mid === UCP_MERCHANT)?.leaves ?? []) as bigint[]
+  return sdk.stays.list().find((s) => s.merchant === UCP_MERCHANT && leaves.includes(BigInt(s.commitment)))
+}
+
 export const ucp = {
+  /** true when this visitor already bought at the store, so bob can claim the returning-customer discount */
+  returning: () => !!pastShopStay(),
+  /** the store's returning-customer discount on chain, in basis points */
+  discountBps: () => Number(state?.places.find((p) => p.mid === UCP_MERCHANT)?.m.discountBps ?? 0),
   /** reuse: replay the last proof on purpose (the refusal demo). noClaim: pay full price (after a refusal). */
   run: ({ reuse = false, noClaim = false } = {}) => ucpRun(reuse, noClaim),
   reset() {},

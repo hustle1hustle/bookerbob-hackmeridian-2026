@@ -220,9 +220,10 @@ html,body{margin:0;padding:0;background:#EDEBE5}
       <button onClick="{{ goAgent }}" style="appearance:none;margin-top:30px;border:1px solid var(--bg);background:var(--bg);color:var(--ink);font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;height:50px;padding:0 22px;display:inline-flex;align-items:center;gap:28px;cursor:pointer;transition:background .15s,border-color .15s,color .15s" style-hover="background:var(--deal);border-color:var(--deal);color:var(--deal-ink)">watch bob buy a t-shirt<span>→</span></button>
     </div>
     <div style="border:1px solid var(--bg)">
-      <div style="display:flex;justify-content:space-between;padding:18px;font-size:17px"><span>rep tee, black</span><span style="font-family:var(--mono);font-size:14px">40.80</span></div>
-      <div style="display:flex;justify-content:space-between;padding:12px 18px;margin:0 18px;background:var(--deal);color:var(--deal-ink);font-family:var(--mono);font-size:13px;font-weight:600"><span>returning customer · proven</span><span>−4.08</span></div>
-      <div style="display:flex;justify-content:flex-end;align-items:baseline;gap:8px;padding:22px 18px 18px"><span style="font-size:52px;font-weight:600;letter-spacing:-.06em;line-height:.9">36.72</span><span style="font-family:var(--mono);font-size:12px;opacity:.7">usdc</span></div>
+      <div style="display:flex;justify-content:space-between;padding:18px;font-size:17px"><span>{{ bsTitle }}</span><span style="font-family:var(--mono);font-size:14px">{{ bsPrice }}</span></div>
+      <sc-if value="{{ bsReturning }}" hint-placeholder-val="{{ true }}"><div style="display:flex;justify-content:space-between;padding:12px 18px;margin:0 18px;background:var(--deal);color:var(--deal-ink);font-family:var(--mono);font-size:13px;font-weight:600"><span>returning customer · proven</span><span>{{ bsOff }}</span></div></sc-if>
+      <sc-if value="{{ bsNew }}" hint-placeholder-val="{{ false }}"><div style="padding:12px 18px;margin:0 18px;border:1px dashed var(--bg);font-family:var(--mono);font-size:12px;opacity:.8">your price: full. after your first purchase, −{{ bsPct }}% as a returning customer.</div></sc-if>
+      <div style="display:flex;justify-content:flex-end;align-items:baseline;gap:8px;padding:22px 18px 18px"><span style="font-size:52px;font-weight:600;letter-spacing:-.06em;line-height:.9">{{ bsTotal }}</span><span style="font-family:var(--mono);font-size:12px;opacity:.7">usdc</span></div>
     </div>
   </div>
 </section>
@@ -845,7 +846,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
         <span style="font-size:16px;letter-spacing:-.02em">{{ flowTitle }}</span>
         <span style="flex:1 1 0"></span>
         <span aria-live="polite" style="font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)">{{ flowStatus }}</span>
-        <button onClick="{{ closeFlow }}" disabled="{{ flowRunning }}" aria-label="close" style="appearance:none;border:1px solid var(--rule);background:transparent;color:var(--ink);font-family:var(--mono);font-size:14px;width:36px;height:36px;cursor:pointer;opacity:{{ closeOpacity }}" style-hover="background:var(--ink);color:var(--bg)">×</button>
+        <button onClick="{{ closeFlow }}" aria-label="close" style="appearance:none;border:1px solid var(--rule);background:transparent;color:var(--ink);font-family:var(--mono);font-size:14px;width:36px;height:36px;cursor:pointer;opacity:{{ closeOpacity }}" style-hover="background:var(--ink);color:var(--bg)">×</button>
       </div>
     </div>
     <div style="max-width:1360px;margin:0 auto;padding:clamp(24px,4vw,56px) clamp(16px,4vw,48px) clamp(40px,5vw,72px)">
@@ -935,6 +936,7 @@ class Component extends DCLogic {
   mx = 0;
   AGL = ['find the store', 'add it to the cart', 'claim returning customer', 'store offers 10% off, pending', 'make the proof, locally', 'stellar checks the proof, once', 'discount confirmed', 'pay in usdc', 'order paid in the shopify admin', 'join the customer group'];
   ERR = {
+    Timeout: { h: 'stellar did not answer in 60 s.', b: 'it may still land. check my passes before you retry, so nothing is paid twice.', r: 'retry', k: 'retry' },
     HotelNotFound: { h: 'this place is not listed.', b: 'nothing was posted, nothing was charged.', r: 'back to explore', k: 'home' },
     UnknownRoot: { h: 'the place moved on.', b: 'this proof is for an older state of the place. refresh and retry.', r: 'refresh and retry', k: 'retry' },
     NonCanonical: { h: 'the proof did not check out.', b: 'nothing was posted, nothing was charged.', r: 'retry', k: 'retry' },
@@ -959,7 +961,7 @@ class Component extends DCLogic {
       if (e.key !== 'Escape') return;
       if (this.state.src && this.state.src.open) { this.pending = null; this.setState(st => ({ src: { ...st.src, open: false, focus: null, reason: null } })); return; }
       if (this.state.connect) this.closeConnect();
-      else if (this.state.flow && this.state.flow.phase !== 'running') this.closeFlow();
+      else if (this.state.flow) this.closeFlow();
     };
     this.onMove = e => { this.mx = e.clientX / window.innerWidth - 0.5; };
     window.addEventListener('keydown', this.onKey);
@@ -1201,6 +1203,14 @@ class Component extends DCLogic {
       stop: e => e.stopPropagation(),
     };
   }
+  vBobCard() {
+    if (!this.state.shopItems && !this.shopLoading && this.m) { this.shopLoading = true; setTimeout(this.loadShop, 0); }
+    const items = this.state.shopItems || [], it = items.find(x => /tee|t-shirt/i.test(x.title || '')) || items[0];
+    if (!it) return { bsTitle: 'rep tee', bsPrice: '', bsReturning: false, bsNew: false, bsOff: '', bsPct: '', bsTotal: '' };
+    const price = Number(it.price), bps = Number(it.returningDiscountBps || (this.m && this.m.ucp.discountBps ? this.m.ucp.discountBps() : 0)), ret = !!(this.m && this.m.ucp.returning && this.m.ucp.returning()) && bps > 0;
+    const off = Math.round(price * bps / 100) / 100;
+    return { bsTitle: (it.title || '').toLowerCase(), bsPrice: this.money(price), bsReturning: ret, bsNew: !ret && bps > 0, bsOff: '−' + this.money(off), bsPct: String(bps / 100), bsTotal: this.money(ret ? price - off : price) };
+  }
   vHome() {
     const s = this.state, P0 = this.byId(0), mine = s.memberships.find(x => x.place === 0);
     this.treeFilled = P0 ? P0.group_size : 14;
@@ -1367,6 +1377,7 @@ class Component extends DCLogic {
     this.requireWallet('to let bob pay', async () => {
       if (!this.m || (this.state.ag && this.state.ag.phase === 'running')) return;
       this.setState({ ag: { ...this.agBlank(), phase: 'running', reused: !!reuse } });
+      try {
       for await (const ev of this.m.ucp.run({ reuse, noClaim })) {
         if (ev.type === 'step') this.setState(s => {
           const ag = { ...s.ag, steps: s.ag.steps.map(x => ({ ...x })) }, st = ag.steps[ev.i];
@@ -1377,6 +1388,15 @@ class Component extends DCLogic {
         else if (ev.type === 'cart') this.setState(s => ({ ag: { ...s.ag, cart: ev.cart } }));
         else if (ev.type === 'store') this.setState(s => ({ ag: { ...s.ag, store: ev.storeView } }));
         else if (ev.type === 'headline') this.setState(s => ({ ag: { ...s.ag, headlineText: ev.text, headlineReason: ev.reason || '' } }));
+      }
+      } catch (e) {
+        const msg = String((e && e.message) || e || ''), notIn = /NotInTree/i.test(msg);
+        this.setState(s => {
+          const ag = { ...s.ag, steps: s.ag.steps.map(x => ({ ...x })) }, i = Math.max(0, ag.steps.findIndex(x => x.status === 'running'));
+          ag.steps[i].status = 'failed'; ag.steps[i].detail = notIn ? 'this browser has no past purchase at this store yet. run bob once, then try it.' : 'this step stopped: ' + (msg.slice(0, 120) || 'unknown error') + '. nothing more was sent. try again.';
+          ag.open = { ...ag.open, [i]: true }; ag.error = notIn ? 'NotInTree' : 'Error'; ag.headlineText = notIn ? 'you need a past purchase first.' : 'bob stopped. try again.';
+          return { ag };
+        });
       }
       this.setState(s => ({ ag: { ...s.ag, phase: s.ag.steps.some(x => x.status === 'failed') ? 'failed' : 'done' } }));
       this.reload();
@@ -1547,15 +1567,16 @@ class Component extends DCLogic {
   async runProof(kind, ctx) {
     const m = this.m, now = () => performance.now();
     this.setField('idle');
-    this.setState({ flow: { kind, ctx, steps: this.flowSteps(kind, ctx), phase: 'running', result: null, error: null, receipt: false } });
+    const runId = (this.runSeq = (this.runSeq || 0) + 1);
+    this.setState({ flow: { kind, ctx, steps: this.flowSteps(kind, ctx), phase: 'running', result: null, error: null, receipt: false, runId } });
     clearInterval(this.tickT);
     this.tickT = setInterval(() => this.setState(s => ({ tick: s.tick + 1 })), 90);
-    const upd = fn => this.setState(s => { if (!s.flow) return null; const f = { ...s.flow, steps: s.flow.steps.map(x => ({ ...x })) }; fn(f); return { flow: f }; });
+    const upd = fn => this.setState(s => { if (!s.flow || s.flow.runId !== runId) return null; const f = { ...s.flow, steps: s.flow.steps.map(x => ({ ...x })) }; fn(f); return { flow: f }; });
     const advance = key => upd(f => { const t = now(); f.steps.forEach(x => { if (x.status === 'active') { x.status = 'ok'; x.t1 = t; } }); const x = f.steps.find(y => y.key === key); if (x) { x.status = 'active'; x.t0 = t; } });
     let result = null, pi = 0;
     try {
       for await (const ev of m.prover.prove(kind, ctx.placeId, { groups: ctx.groups || [] })) {
-        if (!this.state.flow) return;
+        if (!this.state.flow || this.state.flow.runId !== runId) return;
         if (ev !== 'download' && this.dlT) { clearInterval(this.dlT); this.dlT = null; }
         if (ev === 'download') {
           upd(f => { f.steps[0].label = 'fetching proving files'; f.steps[0].sub = 'only the first time.'; }); this.setField('scan');
@@ -1566,11 +1587,14 @@ class Component extends DCLogic {
         else if (ev === 'proving') { advance('p' + pi); pi++; this.setField('churn'); }
         else if (ev === 'verifying') {
           advance('verifying'); this.setField('ring');
-          result = kind === 'review' ? await m.chain.postReview(ctx.placeId, ctx.rating, ctx.text, ctx.mId) : await m.chain.pay(ctx.placeId, ctx.cart, ctx.groups || []);
+          const call = kind === 'review' ? m.chain.postReview(ctx.placeId, ctx.rating, ctx.text, ctx.mId) : m.chain.pay(ctx.placeId, ctx.cart, ctx.groups || []);
+          let limitT; result = await Promise.race([call, new Promise(r => { limitT = setTimeout(() => r({ error: 'Timeout' }), 60000); })]); clearTimeout(limitT);
+          if (!this.state.flow || this.state.flow.runId !== runId) return;
           if (result.error) break;
         } else if (ev === 'done') advance('done');
       }
     } catch (e) { console.error(e); result = { error: 'InvalidProof' }; }
+    if (!this.state.flow || this.state.flow.runId !== runId) return;
     clearInterval(this.tickT);
     const t = now();
     if (result && result.error) {
@@ -1585,8 +1609,9 @@ class Component extends DCLogic {
     requestAnimationFrame(() => { if (this.dialogEl) this.dialogEl.scrollTo({ top: 0, behavior: this.reduced ? 'auto' : 'smooth' }); });
   }
   closeFlow = () => {
-    const f = this.state.flow; if (!f || f.phase === 'running') return;
-    clearInterval(this.tickT); this.setField('idle');
+    const f = this.state.flow; if (!f) return;
+    clearInterval(this.tickT); clearInterval(this.dlT); this.dlT = null; this.setField('idle');
+    if (f.phase === 'running') { this.setState({ flow: null }); this.reload(); return; }
     if (f.phase === 'success') this.go('passes', { flow: null });
     else this.setState({ flow: null });
   };
@@ -1637,7 +1662,7 @@ class Component extends DCLogic {
       showFlow: !!f, flowTitle: f ? (fp ? fp.name : '') : '',
       flowHeadline: !f ? '' : f.kind === 'review' ? 'posting, without a name.' : groups.length > 1 ? 'proving what you earned.' : groups.length ? 'proving you came back.' : 'paying, no fee.',
       flowStatus: !f ? '' : f.phase === 'running' ? (active ? active.label : '') : f.phase === 'success' ? 'verified' : f.phase === 'rejected' ? 'refused, as designed' : 'stopped',
-      flowRunning: !!f && f.phase === 'running', flowDone: !!f && f.phase !== 'running', closeOpacity: f && f.phase === 'running' ? 0.3 : 1,
+      flowRunning: !!f && f.phase === 'running', flowDone: !!f && f.phase !== 'running', closeOpacity: 1,
       closeFlow: this.closeFlow, steps, res, resHeadColor: f && f.phase === 'error' ? 'var(--warn)' : 'var(--ink)',
       fieldColor: f && f.phase === 'success' ? 'var(--accent)' : f && f.phase === 'error' ? 'var(--warn)' : 'var(--ink)',
       onPrimary: () => this.flowAct(res.pKey), onSecondary: () => this.flowAct(res.sKey),
@@ -1796,7 +1821,7 @@ class Component extends DCLogic {
   }
 
   renderVals() {
-    return { ...this.vSources(), ...this.vShell(), ...this.vHome(), ...this.vPlace(), ...this.vPasses(), ...this.vAgent(), ...this.vMerchant(), ...this.vArb(), ...this.vFlow() };
+    return { ...this.vSources(), ...this.vShell(), ...this.vBobCard(), ...this.vHome(), ...this.vPlace(), ...this.vPasses(), ...this.vAgent(), ...this.vMerchant(), ...this.vArb(), ...this.vFlow() };
   }
 }
 </script>
