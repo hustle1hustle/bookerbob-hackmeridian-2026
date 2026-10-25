@@ -558,6 +558,14 @@
                   },
                   {
                     "key": {
+                      "symbol": "id"
+                    },
+                    "val": {
+                      "u32": 0
+                    }
+                  },
+                  {
+                    "key": {
                       "symbol": "ledger"
                     },
                     "val": {

@@ -55,6 +55,7 @@ pub struct Hotel {
 #[derive(Clone)]
 #[contracttype]
 pub struct Review {
+    pub id: u32,
     pub hotel: u32,
     pub rating: u32,
     pub content_hash: BytesN<32>,
@@ -310,7 +311,7 @@ impl ProofOfStay {
         spend(&env, &h, &root, &nullifier, &message, &scope, &proof);
 
         let id: u32 = env.storage().instance().get(&Key::ReviewCount).unwrap();
-        let r = Review { hotel, rating, content_hash, disclosure_commit, nullifier, verified: false, ledger: env.ledger().sequence() };
+        let r = Review { id, hotel, rating, content_hash, disclosure_commit, nullifier, verified: false, ledger: env.ledger().sequence() };
         let rk = Key::Review(id);
         env.storage().persistent().set(&rk, &r);
         bump_persistent(&env, &rk);
