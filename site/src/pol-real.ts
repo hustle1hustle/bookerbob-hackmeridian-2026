@@ -33,6 +33,12 @@ const nsStorage = (ns: string): Pick<Storage, "getItem" | "setItem" | "removeIte
   !LS || !ns ? undefined : { getItem: (k) => LS.getItem(`${ns}:${k}`), setItem: (k, v) => LS.setItem(`${ns}:${k}`, v), removeItem: (k) => LS.removeItem(`${ns}:${k}`) }
 
 const isOperator = () => fetch(`${API}/api/rep/status`, { credentials: "same-origin" }).then((r) => r.json()).then((d) => !!d.demo).catch(() => false)
+/** Operator only: clears the REP demo joins on the backend so "verify with REP" works again. Missing endpoint = no-op. */
+const repDemoReset = () =>
+  fetch(`${API}/api/rep/demo-reset`, { method: "POST", credentials: "same-origin" })
+    .then((r) => r.json())
+    .then((d) => !!d.ok)
+    .catch(() => false)
 const reloadClean = () => {
   if (typeof location === "undefined") return
   const u = new URL(location.href)
@@ -85,6 +91,7 @@ export const generations = {
     const cur = nsStorage(nsNow) ?? LS
     const cred = cur?.getItem(PASS_KEY)
     if (!cred) return { error: "connect your passkey first" }
+    if (await isOperator()) await repDemoReset()
     const xs = generations.list()
     const n = Math.max(...xs.map((g) => g.n)) + 1
     const ns = `pk-g${n}-${Date.now()}`
@@ -122,6 +129,7 @@ export const demo = {
   /** Start (or restart) a clean ephemeral identity; operator only. Reloads the page. */
   async reset() {
     if (!(await isOperator())) return false
+    await repDemoReset()
     LS?.setItem(NS_KEY, `demo-${Date.now()}`)
     reloadClean()
     return true
@@ -1108,6 +1116,8 @@ export interface Source {
   /** One line on what it proves. */
   proves: string
   status: SourceStatus
+  /** REP row, operator only: the REP account already joined in an earlier demo; offer "reset REP demo". */
+  canReset?: boolean
   detail: string
   /** Where to go instead of an in-page action (REP app while REP verify is demo-only). */
   link?: string
@@ -1254,7 +1264,7 @@ export const repDemo = () => (repDemoP ??= fetch(`${API}/api/rep/status`, { cred
 // REP verified traveler: the guest approves in the REP Bob app; the backend checks the REP-signed verdict and adds a
 // fresh identity of this browser to the attested group. The identity is a new stay at the store that is never checked
 // in, so the group tree cannot be linked to any place's customer tree.
-let repState: { status: SourceStatus; sid?: string; until?: number; tx?: string | null; why?: string } = { status: "none" }
+let repState: { status: SourceStatus; sid?: string; until?: number; tx?: string | null; why?: string; canReset?: boolean } = { status: "none" }
 const travelerHeld = () => local.credentials().some((c: any) => c.group === "traveler" && c.held)
 
 export const rep = {
@@ -1278,13 +1288,24 @@ export const rep = {
       repState = { status: "connected", tx: r.txHash || null }
       loading = null // the traveler group changed: re-read it so perks count it
       await ready()
-    } else if (r?.status === "failed")
+    } else if (r?.status === "failed") {
+      const joined = /already joined/i.test(String(r.reason ?? ""))
+      // the operator rehearses with the same REP account: offer a reset instead of a dead end
+      const op = joined && (await repDemo())
       repState = {
         status: "failed",
-        why: r.reason === "expired" ? "the request expired. try again." : /already joined/i.test(String(r.reason ?? "")) ? "a new generation needs a new proof in REP Bob." : "REP could not confirm it.",
+        why: r.reason === "expired" ? "the request expired. try again." : op ? "this REP account already joined in an earlier demo." : joined ? "a new generation needs a new proof in REP Bob." : "REP could not confirm it.",
+        ...(op ? { canReset: true } : {}),
       }
+    }
     else if (repState.until && Date.now() > repState.until + 5000) repState = { status: "failed", why: "the request expired. try again." }
     return { ...repState }
+  },
+  /** Operator only: reset the REP demo, then "verify with REP" can run again. */
+  async resetDemo() {
+    const ok = await repDemoReset()
+    repState = ok ? { status: "none" } : { ...repState, why: "could not reset the REP demo. try again." }
+    return ok
   },
 }
 
@@ -1443,6 +1464,7 @@ export async function sources(placeId?: number): Promise<Source[]> {
       label: "REP verified traveler · from REP",
       proves: EXPLAIN.traveler,
       status: held ? "connected" : demo ? repState.status : "soon",
+      canReset: !held && demo && !!repState.canReset,
       txHash: held ? ((await heldTx("traveler")) ?? repState.tx ?? null) : null,
       perk: perkFor("traveler", placeId),
       detail: held

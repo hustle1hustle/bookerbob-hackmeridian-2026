@@ -1869,6 +1869,11 @@ class Component extends DCLogic {
         if (fn) fn();
         return;
       }
+    } else if (id === 'rep' && how === 'reset' && m.rep.resetDemo) {
+      this.setState(s => ({ src: { ...s.src, busy: 'rep reset' } }));
+      await m.rep.resetDemo();
+      this.setState(s => ({ src: { ...s.src, busy: null } }));
+      await this.loadSources();
     } else if (id === 'rep') {
       await m.rep.start(); this.loadSources();
       clearInterval(this.repT);
@@ -1905,7 +1910,7 @@ class Component extends DCLogic {
            btn(busy === 'new passkey' ? 'creating your passkey…' : 'create a new passkey', () => this.newPasskey(), false, busy),
            btn(busy === 'freighter' ? 'waiting for freighter…' : 'freighter', () => this.srcAct('wallet', 'freighter'), false, busy), btn(busy === 'demo key' ? 'creating…' : 'demo key', () => this.srcAct('wallet', 'demo key'), false, busy)];
       if (r.id === 'rep' && r.link) return [btn('get REP', () => window.open(r.link, '_blank', 'noopener'), false)];
-      if (r.id === 'rep') return r.status === 'connected' ? [] : r.status === 'pending' ? [btn('waiting for REP Bob…', () => {}, false, true)] : [btn(r.status === 'failed' ? 'try again' : 'verify with REP', () => this.srcAct('rep'), true)];
+      if (r.id === 'rep') return r.status === 'connected' ? [] : r.status === 'pending' ? [btn('waiting for REP Bob…', () => {}, false, true)] : r.canReset ? [btn(busy === 'rep reset' ? 'resetting…' : 'reset REP demo', () => this.srcAct('rep', 'reset'), true, busy)] : [btn(r.status === 'failed' ? 'try again' : 'verify with REP', () => this.srcAct('rep'), true)];
       if (r.id === 'passport') return r.status === 'connected' || r.status === 'soon' ? [] : [btn(r.status === 'pending' ? 'checking…' : 'check', () => this.srcAct('passport'), false, r.status === 'pending' || !s.wallet)];
       return [];
     };
