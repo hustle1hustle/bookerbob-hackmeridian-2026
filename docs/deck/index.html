@@ -42,6 +42,13 @@
   .card .p { font-size: 29px; color: var(--ink-2); line-height: 1.25; margin-top: 16px; }
   .card .x { margin-top: auto; display: flex; flex-wrap: wrap; gap: 6px 18px; }
   .card .x span { font-family: var(--mono); font-size: 22px; color: var(--ink-3); }
+  .src { font-family: var(--mono); font-size: 20px; color: var(--ink-3); margin-top: 10px; letter-spacing: .02em; }
+  .col { padding: 28px 40px 0 0; }
+  .col + .col { padding-left: 40px; border-left: 1px solid var(--rule-soft); }
+  .col .h { font-family: var(--mono); font-size: 21px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink); }
+  .col .f { font-size: 88px; font-weight: 500; letter-spacing: -.06em; line-height: .9; margin-top: 26px; }
+  .col .l { font-size: 28px; color: var(--ink-2); line-height: 1.2; margin-top: 12px; }
+  .mono-c { width: 220px; height: 220px; border-radius: 50%; border: 1px solid var(--ink); background: var(--surface); display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 64px; letter-spacing: .04em; flex: none; }
 </style>
 </head>
 <body>
@@ -64,7 +71,41 @@
   </svg>
 </section>
 
-<!-- 3 meet bob -->
+<!-- 3 why now -->
+<section class="s">
+  <div class="lbl">Why now</div><div class="no">03</div>
+  <h2 style="font-size:84px">agents are already shopping.<br>they have nothing real to rank on.</h2>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;margin-top:44px;border-top:1px solid var(--ink)">
+    <div class="col">
+      <div class="h">the demand is here</div>
+      <div class="f">+393%</div>
+      <div class="l">AI-referred traffic to US retail, year over year, Q1 2026</div>
+      <div class="src">adobe · q1 2026</div>
+      <div class="f">$3-5T</div>
+      <div class="l">agentic commerce globally by 2030</div>
+      <div class="src">mckinsey · oct 2025</div>
+    </div>
+    <div class="col">
+      <div class="h">trust is the blocker</div>
+      <div style="font-size:44px;font-weight:500;letter-spacing:-.03em;line-height:1.08;margin-top:26px">&ldquo;trust will remain the number one barrier to agentic commerce deployment&rdquo;</div>
+      <div class="src">juniper research · apr 2026</div>
+      <div class="l" style="margin-top:28px">payment rails already prove an agent <i>may</i> spend (AP2, ACP, Visa and Mastercard agent tokens). none proves the customer is real or the review is.</div>
+    </div>
+    <div class="col">
+      <div class="h">loyalty is the prize, locked in silos</div>
+      <div class="f">52.8%</div>
+      <div class="l">of US hotel occupancy is loyalty members</div>
+      <div class="src">cbre · 2024</div>
+      <div class="f">675M+</div>
+      <div class="l">memberships across the five largest US chains, not deduplicated: the same person, many walled programs, nothing portable.</div>
+      <div class="src">cbre · 2024</div>
+    </div>
+  </div>
+  <p class="cap" style="position:absolute;left:120px;right:120px;bottom:56px;color:var(--ink);font-size:40px;font-weight:500;border-top:1px solid var(--ink);padding-top:22px;margin:0">BookerBob: rank and pay on proven customers, and let proof of loyalty travel.</p>
+  <aside class="notes">Sources: Adobe via TechCrunch (AI-referred retail traffic +393% YoY, Q1 2026); McKinsey, The Agentic Commerce Opportunity, Oct 2025 ($3-5T global by 2030); Juniper Research press release, Apr 2026 (quote); CBRE, Apr 2025, 2024 data (52.8% occupancy, 675M+ memberships across the five largest US chains, not deduplicated).</aside>
+</section>
+
+<!-- 4 meet bob -->
 <section class="s">
   <div class="lbl">HackMeridian 2026 · Stellar · Lisbon</div>
   <div style="margin-top:250px">
@@ -75,9 +116,9 @@
   </div>
 </section>
 
-<!-- 4 applied zk -->
+<!-- 5 applied zk -->
 <section class="s">
-  <div class="lbl">Applied zero-knowledge</div><div class="no">04</div>
+  <div class="lbl">Applied zero-knowledge</div><div class="no">05</div>
   <h2>prove the fact. keep the identity.</h2>
   <svg viewBox="0 0 1680 380" width="1680" height="380" style="margin-top:110px">
     <defs><marker id="zk" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#121211"/></marker></defs>
@@ -95,9 +136,9 @@
   </svg>
 </section>
 
-<!-- 5 zk, one purchase traced -->
+<!-- 6 zk, one purchase traced -->
 <section class="s dark">
-  <div class="lbl">Applied zero-knowledge, concretely</div><div class="no">05</div>
+  <div class="lbl">Applied zero-knowledge, concretely</div><div class="no">06</div>
   <h2 style="color:var(--bg);font-size:84px;margin-top:16px">one purchase, traced.</h2>
   <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:60px;margin-top:48px">
     <div>
@@ -126,9 +167,9 @@
   <aside class="notes">One real purchase: Bob at the REP Store (Shopify) over UCP, 40.80 to 34.68 USDC (returning customer 10% + network 5%), tx fa5b8795, Shopify order #1028 (evidence/run-7-after-upgrade.log in the ucp module). Groth16 verify 31,121,024 CPU, 7.8% of the 400M limit (docs/bench.md). Browser proving about 0.3 to 1.5 s after a one-time ~4.2 MB download (docs/bench.md). Replay of a spent proof: the contract refuses with NullifierUsed (evidence/replay.log). The tree glyph is a drawing, not this store's real tree.</aside>
 </section>
 
-<!-- 6 flywheel -->
+<!-- 7 flywheel -->
 <section class="s">
-  <div class="lbl">The core loop</div><div class="no">06</div>
+  <div class="lbl">The core loop</div><div class="no">07</div>
   <svg viewBox="0 0 1680 760" width="1680" height="760" style="margin-top:10px">
     <defs><marker id="fw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#121211"/></marker></defs>
     <path d="M958 135 A290 290 0 0 1 1105 282" fill="none" stroke="#121211" stroke-width="5" marker-end="url(#fw)"/><path d="M1105 518 A290 290 0 0 1 958 665" fill="none" stroke="#121211" stroke-width="5" marker-end="url(#fw)"/><path d="M722 665 A290 290 0 0 1 575 518" fill="none" stroke="#121211" stroke-width="5" marker-end="url(#fw)"/><path d="M575 282 A290 290 0 0 1 722 135" fill="none" stroke="#121211" stroke-width="5" marker-end="url(#fw)"/><rect x="650" y="40" width="380" height="140" fill="#121211" stroke="#121211"/><text x="840" y="104" font-size="42" text-anchor="middle" fill="#ECEAE3">agent ranks</text><text x="840" y="150" font-size="30" text-anchor="middle" fill="#B4B1A8">on zero-knowledge proofs</text><rect x="940" y="330" width="380" height="140" fill="#F6F5F1" stroke="#121211"/><text x="1130" y="394" font-size="42" text-anchor="middle" fill="#121211">agent buys</text><text x="1130" y="440" font-size="30" text-anchor="middle" fill="#4A4842">stays, shops</text><rect x="650" y="620" width="380" height="140" fill="#F4C430" stroke="#121211"/><text x="840" y="684" font-size="42" text-anchor="middle" fill="#121211">a new proof</text><text x="840" y="730" font-size="30" text-anchor="middle" fill="#4A4842">joins the groups</text><rect x="360" y="330" width="380" height="140" fill="#F6F5F1" stroke="#121211"/><text x="550" y="394" font-size="42" text-anchor="middle" fill="#121211">better ranking</text><text x="550" y="440" font-size="30" text-anchor="middle" fill="#4A4842">for everyone</text>
@@ -137,17 +178,17 @@
   <aside class="notes">Every stay or purchase adds the buyer to the place's customer group and the network group, and opens one review. The proof base grows with use, for every agent.</aside>
 </section>
 
-<!-- 7 how bob discovers -->
+<!-- 8 how bob discovers -->
 <section class="s">
-  <div class="lbl">How Bob discovers</div><div class="no">07</div>
+  <div class="lbl">How Bob discovers</div><div class="no">08</div>
   <h2 style="font-size:96px">Ask Bob. Ranked by proofs only.</h2>
   <img class="shot" src="img/ask.jpg" style="width:1440px;margin:64px auto 0" alt="Ask Bob reply">
   <aside class="notes">Live answer at stellarbob2026.xyz: 3 cafés ranked by proven reviews only, perks per user from the proofs this browser holds. Ask Bob federates our places, UCP stores and partner hotels; places without proven reviews are left out of the ranking.</aside>
 </section>
 
-<!-- 8 where stellar works -->
+<!-- 9 where stellar works -->
 <section class="s">
-  <div class="lbl">Where Stellar does the work</div><div class="no">08</div>
+  <div class="lbl">Where Stellar does the work</div><div class="no">09</div>
   <h2 style="font-size:80px;margin-top:16px">One journey, on chain.</h2>
   <div style="margin-top:28px;border-top:1px solid var(--rule)">
     <div class="row"><span class="n">01</span><svg width="52" height="52" viewBox="0 0 60 60"><g fill="none" stroke="#121211" stroke-width="4"><circle cx="30" cy="10" r="7"/><circle cx="12" cy="44" r="7"/><circle cx="48" cy="44" r="7"/><path d="M26 16 L15 38 M34 16 L45 38"/></g></svg><span class="t">join a place's customers</span><span class="p"><span class="cx">Poseidon</span> tree insert</span><a class="tx" href="https://stellar.expert/explorer/testnet/tx/4d6f751b2bea3406bddd5d09e8501ae4e7f240eeb6c08b16139298b8470b4580">4d6f751b…</a></div>
@@ -163,9 +204,9 @@
   <aside class="notes">Every hash links to stellar.expert (testnet). The REP P-256 check is live on the contract since the admin upgrade (wasm d66cd00f); its cost was measured on an upgraded mirror (43d46b5e). Replays are refused in simulation (NullifierUsed) before any tx.</aside>
 </section>
 
-<!-- 9 stellar use cases -->
+<!-- 10 stellar use cases -->
 <section class="s">
-  <div class="lbl">Stellar use cases, live on testnet</div><div class="no">09</div>
+  <div class="lbl">Stellar use cases, live on testnet</div><div class="no">10</div>
   <h2 style="font-size:80px;margin-top:16px">Eight use cases, one contract.</h2>
   <div class="cards">
     <div class="card"><span class="k">01</span><span class="t">proven-guest discounts</span><span class="p"><span class="cx">Groth16</span> + <span class="cx">nullifier</span> + USDC, one atomic tx</span><span class="x"><a class="tx" href="https://stellar.expert/explorer/testnet/tx/7ad074395e8e73bc7131abe01779e188c768862196c505d471505a697efd9762">7ad07439…</a><a class="tx" href="https://stellar.expert/explorer/testnet/tx/fa5b8795b006a947cd7e36428aeacb95d1b10ee1ece137ffb76f06015d764236">fa5b8795…</a></span></div>
@@ -180,9 +221,9 @@
   <aside class="notes">Primitives: Groth16 BN254 verifier and Poseidon LeanIMT in the contract, nullifiers per scope and season, USDC through the Stellar Asset Contract, native secp256r1_verify, SEP-53 wallet signatures, fee-bump transactions. Shopify orders #1005, #1012, #1028 carry their Stellar tx. f9c5b201 is a seed run stacking network + verified traveler. Wallet tier group 2 exists on chain with no members yet.</aside>
 </section>
 
-<!-- 10 pluggable attesters -->
+<!-- 11 pluggable attesters -->
 <section class="s">
-  <div class="lbl">Pluggable attesters</div><div class="no">10</div>
+  <div class="lbl">Pluggable attesters</div><div class="no">11</div>
   <div style="display:flex;justify-content:center;margin-top:20px">
     <svg viewBox="0 0 1000 820" width="1000" height="820">
       <defs><marker id="m7" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#121211"/></marker></defs>
@@ -198,9 +239,9 @@
   <aside class="notes">Attesters feed groups on Stellar (only commitments on the ledger). REP: zkTLS travel proofs through the tier issuer. Stellar wallet tier: wallet history. Network: a stay at any member place. A membership moves to a new identity (replace_member), never duplicates. Next: World ID, more zkTLS sources, merchant loyalty.</aside>
 </section>
 
-<!-- 11 why stellar -->
+<!-- 12 why stellar -->
 <section class="s dark">
-  <div class="lbl">Why Stellar</div><div class="no">11</div>
+  <div class="lbl">Why Stellar</div><div class="no">12</div>
   <h2 style="color:var(--bg)">ZK is native here.</h2>
   <div style="display:grid;grid-template-columns:repeat(4,1fr);margin-top:100px;border-top:1px solid #ECEAE3">
     <div style="padding:40px 32px 0 0"><div class="fig cx" style="font-size:96px">BN254</div><div class="figl" style="color:#B4B1A8">zero-knowledge proof check<br><b style="color:var(--bg)">under 8% of a tx</b></div></div>
@@ -211,9 +252,9 @@
   <aside class="notes">Groth16 verify 31.1M of 400M CPU (7.8%); REP credential check: one P-256 verify, 7.1M CPU including the group insert (1.8% of a tx), measured on an upgraded mirror (43d46b5e), live on the contract since the upgrade. Poseidon tree insert ~1.1M. Protocol 29, soroban-sdk 28. 0 personal data on chain.</aside>
 </section>
 
-<!-- 12 stack -->
+<!-- 13 stack -->
 <section class="s">
-  <div class="lbl">The stack</div><div class="no">12</div>
+  <div class="lbl">The stack</div><div class="no">13</div>
   <svg viewBox="0 0 1680 760" width="1680" height="760" style="margin-top:56px">
     <defs><marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#121211"/></marker></defs>
     <rect x="0" y="150" width="420" height="300" fill="#F6F5F1" stroke="#121211"/>
@@ -232,9 +273,9 @@
   <aside class="notes">Browser: Semaphore prover, passkey/Freighter/demo key, one payer per purchase. Backend: relayer, per-order co-sign, search adapters (places, UCP bridge, partner hotels). Contract: Groth16 BN254 verifier, Poseidon LeanIMT per group, nullifiers, context-perk policies, USDC via SAC, native P-256 for REP tier credentials.</aside>
 </section>
 
-<!-- 13 privacy -->
+<!-- 14 privacy -->
 <section class="s">
-  <div class="lbl">Who sees what</div><div class="no">13</div>
+  <div class="lbl">Who sees what</div><div class="no">14</div>
   <h2>Private by default.</h2>
   <div style="margin-top:80px;display:grid;grid-template-columns:1fr 1fr;gap:28px 80px;font-size:48px;letter-spacing:-.02em">
     <div><span style="color:var(--ink-3)">the place</span><br>an order, a proven badge</div>
@@ -245,9 +286,9 @@
   <aside class="notes">Accountable when needed: in a dispute the guest can disclose one stay to the arbiter only. Contract rejects root 0 and non-canonical inputs; nullifiers are persistent.</aside>
 </section>
 
-<!-- 14 roadmap -->
+<!-- 15 roadmap -->
 <section class="s dark">
-  <div class="lbl">Next</div><div class="no">14</div>
+  <div class="lbl">Next</div><div class="no">15</div>
   <h2 style="color:var(--bg)">Any place you were a customer.</h2>
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:48px;margin-top:140px;font-size:52px;letter-spacing:-.03em;color:var(--bg)">
     <div>UCP stores<div class="figl" style="color:#B4B1A8">live with one</div></div>
@@ -257,13 +298,27 @@
   </div>
 </section>
 
-<!-- 15 team -->
+<!-- 16 team -->
 <section class="s">
-  <div class="lbl">Team</div><div class="no">15</div>
-  <h1 style="margin-top:140px">BookerBob.</h1>
-  <div class="sub">Built in Lisbon, for Stellar.</div>
-  <p class="cap" style="margin-top:72px;color:var(--ink)">ETHGlobal Lisbon: 2nd World AgentKit, 2nd The Graph.</p>
-  <p class="cap" style="margin-top:24px">stellarbob2026.xyz</p>
+  <div class="lbl">Team</div><div class="no">16</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:80px;margin-top:210px">
+    <div style="display:flex;gap:48px;align-items:flex-start">
+      <div class="mono-c">MC</div>
+      <div><div style="font-size:72px;font-weight:500;letter-spacing:-.04em;line-height:1">Max Choly</div>
+        <div class="lbl" style="margin-top:16px;color:var(--ink)">founder, REP</div>
+        <p class="cap" style="margin-top:28px;font-size:34px">co-founded Dogs (50M+ users in 6 weeks), ex-core Notcoin (30M+). product, distribution, design direction.</p></div>
+    </div>
+    <div style="display:flex;gap:48px;align-items:flex-start">
+      <div class="mono-c">DD</div>
+      <div><div style="font-size:72px;font-weight:500;letter-spacing:-.04em;line-height:1">Denis Dubynin</div>
+        <div class="lbl" style="margin-top:16px;color:var(--ink)">technical co-founder, REP</div>
+        <p class="cap" style="margin-top:28px;font-size:34px">engineering lead, applied cryptography, several crypto and fintech exits. at the hackathon: web app, passkey wallet, agent.</p></div>
+    </div>
+  </div>
+  <div style="position:absolute;left:120px;right:120px;bottom:96px;border-top:1px solid var(--ink);padding-top:28px;display:flex;justify-content:space-between;align-items:baseline">
+    <div style="font-size:44px;font-weight:500;letter-spacing:-.03em">Built in Lisbon, for Stellar.</div>
+    <div class="cap" style="font-size:28px">ETHGlobal Lisbon: 2nd World AgentKit, 2nd The Graph · stellarbob2026.xyz</div>
+  </div>
 </section>
 
 </body>
