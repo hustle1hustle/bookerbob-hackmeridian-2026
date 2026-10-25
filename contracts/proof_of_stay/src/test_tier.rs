@@ -156,6 +156,9 @@ impl TryFrom<u32> for Error {
             19 => Error::RepNoTier,
             21 => Error::RepNonce,
             22 => Error::RepReplay,
+            24 => Error::NotMember,
+            25 => Error::BadPath,
+            4 => Error::DuplicateLeaf,
             _ => return Err(()),
         })
     }
@@ -341,4 +344,64 @@ fn low_s_helper() {
     assert_eq!(low[63], 1);
     assert!(low[32..63].iter().all(|&b| b == 0));
     assert_eq!(tier::low_s(low), low);
+}
+
+// ---- move credential (replace_member_with_tier) ----
+
+fn move_cred(t: &T, old: &U256, new: &U256, magic: &[u8; 8]) -> [u8; 137] {
+    let (mut o, mut n) = ([0u8; 32], [0u8; 32]);
+    old.to_be_bytes().copy_into_slice(&mut o);
+    new.to_be_bytes().copy_into_slice(&mut n);
+    t.jti.set(t.jti.get() + 1);
+    let mut b = StdVec::with_capacity(137);
+    b.extend_from_slice(magic);
+    b.push(1);
+    b.extend_from_slice(&t.client.tier_audience(&t.group).to_array());
+    b.extend_from_slice(&o);
+    b.extend_from_slice(&n);
+    b.extend_from_slice(&(NOW - 10).to_be_bytes());
+    b.extend_from_slice(&(NOW + 590).to_be_bytes());
+    b.extend_from_slice(&[0xA0 | t.jti.get(); 16]);
+    b.try_into().unwrap()
+}
+
+fn sign_any(k: &SigningKey, m: &[u8]) -> [u8; 64] {
+    let s: Signature = k.sign_prehash(&Sha256::digest(m)).unwrap();
+    s.to_bytes().into()
+}
+
+fn try_move(t: &T, old: &U256, new: &U256, m: &[u8; 137], sig: [u8; 64]) -> Result<U256, Option<Error>> {
+    let leaves = t.client.get_group_leaves(&t.group);
+    let idx = (0..leaves.len()).find(|&i| leaves.get_unchecked(i) == *old).unwrap_or(0);
+    let sibs = crate::tree::siblings_of(&t.env, &leaves, idx);
+    match t.client.try_replace_member_with_tier(&t.group, old, new, &sibs, &BytesN::from_array(&t.env, m), &BytesN::from_array(&t.env, &sig)) {
+        Ok(Ok(r)) => Ok(r),
+        Err(Ok(e)) => Err(if e.is_type(soroban_sdk::xdr::ScErrorType::Contract) { Some(Error::try_from(e.get_code()).unwrap_or(Error::BadParams)) } else { None }),
+        other => panic!("{other:?}"),
+    }
+}
+
+#[test]
+fn tier_move_credential_moves_one_membership() {
+    let t = tsetup();
+    let (old, new, other) = (cm(&t.env, 1), cm(&t.env, 2), cm(&t.env, 3));
+    let cred = t.cred(&old);
+    t.submit(&old, &cred, sign(&t.issuer, &cred.bytes())).unwrap();
+    let m = move_cred(&t, &old, &new, b"REPMOVE1");
+    // a credential for (old, new) cannot move to another commitment, or evict a leaf it does not name
+    assert_eq!(try_move(&t, &old, &other, &m, sign_any(&t.issuer, &m)), Err(Some(Error::RepNonce)));
+    // forged
+    assert_eq!(try_move(&t, &old, &new, &m, sign_any(&key(9), &m)), Err(None));
+    // wrong magic (a join credential is never a move credential)
+    let bad = move_cred(&t, &old, &new, b"REPTIER1");
+    assert_eq!(try_move(&t, &old, &new, &bad, sign_any(&t.issuer, &bad)), Err(Some(Error::RepMalformed)));
+    let sig = sign_any(&t.issuer, &m);
+    let root = try_move(&t, &old, &new, &m, sig).unwrap();
+    let leaves = t.client.get_group_leaves(&t.group);
+    assert_eq!((leaves.len(), leaves.get_unchecked(0), t.client.get_group(&t.group).tree.root(&t.env)), (1, new.clone(), root));
+    // replay
+    assert_eq!(try_move(&t, &old, &new, &m, sig), Err(Some(Error::RepReplay)));
+    // old is gone, so a fresh credential for it cannot move it again
+    let m2 = move_cred(&t, &old, &other, b"REPMOVE1");
+    assert_eq!(try_move(&t, &old, &other, &m2, sign_any(&t.issuer, &m2)), Err(Some(Error::NotMember)));
 }

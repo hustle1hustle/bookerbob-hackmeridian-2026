@@ -113,7 +113,7 @@ Honest limitations of the demo:
 - A merchant can check out stays that never happened and then review itself or, in a chain, add network members other places pay for. Merchants are trusted for their own checkouts; the roadmap has merchant reputation (ratings weighted by arbiter-verified stays) and removal from a chain.
 - One admin key controls `upgrade`, groups, the season clock and the REP issuer keys, and group operators can still add members directly with `add_member`. Fine for a testnet demo; production moves these to a multisig with a timelock and events.
 - Scopes do not include the contract id. Adding it would reset every nullifier already spent on the live contract (every past review could be written again), so it is kept for the next fresh deployment, where it costs nothing.
-- Trustless REP verification on Stellar (native P-256): the REP tier issuer checks the verdict off chain and signs a 106-byte credential; the contract verifies it with `secp256r1_verify` (`add_member_with_tier`, `scripts/rep-onchain.sh`), so no verdict, spend or device key reaches the ledger. Off on the live deployment until the admin upgrade; see [docs/rep-handoff.md](docs/rep-handoff.md).
+- Trustless REP verification on Stellar (native P-256): the REP tier issuer checks the verdict off chain and signs a 106-byte credential; the contract verifies it with `secp256r1_verify` (`add_member_with_tier`, `scripts/rep-onchain.sh`), so no verdict, spend or device key reaches the ledger. Live on the contract since the admin upgrade (the backend uses it with `REP_ONCHAIN=1`); see [docs/rep-handoff.md](docs/rep-handoff.md).
 
 ## Post-quantum
 

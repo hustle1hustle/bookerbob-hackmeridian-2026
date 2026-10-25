@@ -4,6 +4,7 @@
 // Usage: API=http://localhost:8080 node scripts/e2e.ts
 import assert from "node:assert/strict"
 import { createSdk, isErr, formatUsdc } from "../packages/sdk/src/index.ts"
+import { currentSeason } from "../packages/sdk/src/derive.ts"
 
 const mem = new Map<string, string>()
 const storage = { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => void mem.set(k, v), removeItem: (k: string) => void mem.delete(k) }
@@ -44,9 +45,9 @@ await new Promise((r) => setTimeout(r, 4000)) // friendbot
 ok("faucet", await sdk.chain.faucet())
 log("balance", formatUsdc((await sdk.chain.balance())!))
 ok("book full price", await sdk.chain.book(MERCHANT))
-const disc = ok<any>("book with discount", await sdk.chain.bookWithDiscount(sdk.stays.list()[0], 7))
+const disc = ok<any>("book with discount", await sdk.chain.bookWithDiscount(sdk.stays.list()[0], currentSeason()))
 log("paid", formatUsdc(disc.paid), "saved", formatUsdc(disc.saved))
-const replay = await sdk.chain.bookWithDiscount(sdk.stays.list()[0], 7)
+const replay = await sdk.chain.bookWithDiscount(sdk.stays.list()[0], currentSeason())
 assert.deepEqual(isErr(replay) && replay.error, "NullifierUsed")
 log("discount replay rejected", "NullifierUsed")
 
@@ -66,7 +67,7 @@ const OTHER = Number(process.env.OTHER ?? 1)
 const perks = await sdk.chain.perks(OTHER)
 log("perks at", OTHER, JSON.stringify(perks, (_, v) => (typeof v === "bigint" ? formatUsdc(v) : v)))
 if (perks && perks.bps > 0) {
-  const ctx = ok<any>("book with perks", await sdk.chain.bookWithPerks(OTHER, 7))
+  const ctx = ok<any>("book with perks", await sdk.chain.bookWithPerks(OTHER, currentSeason()))
   log("paid", formatUsdc(ctx.paid), "saved", formatUsdc(ctx.saved), "bps", ctx.bps)
 }
 log("E2E OK", { reviewId: mine.id, verified: mine.verified })

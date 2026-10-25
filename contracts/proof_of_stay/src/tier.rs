@@ -15,6 +15,11 @@
 //!   [82..90)  exp, unix seconds
 //!   [90..106) jti, spent on use
 //! sig: ECDSA P-256 over sha256(cred), raw r||s.
+//!
+//! Move credential (a user who starts over keeps one membership), 137 bytes, signed the same way:
+//!   [0..8) "REPMOVE1" | [8] kid | [9..41) audience | [41..73) old commitment | [73..105) new commitment |
+//!   [105..113) iat | [113..121) exp | [121..137) jti
+//! The issuer signs it only after the old identity proved control (checked off chain).
 
 use soroban_sdk::{contracttype, panic_with_error, Bytes, BytesN, Env, U256};
 
@@ -91,10 +96,7 @@ pub fn check(env: &Env, group: u32, policy: &TierPolicy, commitment: &U256, cred
     if c[42..74] != cm {
         fail(env, Error::RepNonce);
     }
-    let (iat, exp, now) = (be_u64(&c[74..82]), be_u64(&c[82..90]), env.ledger().timestamp());
-    if exp <= iat || exp - iat > MAX_LIFE || now >= exp || now.saturating_add(MAX_SKEW) < iat {
-        fail(env, Error::RepExpired);
-    }
+    time_ok(env, be_u64(&c[74..82]), be_u64(&c[82..90]));
     let mut jti = [0u8; 16];
     jti.copy_from_slice(&c[90..106]);
     Checked { kid: c[8] as u32, jti: BytesN::from_array(env, &jti) }
@@ -102,8 +104,43 @@ pub fn check(env: &Env, group: u32, policy: &TierPolicy, commitment: &U256, cred
 
 /// Panics (host Crypto error) unless `key` signed exactly this credential.
 pub fn verify(env: &Env, key: &BytesN<65>, cred: &BytesN<CRED_LEN>, sig: &BytesN<64>) {
-    let digest = env.crypto().sha256(&Bytes::from(cred.clone()));
+    verify_bytes(env, key, &Bytes::from(cred.clone()), sig)
+}
+
+pub fn verify_bytes(env: &Env, key: &BytesN<65>, msg: &Bytes, sig: &BytesN<64>) {
+    let digest = env.crypto().sha256(msg);
     env.crypto().secp256r1_verify(key, &digest, &BytesN::from_array(env, &low_s(sig.to_array())));
+}
+
+pub const MOVE_LEN: usize = 137;
+pub const MOVE_MAGIC: &[u8; 8] = b"REPMOVE1";
+
+fn time_ok(env: &Env, iat: u64, exp: u64) {
+    let now = env.ledger().timestamp();
+    if exp <= iat || exp - iat > MAX_LIFE || now >= exp || now.saturating_add(MAX_SKEW) < iat {
+        fail(env, Error::RepExpired);
+    }
+}
+
+/// Format checks of a move credential for (group, old, new). Returns the kid and jti.
+pub fn check_move(env: &Env, group: u32, old: &U256, new: &U256, cred: &BytesN<MOVE_LEN>) -> Checked {
+    let c = cred.to_array();
+    if &c[0..8] != MOVE_MAGIC {
+        fail(env, Error::RepMalformed);
+    }
+    if c[9..41] != audience(env, group) {
+        fail(env, Error::RepIssuer);
+    }
+    let (mut o, mut n) = ([0u8; 32], [0u8; 32]);
+    old.to_be_bytes().copy_into_slice(&mut o);
+    new.to_be_bytes().copy_into_slice(&mut n);
+    if c[41..73] != o || c[73..105] != n {
+        fail(env, Error::RepNonce);
+    }
+    time_ok(env, be_u64(&c[105..113]), be_u64(&c[113..121]));
+    let mut jti = [0u8; 16];
+    jti.copy_from_slice(&c[121..137]);
+    Checked { kid: c[8] as u32, jti: BytesN::from_array(env, &jti) }
 }
 
 // P-256 group order n and n/2, big-endian.

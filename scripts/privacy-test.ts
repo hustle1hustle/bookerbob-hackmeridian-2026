@@ -1,5 +1,6 @@
-// Fresh payer per booking: one guest (one browser, one stay) books twice with perks; the two payments come from
-// unrelated one-time addresses, no wallet is connected and the guest never holds XLM.
+// Fresh payer per booking: one guest (one browser, one stay) books with perks at two network places this season; the
+// two payments come from unrelated one-time addresses, no wallet is connected and the guest never holds XLM.
+// (The contract allows one discount per stay per place per season, so the two bookings are at two places.)
 // Usage: API=http://localhost:8080 node scripts/privacy-test.ts
 import assert from "node:assert/strict"
 import { createSdk, isErr, formatUsdc } from "../packages/sdk/src/index.ts"
@@ -12,29 +13,18 @@ const sdk = createSdk({ mode: "testnet", testnet: { apiUrl: API, storage } })
 const log = (...a: unknown[]) => console.log(new Date().toISOString().slice(11, 19), ...a)
 
 const stay = sdk.stays.create(0)
-// a stay is added only after a real booking at the place (fresh payer, no wallet)
-const first: any = await sdk.chain.book(0)
-if (isErr(first)) throw new Error(`book ${first.error} ${first.message ?? ""}`)
-const co = await sdk.chain.checkout(0, stay.commitment, first.txHash)
+const co = await sdk.chain.checkout(0, stay.commitment)
 assert.ok(!isErr(co))
 log("stay checked in at place 0 (joins the network group)", (co as any).txHash)
 assert.equal(sdk.wallet.address, null, "no wallet connected")
 
 const payers: string[] = []
-// the contract counts seasons by ledger time (one perk per stay per season), so: one booking with the network perk
-// in the current season, then a second booking at full price; both from fresh payers
-const season = currentSeason()
-const r: any = await sdk.chain.bookWithPerks(1, season)
-if (isErr(r)) throw new Error(`${r.error} ${r.message ?? ""}`)
-log(`season ${season}, network perk: paid ${formatUsdc(r.paid)} from ${r.payer}`, sdk.chain.explorerTx(r.txHash))
-payers.push(r.payer)
-const again: any = await sdk.chain.bookWithPerks(1, season)
-assert.ok(isErr(again), "a second perk in the same season must be refused")
-log(`same season again: refused (${again.error})`)
-const plain: any = await sdk.chain.book(1)
-if (isErr(plain)) throw new Error(`book ${plain.error} ${plain.message ?? ""}`)
-log(`full price: from ${plain.payer ?? "(fresh payer)"}`, sdk.chain.explorerTx(plain.txHash))
-payers.push(plain.payer)
+for (const place of [1, 3]) {
+  const r: any = await sdk.chain.bookWithPerks(place, currentSeason())
+  if (isErr(r)) throw new Error(`${r.error} ${r.message ?? ""}`)
+  log(`place ${place}: paid ${formatUsdc(r.paid)} from ${r.payer}`, sdk.chain.explorerTx(r.txHash))
+  payers.push(r.payer)
+}
 assert.notEqual(payers[0], payers[1])
 // the payers share no funding source with each other or the guest: each was created by the sponsor and minted directly
 for (const p of payers) {
