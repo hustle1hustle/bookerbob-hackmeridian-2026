@@ -3,6 +3,7 @@
 // Usage: API=http://localhost:8080 node scripts/privacy-test.ts
 import assert from "node:assert/strict"
 import { createSdk, isErr, formatUsdc } from "../packages/sdk/src/index.ts"
+import { currentSeason } from "../packages/sdk/src/derive.ts"
 
 const mem = new Map<string, string>()
 const storage = { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => void mem.set(k, v), removeItem: (k: string) => void mem.delete(k) }
@@ -20,12 +21,20 @@ log("stay checked in at place 0 (joins the network group)", (co as any).txHash)
 assert.equal(sdk.wallet.address, null, "no wallet connected")
 
 const payers: string[] = []
-for (const season of [Date.now() % 100000, (Date.now() % 100000) + 1]) {
-  const r: any = await sdk.chain.bookWithPerks(1, season)
-  if (isErr(r)) throw new Error(`${r.error} ${r.message ?? ""}`)
-  log(`season ${season}: paid ${formatUsdc(r.paid)} from ${r.payer}`, sdk.chain.explorerTx(r.txHash))
-  payers.push(r.payer)
-}
+// the contract counts seasons by ledger time (one perk per stay per season), so: one booking with the network perk
+// in the current season, then a second booking at full price; both from fresh payers
+const season = currentSeason()
+const r: any = await sdk.chain.bookWithPerks(1, season)
+if (isErr(r)) throw new Error(`${r.error} ${r.message ?? ""}`)
+log(`season ${season}, network perk: paid ${formatUsdc(r.paid)} from ${r.payer}`, sdk.chain.explorerTx(r.txHash))
+payers.push(r.payer)
+const again: any = await sdk.chain.bookWithPerks(1, season)
+assert.ok(isErr(again), "a second perk in the same season must be refused")
+log(`same season again: refused (${again.error})`)
+const plain: any = await sdk.chain.book(1)
+if (isErr(plain)) throw new Error(`book ${plain.error} ${plain.message ?? ""}`)
+log(`full price: from ${plain.payer ?? "(fresh payer)"}`, sdk.chain.explorerTx(plain.txHash))
+payers.push(plain.payer)
 assert.notEqual(payers[0], payers[1])
 // the payers share no funding source with each other or the guest: each was created by the sponsor and minted directly
 for (const p of payers) {
