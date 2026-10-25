@@ -76,8 +76,22 @@ export async function simulateContext(guest: string, season: number, claims: Cla
   }
 }
 
-/** Season = calendar quarter, e.g. 20264 for Oct-Dec 2026: one discount per past purchase per quarter. */
+/** Legacy season (calendar quarter, e.g. 20264), used only by a contract that predates current_season(). */
 export const currentSeason = (d = new Date()) => d.getUTCFullYear() * 10 + Math.floor(d.getUTCMonth() / 3) + 1
+
+/** The season the contract accepts: its own current_season() when it has one (it refuses any other), else the
+ *  legacy quarter. Read at most once a minute. */
+let seasonCache: { at: number; v: number } | null = null
+export async function seasonNow(): Promise<number> {
+  if (seasonCache && Date.now() - seasonCache.at < 60_000) return seasonCache.v
+  let v = currentSeason()
+  try {
+    const c: any = await reader()
+    if (typeof c.current_season === "function") v = Number((await c.current_season()).result)
+  } catch {}
+  seasonCache = { at: Date.now(), v }
+  return v
+}
 
 /** Merchant admin inserts a buyer's fresh commitment after a paid order. */
 export async function insertCommitment(admin: Keypair, commitment: bigint) {

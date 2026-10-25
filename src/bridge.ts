@@ -81,7 +81,7 @@ function forStore(args: any) {
 async function createCheckout(args: any) {
   const co = await storeTool("create_checkout", forStore(args))
   const claimed = claims(args.checkout)
-  const s = co?.id ? openSession(co.id, claimed) : undefined
+  const s = co?.id ? await openSession(co.id, claimed) : undefined
   takeCommitment(s, args.checkout)
   if (s) log(`checkout ${short(s.checkoutId)} created${claimed ? ", patronage claimed" : ""}`)
   return decorate(co, s)
@@ -98,7 +98,7 @@ function takeCommitment(s: Session | undefined, checkout: any) {
 async function updateCheckout(args: any) {
   const id = String(args.id ?? "")
   let s = session(id)
-  if (claims(args.checkout)) s = openSession(id, true)
+  if (claims(args.checkout)) s = await openSession(id, true)
   takeCommitment(s, args.checkout)
   const ext = args.checkout?.[NS]
   // proofs: [{group, root, nullifier, proof}] with one payer; a single `proof` is the returning-customer claim.
