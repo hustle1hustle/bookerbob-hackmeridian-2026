@@ -635,7 +635,15 @@ export interface Source {
   proves: string
   status: SourceStatus
   detail: string
+  /** Where to go instead of an in-page action (REP app while REP verify is demo-only). */
+  link?: string
 }
+
+/** The REP app, one config value (may move to r3p.xyz). */
+export const REP_APP_URL = "https://r3p.app"
+// REP verify opens sessions only for the demo operator's browser (GET /api/rep/status, cookie travels same-origin)
+let repDemoP: Promise<boolean> | null = null
+export const repDemo = () => (repDemoP ??= fetch(`${API}/api/rep/status`, { credentials: "same-origin" }).then((r) => r.json()).then((d) => !!d.demo).catch(() => false))
 
 // REP verified traveler: the guest approves in the REP Bob app; the backend checks the REP-signed verdict and adds a
 // fresh identity of this browser to the attested group. The identity is a new stay at the store that is never checked
@@ -648,6 +656,7 @@ export const rep = {
     return { ...repState }
   },
   async start() {
+    if (!(await repDemo())) return (repState = { status: "soon", why: "REP verified traveler is coming to the REP app" })
     const stay = sdk.stays.create(UCP_MERCHANT)
     const r = await fetch(`${API}/api/rep/session`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ commitment: stay.commitment }) })
       .then((x) => x.json())
@@ -690,6 +699,7 @@ export async function sources(): Promise<Source[]> {
   const ms = local.memberships() as any[]
   const placesProven = new Set(ms.map((m) => m.place)).size
   const held = travelerHeld()
+  const demo = await repDemo()
   const pp = passportState.address && passportState.address !== addr ? { status: "none" as SourceStatus, detail: "" } : passportState
   return [
     {
@@ -703,8 +713,17 @@ export async function sources(): Promise<Source[]> {
       id: "rep",
       label: "REP verified traveler",
       proves: "an attester vouches that you travel. not who you are.",
-      status: held ? "connected" : repState.status,
-      detail: held ? "verified traveler counts in your perks" : repState.status === "pending" ? "approve in REP Bob on your phone" : repState.status === "failed" ? (repState.why ?? "") : "+5% where places honor it",
+      status: held ? "connected" : demo ? repState.status : "soon",
+      detail: held
+        ? "verified traveler counts in your perks"
+        : !demo
+          ? "REP verified traveler is coming to the REP app"
+          : repState.status === "pending"
+            ? "approve in REP Bob on your phone"
+            : repState.status === "failed"
+              ? (repState.why ?? "")
+              : "+5% where places honor it",
+      ...(held || demo ? {} : { link: REP_APP_URL }),
     },
     {
       id: "passport",
