@@ -3,6 +3,7 @@
 // customer identity, so the store cannot link this purchase to an earlier one.
 //   npm run agent -- [--bridge http://localhost:8787] [--query tee] [--fresh]
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs"
+mkdirSync("evidence", { recursive: true })
 import { randomBytes, randomUUID } from "node:crypto"
 import { Asset, BASE_FEE, Keypair, Operation, TransactionBuilder, rpc } from "@stellar/stellar-sdk"
 import { NET, MERCHANT, bookWithDiscount, book, discountMessage, discountScope, leaves, loadArtifacts, proveMembership, stayIdentity } from "../src/core.ts"
@@ -135,6 +136,8 @@ async function main() {
     co = await ucp("update_checkout", { id: co.id, checkout: { [NS]: { proof: { payer: payer.publicKey(), root: p.root.toString(), nullifier: p.nullifier.toString(), proof: p.proof } } } })
     const verdict = co[NS]
     if (verdict?.status !== "verified") throw new Error(`proof refused: ${JSON.stringify(co.messages?.filter((m: any) => m.type === "error"))}`)
+    // Public data only (what the store and the chain see anyway), kept for the replay demo.
+    writeFileSync("evidence/last-proof.json", JSON.stringify({ payer: payer.publicKey(), season: action.scope.season, root: p.root.toString(), nullifier: p.nullifier.toString(), proof: p.proof }))
     say(`store verified the proof against the Stellar contract, single-use code ${verdict.code}`)
 
     // 7. apply the code through UCP discounts (a new Shopify code can take a few seconds to go live)

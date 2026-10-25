@@ -133,14 +133,16 @@ async function verifyProof(s: Session, p: any): Promise<{ ok: true } | { ok: fal
     return { ok: false, error: "proof must be {a: 64-byte hex, b: 128-byte hex, c: 64-byte hex}" }
   }
   const key = nullifier.toString()
-  const holder = st().nullifiers[key]
-  if (holder && holder !== s.checkoutId) return { ok: false, error: "this past purchase already backs another checkout this season" }
-  // The contract is the verifier: a dry run of the exact call the payer will sign.
+  // The contract is the verifier: a dry run of the exact call the payer will sign. It runs first
+  // so a replayed or forged proof is refused by Stellar itself, not by bridge bookkeeping.
   const sim = await simulateDiscount(payer, s.season, proof, root, nullifier)
   if (!sim.ok) {
     log(`checkout ${short(s.checkoutId)} proof refused by the contract: ${sim.error}`)
     return { ok: false, error: `contract refused the proof: ${sim.error}` }
   }
+  // Not yet spent on chain, but already backing another open checkout's code.
+  const holder = st().nullifiers[key]
+  if (holder && holder !== s.checkoutId) return { ok: false, error: "this past purchase already backs another open checkout this season" }
   const code = `BB-${randomBytes(6).toString("hex").toUpperCase()}`
   const bps = (await merchant()).discountBps
   const made = await createSingleUseCode(code, bps / 100, CODE_LIFE_SEC, `returning customer, proof checked on Stellar (${bps / 100}%)`)
