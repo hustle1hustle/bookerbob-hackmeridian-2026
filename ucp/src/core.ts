@@ -2,7 +2,7 @@
 // (.core = public repo, pinned commit; see PRIOR_WORK.md) and the deployed contract by id.
 import { Keypair, contract, rpc, scValToNative, xdr, Address, StrKey, TransactionBuilder } from "@stellar/stellar-sdk"
 import { getClient, views, write, proofArg, type NetworkConfig, type Signer, TESTNET } from "../../packages/sdk/src/contract.ts"
-import { discountScope, discountMessage, semaphoreHash, stayIdentity, ctxScope, type GroupRef } from "../../packages/sdk/src/derive.ts"
+import { discountScope, discountMessage, semaphoreHash, stayIdentity, ctxScope, currentSeason as sdkCurrentSeason, type GroupRef } from "../../packages/sdk/src/derive.ts"
 import { proveMembership, loadArtifacts } from "../../packages/sdk/src/prove.ts"
 import type { SorobanProofHex } from "../../packages/sdk/src/convert.ts"
 import { contractId } from "../../packages/sdk/src/deployment.ts"
@@ -76,11 +76,12 @@ export async function simulateContext(guest: string, season: number, claims: Cla
   }
 }
 
-/** Legacy season (calendar quarter, e.g. 20264), used only by a contract that predates current_season(). */
-export const currentSeason = (d = new Date()) => d.getUTCFullYear() * 10 + Math.floor(d.getUTCMonth() / 3) + 1
+/** Offline estimate of the contract season (2026-10-01 epoch, 91 days). Prefer `seasonNow()` — it reads
+ *  `current_season()` from the live contract when present. */
+export const currentSeason = (d = new Date()) => sdkCurrentSeason(Math.floor(d.getTime() / 1000))
 
 /** The season the contract accepts: its own current_season() when it has one (it refuses any other), else the
- *  legacy quarter. Read at most once a minute. */
+ *  SDK clock. Read at most once a minute. */
 let seasonCache: { at: number; v: number } | null = null
 export async function seasonNow(): Promise<number> {
   if (seasonCache && Date.now() - seasonCache.at < 60_000) return seasonCache.v

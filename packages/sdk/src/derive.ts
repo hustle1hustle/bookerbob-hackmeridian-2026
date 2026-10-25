@@ -22,11 +22,19 @@ export const discountScope = (merchant: number, season: number): bigint =>
 export type GroupRef = { kind: "merchant"; id: number } | { kind: "group"; id: number }
 
 /** Raw context-claim scope: keccak256("pos/ctx" || be32(merchant) || tag || be32(id) || be32(season)), tag 0 merchant, 1 group.
- *  A claim on the booking merchant's own tree uses discountScope instead (shared nullifier with plain discounts). */
-export const ctxScope = (merchant: number, group: GroupRef, season: number): bigint =>
-  group.kind === "merchant" && group.id === merchant
+ *  A claim on the booking merchant's own tree, or on the chain group the booking merchant belongs to (`merchantChain`,
+ *  from the contract's `merchant_chain`), uses discountScope instead: one nullifier per stay per merchant per season. */
+export const ctxScope = (merchant: number, group: GroupRef, season: number, merchantChain?: number | null): bigint =>
+  (group.kind === "merchant" && group.id === merchant) || (group.kind === "group" && merchantChain != null && group.id === merchantChain)
     ? discountScope(merchant, season)
     : k(concat([toUtf8Bytes("pos/ctx"), be4(merchant), new Uint8Array([group.kind === "merchant" ? 0 : 1]), be4(group.id), be4(season)]))
+
+/** Seasons as the contract counts them (`current_season`): season 1 starts 2026-10-01T00:00Z, each lasts 91 days.
+ *  The contract refuses any other season, so a past stay earns one discount per merchant per season. */
+export const SEASON_EPOCH = 1_790_812_800
+export const SEASON_LEN = 91 * 86_400
+export const currentSeason = (nowSecs = Math.floor(Date.now() / 1000)): number =>
+  1 + Math.floor(Math.max(0, nowSecs - SEASON_EPOCH) / SEASON_LEN)
 
 /** Raw review message: keccak256(be32(rating) || content_hash || disclosure_commit). Hex args with 0x. */
 export const reviewMessage = (rating: number, contentHash: string, disclosureCommit: string): bigint =>
