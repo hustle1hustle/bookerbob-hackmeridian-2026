@@ -121,7 +121,6 @@ html,body{margin:0;padding:0;background:#EDEBE5}
         <sc-for list="{{ heroKinds }}" as="k" hint-placeholder-count="3">
           <button onClick="{{ k.onClick }}" style="appearance:none;border:1px solid var(--ink);background:transparent;color:var(--ink);font-size:15px;letter-spacing:-.01em;height:38px;padding:0 14px;display:inline-flex;align-items:center;gap:10px;cursor:pointer;transition:background .15s,color .15s" style-hover="background:var(--ink);color:var(--bg)">{{ k.label }}<span style="font-family:var(--mono);font-size:11px;opacity:.6">{{ k.count }}</span></button>
         </sc-for>
-        <span style="border:1px dashed var(--rule-soft);color:var(--ink-3);font-size:15px;height:38px;padding:0 14px;display:inline-flex;align-items:center">restaurants next</span>
       </div>
       <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:36px">
         <button onClick="{{ scrollToRank }}" style="appearance:none;border:1px solid var(--ink);background:var(--ink);color:var(--bg);font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;height:50px;padding:0 22px;display:inline-flex;align-items:center;gap:28px;cursor:pointer;transition:background .15s,border-color .15s,color .15s" style-hover="background:var(--accent);border-color:var(--accent);color:var(--accent-ink)">see the ranking<span>↓</span></button>
@@ -149,8 +148,12 @@ html,body{margin:0;padding:0;background:#EDEBE5}
 
     <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px 18px;margin-top:20px;padding:14px 16px;border:1px solid var(--rule);background:var(--surface)">
       <span style="width:32px;height:32px;flex:none;background:var(--ink);color:var(--bg);display:grid;place-items:center;font-family:var(--mono);font-size:14px;font-weight:600">b</span>
-      <span style="flex:1 1 260px;min-width:0;font-family:var(--mono);font-size:14px">{{ rankQuery }}</span>
+      <input value="{{ rankInput }}" onInput="{{ onRankInput }}" onKeyDown="{{ onRankKey }}" placeholder="{{ rankQuery }}" aria-label="ask bob" spellcheck="false" autocomplete="off" style="flex:1 1 260px;min-width:0;height:38px;border:0;border-bottom:1px solid var(--rule-soft);background:transparent;color:var(--ink);font-family:var(--mono);font-size:14px;outline-offset:4px">
       <button onClick="{{ askBob }}" disabled="{{ rankBusy }}" style="appearance:none;border:1px solid var(--ink);background:var(--ink);color:var(--bg);font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;height:38px;padding:0 16px;display:inline-flex;align-items:center;gap:16px;cursor:pointer;transition:background .15s,border-color .15s,color .15s" style-hover="background:var(--accent);border-color:var(--accent);color:var(--accent-ink)">{{ rankBtn }}<span>→</span></button>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;margin-top:10px">
+      <span style="font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)">try</span>
+      <sc-for list="{{ rankTries }}" as="q" hint-placeholder-count="4"><button onClick="{{ q.onClick }}" style="appearance:none;border:1px solid var(--rule-soft);background:transparent;color:var(--ink-2);font-family:var(--mono);font-size:11.5px;height:28px;padding:0 10px;cursor:pointer" style-hover="border-color:var(--ink);color:var(--ink)">{{ q.label }}</button></sc-for>
     </div>
     <sc-if value="{{ rankHasLines }}" hint-placeholder-val="{{ false }}">
       <ol style="list-style:none;margin:0;padding:10px 16px 4px 66px;font-family:var(--mono);font-size:12.5px;line-height:1.5">
@@ -207,7 +210,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
           </li>
         </sc-for>
       </ol>
-      <p style="margin:16px 0 0;font-size:14px;color:var(--ink-2)"><s style="color:var(--ink-3)">9.1 from 2,000 reviews</s> elsewhere. none of them proven, so bob counts none of them.</p>
+      <p style="margin:16px 0 0;font-size:14px;color:var(--ink-2)"><span style="font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)">illustrative comparison</span> a typical <s style="color:var(--ink-3)">9.1 from 2,000 reviews</s> elsewhere. none of them proven, so bob would count none of them.</p>
     </sc-if>
   </div>
 </section>
@@ -289,7 +292,6 @@ html,body{margin:0;padding:0;background:#EDEBE5}
           </sc-if>
           <sc-if value="{{ pp.isShop }}" hint-placeholder-val="{{ false }}">
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));border:1px solid var(--rule);margin-top:14px">
-              <div style="min-height:260px;background:repeating-linear-gradient(135deg,var(--surface) 0 10px,var(--bg) 10px 20px);border-right:1px solid var(--rule-soft);display:grid;place-items:center;font-family:var(--mono);font-size:10.5px;color:var(--ink-3);letter-spacing:.08em;text-transform:uppercase">product photo</div>
               <div style="padding:22px;display:flex;flex-direction:column;gap:18px">
                 <div><div style="font-size:26px;font-weight:500;letter-spacing:-.035em">{{ product.title }}</div><div style="font-size:30px;letter-spacing:-.045em;margin-top:8px">{{ product.price }}<span style="font-family:var(--mono);font-size:11px;color:var(--ink-3);margin-left:6px">usdc</span></div></div>
                 <div role="radiogroup" aria-label="size" style="display:flex;gap:6px">
@@ -477,7 +479,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
       <sc-if value="{{ hasNetworkPass }}" hint-placeholder-val="{{ false }}">
         <article style="border:1px solid var(--ink);background:var(--ink);color:var(--bg);display:flex;flex-direction:column;animation:bb-in .45s ease both">
           <div style="padding:20px 22px 18px">
-            <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;opacity:.65">network pass</div>
+            <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;opacity:.65">pass</div>
             <div style="font-size:32px;font-weight:500;letter-spacing:-.045em;line-height:1;margin-top:30px">BookerBob regular</div>
             <div style="font-size:14px;opacity:.75;margin-top:8px">{{ networkLine }}</div>
             <div style="font-size:13px;opacity:.75;margin-top:10px;line-height:1.45">every place in the network can give you a regular's perk without knowing where you've been. you got this from your {{ netFrom.what }} at {{ netFrom.place }}<sc-if value="{{ netFrom.hasTx }}" hint-placeholder-val="{{ false }}"> · <a href="{{ netFrom.url }}" target="_blank" rel="noopener" style="color:var(--bg);font-family:var(--mono);font-size:12px">tx {{ netFrom.short }} ↗</a></sc-if>.</div>
@@ -665,7 +667,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
             <span style="position:absolute;bottom:14px;left:14px;width:28px;height:28px;border-bottom:2px solid var(--ink);border-left:2px solid var(--ink)"></span>
             <span style="position:absolute;bottom:14px;right:14px;width:28px;height:28px;border-bottom:2px solid var(--ink);border-right:2px solid var(--ink)"></span>
             <span style="position:absolute;left:10%;right:10%;height:2px;background:var(--accent);animation:bb-scan 1.6s ease-in-out infinite"></span>
-            <span style="font-size:15px;color:var(--ink-2)">show the guest's qr</span>
+            <span style="font-size:15px;color:var(--ink-2)">simulated scan: fills a sample commitment</span>
           </div>
         </sc-if>
         <label for="bb-commit" style="font-size:17px">guest commitment</label>
@@ -800,7 +802,6 @@ html,body{margin:0;padding:0;background:#EDEBE5}
           <sc-if value="{{ ad.hasPkg }}" hint-placeholder-val="{{ false }}">
             <div style="padding:20px 24px;border-bottom:1px solid var(--rule-soft);display:flex;flex-wrap:wrap;gap:8px 24px;align-items:center;font-family:var(--mono);font-size:12px">
               <span>secret {{ ad.secret }}</span><span>leaf {{ ad.leaf }}</span><span>signature {{ ad.sig }}</span>
-              <button onClick="{{ onReveal }}" style="appearance:none;border:0;border-bottom:1px solid var(--ink);background:none;color:var(--ink);font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;padding:0 0 2px;cursor:pointer">{{ ad.revealLabel }}</button>
             </div>
             <div style="padding:4px 24px 0">
               <sc-for list="{{ checks }}" as="c" hint-placeholder-count="3">
@@ -925,7 +926,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
 class Component extends DCLogic {
   state = {
     ready: false, src: { open: false, focus: null, list: [], busy: null }, theme: null, role: 'guest', view: 'home', placeId: 0, kind: 'hotel',
-    wallet: null, connect: null, rank: 'idle', rankStep: 0,
+    wallet: null, connect: null, rank: 'idle', rankStep: 0, rankQ: '', rankRes: null, rankLog: [],
     places: [], policies: {}, reviews: {}, texts: {}, elig: {}, disputes: [], memberships: [], credentials: [], orders: [],
     draft: { mId: null, rating: 0, text: '' },
     sel: { room: 0, nights: 2, size: 'm', qty: 1, menu: { 0: 1, 2: 1 } }, picks: {},
@@ -1179,15 +1180,24 @@ class Component extends DCLogic {
     const all = s.places.filter(p => p.kind === k);
     return { ranked: all.filter(p => p.review_count > 0).sort((a, b) => b.rating - a.rating || b.review_count - a.review_count), unranked: all.filter(p => !p.review_count) };
   }
-  askBob = () => {
-    if (this.state.rank === 'thinking') return;
-    clearTimeout(this.rankT);
-    this.setState({ rank: 'thinking', rankStep: 0 });
-    let i = 0;
-    const tick = () => { i++; if (i < 3) { this.setState({ rankStep: i }); this.rankT = setTimeout(tick, 560); } else this.setState({ rank: 'done', rankStep: 3 }); };
-    this.rankT = setTimeout(tick, 380);
+  RANK_Q = { hotel: 'a quiet room in lisbon, best proven rating', 'café': 'coffee nearby', shop: 't-shirt under 50 usdc', restaurant: 'restaurant dinner' };
+  askBob = async (q0) => {
+    if (this.state.rank === 'thinking' || !this.m || !this.m.search) return;
+    const q = (typeof q0 === 'string' ? q0 : this.state.rankQ).trim() || this.RANK_Q[this.state.kind] || 'best hotel';
+    const seq = (this.rankSeq = (this.rankSeq || 0) + 1);
+    this.setState({ rank: 'thinking', rankQ: q, rankLog: [`searching proven reviews for "${q}"`] });
+    let res = null;
+    try { res = await this.m.search(q); } catch (e) { console.error(e); }
+    if (seq !== this.rankSeq) return;
+    if (!res) { this.setState({ rank: 'done', rankRes: null, rankLog: [`searching proven reviews for "${q}"`, 'the search did not answer. try again.'] }); return; }
+    const proven = res.results.filter(r => r.provenRating != null), top = proven[0];
+    const kind = res.kind && ['hotel', 'café', 'shop', 'restaurant'].includes(res.kind) ? res.kind : this.state.kind;
+    const log = [`searching proven reviews for "${q}"`,
+      `${this.plural(res.results.length, 'result')}, ${proven.length} with proven reviews. only those are ranked.`,
+      top ? `top: ${top.title.toLowerCase()}, ${(top.provenRating * 2).toFixed(1)}` : 'nothing proven here yet. no rank without proof.'];
+    this.setState({ rank: 'done', kind, rankRes: res, rankLog: log });
   };
-  setKind(kind) { clearTimeout(this.rankT); this.setState({ kind, rank: 'idle', rankStep: 0 }); }
+  setKind(kind) { clearTimeout(this.rankT); this.rankSeq = (this.rankSeq || 0) + 1; this.setState({ kind, rank: 'idle', rankStep: 0, rankRes: null, rankLog: [] }); }
   scrollToRank = () => { if (this.rankEl) window.scrollTo({ top: this.rankEl.getBoundingClientRect().top + window.scrollY - 64, behavior: this.reduced ? 'auto' : 'smooth' }); };
 
   vShell() {
@@ -1218,32 +1228,44 @@ class Component extends DCLogic {
     const s = this.state, P0 = this.byId(0), mine = s.memberships.find(x => x.place === 0);
     this.treeFilled = P0 ? P0.group_size : 14;
     this.yourLeaf = mine ? mine.leaf : -1;
-    const kinds = [['hotel', 'stays'], ['café', 'cafés'], ['shop', 'shops']];
+    const kinds = [['hotel', 'stays'], ['café', 'cafés'], ['shop', 'shops'], ['restaurant', 'restaurants']];
     const count = k => s.places.filter(p => p.kind === k).length;
     const { ranked, unranked } = this.rankedList(), top = ranked[0];
-    const queries = { hotel: 'a quiet room in lisbon, best proven rating', 'café': 'coffee in graça, proven reviews only', shop: 'a t-shirt from a store people really bought from' };
-    const lines = [
-      'dropped every rating without a proof',
-      `${this.plural(ranked.length, 'place')} left with proven reviews`,
-      top ? `top: ${top.name.toLowerCase()}, ${this.score(top)}` : 'nothing proven here yet. no rank without proof.',
-    ];
-    const shown = s.rank === 'done' ? 3 : s.rank === 'thinking' ? s.rankStep : 0;
+    const queries = this.RANK_Q;
+    const lines = s.rankLog || [];
+    const shown = lines.length;
+    const res = s.rankRes;
+    const placeMeta = P => `${P.area.toLowerCase()} · ${this.priceLine(P)} · ${P.group_size} ${this.groupWord(P, P.group_size)} · ${this.plural(P.review_count, 'proven review')}`;
+    const ucpRow = (r, i) => ({ rank: String(i + 1).padStart(2, '0'), rankColor: i === 0 ? 'var(--accent)' : 'var(--ink)', isTop: false, name: r.title,
+      meta: `REP Store on Shopify · ${this.money(r.price)} usdc · ${this.plural(r.reviewCount, 'proven review')}`, score: r.provenRating != null ? (r.provenRating * 2).toFixed(1) : '', deal: '', delay: this.reduced ? '0ms' : i * 90 + 'ms',
+      onOpen: () => { if (r.variantId && this.m.store && this.m.store.choose) this.m.store.choose(r.variantId); this.goAgent(); } });
+    const fromRes = res ? (() => {
+      const rows = res.results.filter(r => r.provenRating != null), un = res.results.filter(r => r.provenRating == null && r.source === 'places');
+      return {
+        ranked: rows.map((r, i) => { const P = r.source === 'places' ? this.byId(r.placeId) : null; if (!P) return ucpRow(r, i);
+          return { rank: String(i + 1).padStart(2, '0'), rankColor: i === 0 ? 'var(--accent)' : 'var(--ink)', isTop: i === 0 && rows.length > 1, name: P.name, meta: placeMeta(P), score: (r.provenRating * 2).toFixed(1), deal: this.dealLabel(P.id), delay: this.reduced ? '0ms' : i * 90 + 'ms', onOpen: () => this.openPlace(P.id) }; }),
+        unranked: un.map(r => this.byId(r.placeId)).filter(Boolean).map(P => ({ name: P.name, meta: `${P.area.toLowerCase()} · ${this.priceLine(P)}`, deal: this.dealLabel(P.id), onOpen: () => this.openPlace(P.id) })),
+      };
+    })() : null;
     const pickKind = k => { this.setKind(k); this.scrollToRank(); };
     return {
-      hero: { caption: P0 ? `${P0.name.toLowerCase()} · ${P0.group_size} proven guests` : '' },
+      hero: { caption: P0 ? `${P0.name.toLowerCase()} · ${P0.group_size} ${this.groupWord(P0, P0.group_size)}` : '' },
       heroKinds: kinds.map(([k, label]) => ({ label, count: s.ready ? String(count(k)) : '', onClick: () => pickKind(k) })),
       scrollToRank: this.scrollToRank,
       cats: kinds.map(([k, label]) => ({ label, count: s.ready ? String(count(k)) : '', on: s.kind === k, line: s.kind === k ? 'var(--ink)' : 'transparent', fg: s.kind === k ? 'var(--ink)' : 'var(--ink-3)', onClick: () => this.setKind(k) })),
-      rankQuery: queries[s.kind] || '', askBob: this.askBob, rankBusy: s.rank === 'thinking', rankBtn: s.rank === 'thinking' ? 'ranking' : s.rank === 'done' ? 'again' : 'ask bob',
+      rankQuery: queries[s.kind] || '', rankInput: s.rankQ, onRankInput: e => this.setState({ rankQ: e.target.value }), onRankKey: e => { if (e.key === 'Enter') { e.preventDefault(); this.askBob(); } },
+      rankTries: ['hotel in lisbon under 120', 'best hotel', 'coffee nearby', 'restaurant dinner', 't-shirt under 50 usdc', 'hoodie'].map(q => ({ label: q, onClick: () => this.askBob(q) })),
+      askBob: () => this.askBob(), rankBusy: s.rank === 'thinking', rankBtn: s.rank === 'thinking' ? 'ranking' : s.rank === 'done' ? 'again' : 'ask bob',
       rankSkeleton: s.ready ? [] : [{ w: '62%' }, { w: '48%' }, { w: '55%' }], skAnim: this.reduced ? 'none' : 'bb-pulse 1.6s ease-in-out infinite',
-      rankHasLines: !s.ready || shown > 0 || s.rank === 'thinking', rankLines: !s.ready ? [{ t: 'reading the proven reviews', color: 'var(--ink-3)' }] : lines.slice(0, shown).map((t, i) => ({ t, color: s.rank === 'done' && i === 2 ? 'var(--accent)' : 'var(--ink-2)' })),
+      rankHasLines: !s.ready || shown > 0 || s.rank === 'thinking', rankLines: !s.ready ? [{ t: 'reading the proven reviews', color: 'var(--ink-3)' }] : lines.map((t, i) => ({ t, color: s.rank === 'done' && i === 2 ? 'var(--accent)' : 'var(--ink-2)' })),
       rankShow: s.rank !== 'thinking',
-      ranked: ranked.map((P, i) => ({
+      ...(fromRes || {}),
+      ...(fromRes ? {} : { ranked: ranked.map((P, i) => ({
         rank: String(i + 1).padStart(2, '0'), rankColor: i === 0 ? 'var(--accent)' : 'var(--ink)', isTop: i === 0 && ranked.length > 1, name: P.name,
-        meta: `${P.area.toLowerCase()} · ${this.priceLine(P)} · ${P.review_count} ${this.groupWord(P, P.review_count)}`,
+        meta: placeMeta(P),
         score: this.score(P), deal: this.dealLabel(P.id), delay: s.rank === 'done' ? i * 90 + 'ms' : '0ms', onOpen: () => this.openPlace(P.id),
       })),
-      unranked: unranked.map(P => ({ name: P.name, meta: P.real ? `${P.area.toLowerCase()} · ${this.priceLine(P)} · real store, real purchases only` : `${P.area.toLowerCase()} · ${this.priceLine(P)}`, deal: this.dealLabel(P.id), onOpen: () => this.openPlace(P.id) })),
+      unranked: unranked.map(P => ({ name: P.name, meta: P.real ? `${P.area.toLowerCase()} · ${this.priceLine(P)} · real store, real purchases only` : `${P.area.toLowerCase()} · ${this.priceLine(P)}`, deal: this.dealLabel(P.id), onOpen: () => this.openPlace(P.id) })) }),
     };
   }
   setSel(patch) { this.setState(s => ({ sel: { ...s.sel, ...patch } })); }
@@ -1261,9 +1283,14 @@ class Component extends DCLogic {
     const bd = this.m ? this.m.breakdown(subtotal, pol.policy, pol.max_bps, chosen) : { rows: [], saved: 0, total: subtotal };
     return { pol, el, cart, subtotal, chosen, bd, proven: bd.rows.filter(r => r.applied > 0).map(r => r.group) };
   }
+  netWhere(P) {
+    const ms = this.state.memberships || [], other = ms.find(x => x.place !== P.id), O = other ? this.byId(other.place) : null;
+    if (O) return `from your ${this.isHotel(O) ? 'stay' : 'visit'} at ${O.name}`;
+    return this.isHotel(P) ? 'from your stay here' : 'from your visit here';
+  }
   shortReason(e, P, atCap) {
     if (atCap) return 'at the cap';
-    if (e.eligible) return { returning: this.isHotel(P) ? 'stayed here' : 'bought here', network: 'proven elsewhere', traveler: 'attested' }[e.group] || '';
+    if (e.eligible) return { returning: this.isHotel(P) ? 'stayed here' : 'bought here', network: this.netWhere(P), traveler: 'attested' }[e.group] || '';
     if (/used/.test(e.reason)) return 'used this season';
     return { returning: this.isHotel(P) ? 'no stay here yet' : 'no purchase here yet', network: 'no visit yet', traveler: 'not attested' }[e.group] || '';
   }
@@ -1494,7 +1521,7 @@ class Component extends DCLogic {
       mPlaces: [0, 4].map(id => [id, (this.byId(id) ? this.byId(id).name.toLowerCase() + ' · ' + this.byId(id).kind : '')]).map(([id, label]) => ({ label, line: s.mPlace === id ? 'var(--ink)' : 'transparent', onClick: () => this.setState({ mPlace: id }) })),
       mHotel: s.mPlace === 0, mShop: s.mPlace === 4,
       desk: {
-        input: dk.input, scanning: dk.scanning, scanLabel: dk.scanning ? 'stop' : 'scan qr',
+        input: dk.input, scanning: dk.scanning, scanLabel: dk.scanning ? 'stop' : 'simulated scan',
         canSubmit: dk.phase !== 'submitting' && !!s.operator, deskClosed: !s.operator, submitting: dk.phase === 'submitting', success: dk.phase === 'success', notSuccess: dk.phase !== 'success', error: dk.phase === 'error',
         errHead: dErr ? dErr.h : '', errBody: dErr ? dErr.b : '', leafIdx: newIdx >= 0 ? String(newIdx + 1) : '',
         root: P0 ? this.short(P0.roots[P0.roots.length - 1], 8, 6) : '', copyRoot: () => { const r = P0 && P0.roots[P0.roots.length - 1]; if (r && navigator.clipboard) navigator.clipboard.writeText(r).catch(() => {}); }, txUrl: dTx ? dTx.url : '', txShort: dTx ? dTx.short : '', treeLabel: P0 ? `${P0.group_size} of ${(this.m && this.m.TREE_CAP) || 32}` : '',
@@ -1543,7 +1570,7 @@ class Component extends DCLogic {
     const sd = s.disputes.find(x => x.id === ar.sel), sr = sd ? (s.reviews[sd.hotel] || []).find(x => x.id === sd.reviewId) : null, pk = sd && sd.package;
     const ad = {
       has: !!sd, awaiting: !!sd && sd.status === 'awaiting', hasPkg: !!pk, stars: this.stars(sr ? sr.rating : 0), aria: sr ? sr.rating + ' of 5' : '', text: sr ? (s.texts[sr.content_hash] || 'text unavailable') : '',
-      secret: pk ? (ar.reveal ? (String(pk.secret).startsWith('0x') ? this.short(pk.secret, 10, 6) : pk.secret) : '••••••••') : '', sig: pk ? (String(pk.signature).startsWith('0x') ? this.short(pk.signature, 6, 4) : pk.signature) : '', leaf: pk ? String(pk.leafIndex) : '', revealLabel: ar.reveal ? 'hide' : 'reveal',
+      secret: pk ? (String(pk.secret).startsWith('0x') ? this.short(pk.secret, 10, 6) : pk.secret) : '', sig: pk ? (String(pk.signature).startsWith('0x') ? this.short(pk.signature, 6, 4) : pk.signature) : '', leaf: pk ? String(pk.leafIndex) : '', revealLabel: ar.reveal ? 'hide' : 'reveal',
     };
     const attested = !!sd && sd.status === 'attested', chk = attested ? ['ok', 'ok', 'ok'] : ar.checks;
     const checks = ['commitment matches', 'signature valid', 'leaf in the group'].map((label, i) => ({ label, status: { wait: '', active: 'checking', ok: 'pass ✓', fail: 'fail' }[chk[i]], color: chk[i] === 'active' ? 'var(--accent)' : chk[i] === 'fail' ? 'var(--warn)' : 'var(--ink)', labelColor: chk[i] === 'wait' ? 'var(--ink-3)' : 'var(--ink)' }));
@@ -1655,7 +1682,7 @@ class Component extends DCLogic {
     const word = st => st === 'wait' ? '' : st === 'fail' ? (f.phase === 'rejected' ? 'refused' : 'failed') : st === 'active' ? 'live' : '';
     const steps = f ? f.steps.map(x => ({
       label: x.label, sub: x.sub, live: x.status === 'active' && !!x.sub,
-      status: x.status === 'ok' && x.key !== 'done' && x.t0 ? `${(((x.t1 || nowT) - x.t0) / 1000).toFixed(2)} s ✓` : x.status === 'ok' ? '✓' : x.status === 'active' && x.t0 ? `${((nowT - x.t0) / 1000).toFixed(2)} s` : word(x.status),
+      status: x.status === 'ok' && x.key !== 'done' && x.t0 && ((x.t1 || nowT) - x.t0) >= 50 ? `${(((x.t1 || nowT) - x.t0) / 1000).toFixed(2)} s ✓` : x.status === 'ok' ? '✓' : x.status === 'active' && x.t0 ? `${((nowT - x.t0) / 1000).toFixed(2)} s` : word(x.status),
       color: x.status === 'active' ? 'var(--accent)' : x.status === 'fail' ? (f.phase === 'rejected' ? 'var(--ink)' : 'var(--warn)') : 'var(--ink-2)',
       labelColor: x.status === 'wait' ? 'var(--ink-3)' : 'var(--ink)',
     })) : [];

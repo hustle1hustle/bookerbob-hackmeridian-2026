@@ -116,7 +116,7 @@ export function ResultCard({ r, pick, href, perks, buy }: ResultCardProps) {
       <h2>{href ? <a href={href}>{r.title}</a> : r.title}</h2>
       {r.provenRating !== null ? (
         <p className="row">
-          <Stars value={r.provenRating} /> <span className="small">{r.reason}</span>
+          <Stars value={r.provenRating} /> <strong>{(r.provenRating * 2).toFixed(1)}</strong> <span className="muted small">/10</span> <span className="small">{typeof r.reviewCount === "number" ? `from ${r.reviewCount} proven ${r.reviewCount === 1 ? "review" : "reviews"}${r.verifiedCount ? `, ${r.verifiedCount} verified` : ""}` : r.reason}</span>
         </p>
       ) : (
         <p className="muted small">no proven reviews yet</p>
