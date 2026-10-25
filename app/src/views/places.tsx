@@ -22,10 +22,13 @@ export function RatingLine({ place }: { place: Merchant }) {
   )
 }
 
-export function PlaceCard({ place, href }: { place: Merchant; href: string }) {
+export function PlaceCard({ place, href, note, picked }: { place: Merchant; href: string; note?: string; picked?: boolean }) {
   return (
-    <article className="card">
-      <p className="small muted">{kindLabel(place.kind)}</p>
+    <article className="card" data-picked={picked ? "true" : undefined}>
+      <p className="small muted">
+        {kindLabel(place.kind)}
+        {picked && <strong> · Bob's pick</strong>}
+      </p>
       <h2>
         <a href={href}>{place.name}</a>
       </h2>
@@ -35,6 +38,7 @@ export function PlaceCard({ place, href }: { place: Merchant; href: string }) {
         <strong>{formatUsdc(place.price)} USDC</strong>
         {place.discountBps > 0 && <span className="tag">returning guests {discountPct(place.discountBps)} off</span>}
       </p>
+      {note && <p className="small">bob: {note}</p>}
     </article>
   )
 }

@@ -2,7 +2,7 @@
 //   ?wallet=local|freighter|passkey   connect on load
 //   ?speed=0.5                   mock timing multiplier
 //   ?fail=UnknownRoot            make the next write fail with that error
-//   ?auto=review|discount|disclose|checkout|attest|book|faucet   start the action on load (attest: newest dispute only)
+//   ?auto=review|discount|disclose|checkout|attest|book|faucet|ask   start the action on load (attest: newest dispute only; ask: &q=...)
 import type { ErrorName, WalletKind } from "@bookerbob/pos-sdk"
 
 const q = new URLSearchParams(typeof location === "undefined" ? "" : location.search)

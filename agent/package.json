@@ -1,0 +1,14 @@
+{
+  "name": "@bookerbob/agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Bob, the BookerBob agent: ranks places by proven reviews only and books the top pick.",
+  "bin": { "bob": "src/cli.ts" },
+  "scripts": {
+    "test": "node --test src/rank.test.ts",
+    "typecheck": "tsc --noEmit -p .",
+    "bob": "node src/cli.ts"
+  },
+  "license": "MIT"
+}

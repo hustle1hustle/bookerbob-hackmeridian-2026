@@ -58,7 +58,7 @@ a {
 }
 
 .wrap {
-  max-width: 1080px;
+  max-width: 1240px;
   margin: 0 auto;
   padding: 0 16px;
 }
@@ -272,4 +272,7 @@ label {
   .sees {
     grid-template-columns: 1fr;
   }
+}
+.card[data-picked] {
+  border: 2px solid var(--ink);
 }
