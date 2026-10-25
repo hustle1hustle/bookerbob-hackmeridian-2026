@@ -63,7 +63,23 @@ async function buildSnapshot(): Promise<Snap> {
     Promise.all(ids.map((i) => views.leaves(read, i))).then((x) => Object.fromEntries(x.map((l, i) => [i, l.map(String)]))),
     Promise.all((groups as any[]).map((g) => views.groupLeaves(read, g.id))).then((x) => Object.fromEntries(x.map((l, i) => [(groups as any[])[i].id, l.map(String)]))),
   ])
-  return { at: Date.now(), merchants, reviews, policies, leaves, groups, groupLeaves }
+  // a leaf this server just added may not be visible to RPC reads yet: keep it for a minute so a pass never vanishes
+  const now = Date.now()
+  for (const r of recentLeaves.filter((x) => now - x.at < 60_000)) {
+    const l = (leaves as Record<number, string[]>)[r.merchant]
+    if (l && !l.includes(r.commitment)) l.push(r.commitment)
+  }
+  return { at: now, merchants, reviews, policies, leaves, groups, groupLeaves }
+}
+const recentLeaves: { merchant: number; commitment: string; at: number }[] = []
+/** A checkout landed: show its leaf at once and refresh the snapshot behind it. */
+function noteLeaf(merchant: number, commitment: string) {
+  recentLeaves.push({ merchant, commitment, at: Date.now() })
+  while (recentLeaves.length > 200) recentLeaves.shift()
+  const l = snap?.leaves[merchant]
+  if (l && !l.includes(commitment)) l.push(commitment)
+  snapP = null
+  refreshSnapshot()
 }
 async function snapshot(): Promise<Snap> {
   if (snap && Date.now() - snap.at < 15_000) return snap
@@ -316,6 +332,7 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
     if (!r.ok) return fail(res, r)
     const id = Number(r.value)
     store.putReview(id, { text: b.text, txHash: r.txHash, time: Date.now(), ...(b.label === "demo-activity" ? { demoActivity: true } : {}) })
+    refreshSnapshot()
     return json(res, 200, { txHash: r.txHash, reviewId: id })
   }
   if (path === "/api/checkout") {
@@ -331,6 +348,7 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
     const r = await ops.checkout(b.merchant, BigInt(b.commitment))
     if (!r.ok) return fail(res, r)
     store.putCheckout(b.merchant, String(b.commitment), r.txHash)
+    noteLeaf(b.merchant, String(b.commitment))
     return json(res, 200, { txHash: r.txHash, root: String(r.value) })
   }
   if (path === "/api/faucet") {
