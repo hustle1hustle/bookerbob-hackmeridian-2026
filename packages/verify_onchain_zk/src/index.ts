@@ -330,6 +330,8 @@ export async function fetchPassport(address: string, opts: PassportOptions = {})
     } catch {
       /* fall through */
     }
+    // a browser with a proxy never calls the Passport origin directly (CORS); the proxy's answer is final
+    if (!opts.passportApiKey) return none
   }
 
   try {

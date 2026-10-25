@@ -1160,7 +1160,9 @@ class Component extends DCLogic {
   doConnect = async method => {
     if (!this.m || (this.state.connect && this.state.connect.pending)) return;
     this.setState({ connect: { ...this.state.connect, pending: method } });
-    const w = await this.m.wallet.connect(method);
+    let w = null;
+    try { w = await this.m.wallet.connect(method); } catch (e) { console.warn('connect failed', e); this.setState({ connect: { ...this.state.connect, pending: null } }); return; }
+    if (!w) { this.setState({ connect: { ...this.state.connect, pending: null } }); return; }
     this.setState({ wallet: w, connect: null });
     if (this.m.loyalty) void this.m.loyalty.ensure(w.address).then(() => this.loadSources());
     this.loadSources();
@@ -1694,6 +1696,7 @@ class Component extends DCLogic {
     } catch (e) { console.error(e); }
   };
   openSources = async (focus = null) => {
+    if (!this.m) return;
     this.setState(s => ({ src: { ...s.src, open: true, focus, scoreOpen: focus === 'wallet' || s.src.scoreOpen } }));
     const w = this.state.wallet || (this.m.wallet.current ? this.m.wallet.current() : null);
     if (w && this.m.loyalty && this.m.loyalty.state.status !== 'ready') await this.m.loyalty.ensure(w.address).catch(() => {});
