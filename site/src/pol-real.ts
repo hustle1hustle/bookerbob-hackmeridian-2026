@@ -1028,7 +1028,11 @@ export const rep = {
       repState = { status: "connected", tx: r.txHash || null }
       loading = null // the traveler group changed: re-read it so perks count it
       await ready()
-    } else if (r?.status === "failed") repState = { status: "failed", why: r.reason === "expired" ? "the request expired. try again." : "REP could not confirm it." }
+    } else if (r?.status === "failed")
+      repState = {
+        status: "failed",
+        why: r.reason === "expired" ? "the request expired. try again." : /already joined/i.test(String(r.reason ?? "")) ? "a new generation needs a new proof in REP Bob." : "REP could not confirm it.",
+      }
     else if (repState.until && Date.now() > repState.until + 5000) repState = { status: "failed", why: "the request expired. try again." }
     return { ...repState }
   },

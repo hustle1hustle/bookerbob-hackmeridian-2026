@@ -77,6 +77,13 @@ html,body{margin:0;padding:0;background:#EDEBE5}
               <sc-if value="{{ r.hasPerk }}" hint-placeholder-val="{{ false }}"><div style="margin-top:4px;font-family:var(--mono);font-size:11px;font-weight:600;color:var(--deal-ink);background:var(--deal);display:inline-block;padding:2px 6px">{{ r.perk }}</div></sc-if>
               <p style="margin:4px 0 0;font-size:13px;line-height:1.45;color:var(--ink-2)">{{ r.proves }}</p>
               <p style="margin:2px 0 0;font-size:13px;line-height:1.45;color:var(--ink-3)">{{ r.detail }}<sc-if value="{{ r.hasAccount }}" hint-placeholder-val="{{ false }}"> · <a href="{{ r.accountUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">account ↗</a></sc-if></p>
+              <sc-if value="{{ r.hasGens }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--rule-soft)">
+                  <button onClick="{{ r.onStartOver }}" style="appearance:none;border:1px solid var(--ink);background:transparent;color:var(--ink);font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;height:30px;padding:0 10px;cursor:pointer">{{ r.startLabel }}</button>
+                  <p style="margin:6px 0 0;font-size:12px;line-height:1.45;color:var(--ink-3)">{{ r.genNote }}</p>
+                  <sc-if value="{{ r.hasSwitch }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px"><span style="font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)">switch generation</span><sc-for list="{{ r.gens }}" as="g" hint-placeholder-count="2"><button onClick="{{ g.onClick }}" aria-pressed="{{ g.on }}" style="appearance:none;border:1px solid var(--rule);background:{{ g.bg }};color:{{ g.fg }};font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;height:26px;padding:0 8px;cursor:pointer">{{ g.label }}</button></sc-for></div></sc-if>
+                </div>
+              </sc-if>
               <sc-if value="{{ r.hasNote }}" hint-placeholder-val="{{ false }}"><p role="status" style="margin:6px 0 0;font-size:13px;line-height:1.45;color:var(--ink-2)">{{ r.note }}</p></sc-if>
               <sc-if value="{{ r.hasTx }}" hint-placeholder-val="{{ false }}"><p style="margin:4px 0 0;font-size:12px;color:var(--ink-2)">joined · <a href="{{ r.txUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">tx {{ r.txShort }} ↗</a></p></sc-if>
               <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
@@ -840,7 +847,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
                   <a href="{{ res.txUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">tx {{ res.txShort }} ↗</a>
                 </div>
                 <div style="display:grid;gap:4px;margin-top:10px;font-size:13px;color:var(--ink-2)">
-                  <sc-for list="{{ res.proofTxs }}" as="q" hint-placeholder-count="0"><div>✓ {{ q.label }} · <sc-if value="{{ q.hasTx }}" hint-placeholder-val="{{ false }}"><a href="{{ q.url }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">tx {{ q.short }} ↗</a></sc-if><sc-if value="{{ q.noTx }}" hint-placeholder-val="{{ false }}">joined earlier</sc-if></div></sc-for>
+                  <sc-for list="{{ res.proofTxs }}" as="q" hint-placeholder-count="0"><sc-if value="{{ q.isDropped }}" hint-placeholder-val="{{ false }}"><div style="color:var(--ink-3)">○ {{ q.label }} · {{ q.why }}, not counted</div></sc-if><sc-if value="{{ q.ok }}" hint-placeholder-val="{{ false }}"><div>✓ {{ q.label }} · <sc-if value="{{ q.hasTx }}" hint-placeholder-val="{{ false }}"><a href="{{ q.url }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">tx {{ q.short }} ↗</a></sc-if><sc-if value="{{ q.noTx }}" hint-placeholder-val="{{ false }}">joined earlier</sc-if></div></sc-if></sc-for>
                   <sc-if value="{{ res.hasPass }}" hint-placeholder-val="{{ false }}"><div>new pass: {{ res.passLabel }} · <a href="{{ res.passUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">tx {{ res.passShort }} ↗</a></div></sc-if>
                 </div>
               </sc-if>
@@ -1554,7 +1561,8 @@ class Component extends DCLogic {
     const receipt = { receiptOpen: !!f.receipt, receiptLabel: f.receipt ? 'hide receipt' : 'receipt' };
     if (f.phase === 'success') {
       const x = this.tx(f.result.txHash), el0 = (this.state.elig[f.ctx.placeId] || []), pt = f.result.passTx ? this.tx(f.result.passTx) : null;
-      const proofTxs = (f.result.discounts || []).map(r => { const e = el0.find(z => z.group === r.group), h = e && e.txHash; return { label: e ? e.label : r.label, hasTx: !!h, noTx: !h, url: h ? this.tx(h).url : '', short: h ? this.tx(h).short : '' }; });
+      const proofTxs = (f.result.discounts || []).map(r => { const e = el0.find(z => z.group === r.group), h = e && e.txHash; return { ok: true, isDropped: false, why: '', label: e ? e.label : r.label, hasTx: !!h, noTx: !h, url: h ? this.tx(h).url : '', short: h ? this.tx(h).short : '' }; })
+        .concat((f.result.dropped || []).map(d => { const e = el0.find(z => z.group === d.group); return { ok: false, isDropped: true, why: d.why, label: e ? e.label : d.group, hasTx: false, noTx: false, url: '', short: '' }; }));
       const tx = { hasTx: !!f.result.txHash, txUrl: x.url, txShort: x.short, proofTxs, hasPass: !!pt, passUrl: pt ? pt.url : '', passShort: pt ? pt.short : '', passLabel: (this.byId(f.ctx.placeId) || {}).name || '', ...receipt };
       if (f.kind === 'review') return { ...blank, ...tx, head: 'proof verified. review posted.', body: 'it carries a proof, not a name.', primary: 'my passes', pKey: 'passes', secondary: `read it on ${name}`, sKey: 'place' };
       const rows = f.result.discounts || [], paid = this.money(f.result.total);
@@ -1629,6 +1637,13 @@ class Component extends DCLogic {
   openSources = (focus = null) => { this.setState(s => ({ src: { ...s.src, open: true, focus } })); this.loadSources(); };
   // "create a new passkey": called straight from the click (WebAuthn needs the gesture); a new credential in a new
   // namespace, so zero passes. On {fallback} the reason shows calmly under the wallet, next to Freighter and demo key.
+  // passkey generations: start over with the same passkey (one prompt, inside the click) or switch back
+  startOverGen = () => {
+    if (!this.m || !this.m.generations) return;
+    const p = this.m.generations.startOver();
+    this.setState(s => ({ src: { ...s.src, busy: 'start over', fallback: null } }));
+    p.then(r => { if (r && r.error) this.setState(s => ({ src: { ...s.src, busy: null, fallback: r.error } })); }).catch(() => this.setState(s => ({ src: { ...s.src, busy: null, fallback: 'could not start over here. your current history is unchanged.' } })));
+  };
   newPasskey = () => {
     if (!this.m || !this.m.createPasskey) return;
     const p = this.m.createPasskey();
@@ -1655,6 +1670,17 @@ class Component extends DCLogic {
     } else if (id === 'passport') { const p = m.passport.check(); this.loadSources(); await p; }
     this.loadSources();
   };
+  genRow(r) {
+    const s = this.state, g = this.m && this.m.generations, src = s.src || {};
+    if (!g || r.id !== 'wallet' || r.status !== 'connected' || !s.wallet || s.wallet.method !== 'passkey') return { hasGens: false, gens: [], genNote: '', startLabel: '', onStartOver: () => {} };
+    const cur = g.current(), hhmm = t => new Date(t).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    const xs = g.list();
+    return {
+      hasGens: true, genNote: g.note, startLabel: src.busy === 'start over' ? 'waiting for your passkey…' : 'start over with this passkey', onStartOver: this.startOverGen,
+      hasSwitch: xs.length > 1,
+      gens: xs.map(x => ({ label: x.n === 0 ? 'original' : 'started ' + hhmm(x.at), on: x.n === cur, bg: x.n === cur ? 'var(--ink)' : 'transparent', fg: x.n === cur ? 'var(--bg)' : 'var(--ink)', onClick: () => { if (x.n !== cur) g.switchTo(x.ns); } })),
+    };
+  }
   vSources() {
     const s = this.state, src = s.src || { list: [] }, list = src.list || [], busy = src.busy;
     const dots = { connected: ['var(--accent)', 'var(--accent)'], pending: ['var(--deal)', 'var(--deal-ink)'], failed: ['var(--warn)', 'var(--warn)'], soon: ['transparent', 'var(--rule-soft)'], none: ['transparent', 'currentColor'] };
@@ -1680,7 +1706,7 @@ class Component extends DCLogic {
       srcBtnBg: connected ? 'transparent' : 'var(--ink)', srcBtnFg: connected ? 'var(--ink)' : 'var(--bg)',
       srcChips: list.map(r => ({ short: short[r.id] || r.id, dot: (dots[r.status] || dots.none)[0], dotBd: (dots[r.status] || dots.none)[1], title: r.label + ': ' + (word[r.status] || r.status) })),
       srcCta: connected ? '' : 'connect →',
-      srcRows: list.map((r, i) => ({ hasNote: r.id === 'wallet' && !!src.fallback, note: r.id === 'wallet' ? (src.fallback || '') : '', hasAccount: !!r.accountUrl, accountUrl: r.accountUrl || '', head: i === 1 ? 'add for more perks' : '', hasHead: i === 1, perk: r.perk || '', hasPerk: !!r.perk, hasTx: !!r.txHash, txUrl: r.txHash ? this.tx(r.txHash).url : '', txShort: r.txHash ? this.tx(r.txHash).short : '', label: r.label, proves: r.proves, detail: r.detail, status: word[r.status] || r.status, statusColor: r.status === 'connected' ? 'var(--accent)' : r.status === 'failed' ? 'var(--warn)' : 'var(--ink-3)', rule: i ? 'var(--rule-soft)' : 'transparent', bg: src.focus === r.id ? 'var(--accent-soft)' : 'transparent', actions: actions(r) })),
+      srcRows: list.map((r, i) => ({ ...this.genRow(r), hasNote: r.id === 'wallet' && !!src.fallback, note: r.id === 'wallet' ? (src.fallback || '') : '', hasAccount: !!r.accountUrl, accountUrl: r.accountUrl || '', head: i === 1 ? 'add for more perks' : '', hasHead: i === 1, perk: r.perk || '', hasPerk: !!r.perk, hasTx: !!r.txHash, txUrl: r.txHash ? this.tx(r.txHash).url : '', txShort: r.txHash ? this.tx(r.txHash).short : '', label: r.label, proves: r.proves, detail: r.detail, status: word[r.status] || r.status, statusColor: r.status === 'connected' ? 'var(--accent)' : r.status === 'failed' ? 'var(--warn)' : 'var(--ink-3)', rule: i ? 'var(--rule-soft)' : 'transparent', bg: src.focus === r.id ? 'var(--accent-soft)' : 'transparent', actions: actions(r) })),
     };
   }
 
