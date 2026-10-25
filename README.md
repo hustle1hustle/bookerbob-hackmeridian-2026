@@ -1,10 +1,12 @@
-# Proof of Loyalty
+# BookerBob: Proof of Loyalty
 
-**Everywhere you go.** Customers prove they were customers of a place without revealing who they are. In return they get honest reviews and returning-customer discounts, and BookerBob, their agent, books using only this kind of data. First medium: hotels (the hotel flow is "proof of stay").
+**BookerBob. Google for agentic commerce. Proof of loyalty, everywhere you go.**
+
+Customers prove they were customers of a place without revealing who they are. In return they get honest reviews and returning-customer discounts, and BookerBob, their agent, ranks and books places using only reviews nobody can buy. First medium: hotels (the hotel flow is "proof of stay").
 
 - Live demo: [https://bookerbob-proof-of-loyalty.fly.dev](https://bookerbob-proof-of-loyalty.fly.dev) (read-only without a wallet; a demo key in the browser is enough to walk the full cycle). API: `https://bookerbob-proof-of-loyalty.fly.dev/api/config`
 - Video: _link at submission_
-- Contract (Stellar testnet): [`CBZ7I3VOQEMK5LKDZLCUJ4VU6KQX5WT747XN4KLGM23EIUCISTDX5MTL`](https://stellar.expert/explorer/testnet/contract/CBZ7I3VOQEMK5LKDZLCUJ4VU6KQX5WT747XN4KLGM23EIUCISTDX5MTL)
+- Contract (Stellar testnet): [`CBEGVNZFDZMOBKYVP27D5Q6Y7OHKWC2P3DAKQNC3MGTO5OW5JHAL5EBY`](https://stellar.expert/explorer/testnet/contract/CBEGVNZFDZMOBKYVP27D5Q6Y7OHKWC2P3DAKQNC3MGTO5OW5JHAL5EBY)
 - Built at HackMeridian 2026 (Stellar), Genesis path, track Stellar Unlocked, by team BookerBob. Plan: [PLAN.md](PLAN.md). Prior work: [PRIOR_WORK.md](PRIOR_WORK.md). AI usage: [docs/ai-usage.md](docs/ai-usage.md).
 
 ## Problem
@@ -87,6 +89,8 @@ Principle: private by default, accountable when needed.
 | Arbiter | for a disputed review only: the disclosure package (dk, signature, leaf index), so which checkout it was | anything about undisputed reviews |
 | Nobody | the guest's master secret and per-stay identities never leave the browser | |
 
+The contract has an admin-gated `upgrade()` so fixes keep the contract ID and its state. On testnet the admin is our deployer key; a production deployment would hand it to a multisig or a timelock. Merchant-quoted amounts (`book_amount`, `book_with_discount_amount`) and `redeem` (discount spent while the order is paid on another rail, such as a card) require the merchant admin's signature; the discount is still applied by the contract and the nullifier is the same one, so it is one discount per past stay per season whatever the rail.
+
 The contract enforces: a root only from the place's own recent root history and never 0 (the Semaphore circuit does not bound the path length, so depth overflow yields root 0); every public input below the BN254 field modulus (the host silently reduces otherwise); scope and message computed on chain, never taken from the client; the discount proof bound to the paying address, so a proof seen in the mempool cannot be front-run; nullifiers in persistent storage.
 
 Honest limitations of the demo:
@@ -120,7 +124,8 @@ Requirements: Rust with the `wasm32v1-none` target, `stellar-cli` 28.x, Node 22+
 
 ```bash
 npm install                                    # workspaces: packages/sdk, server, scripts, app
-cd contracts/proof_of_stay && cargo test       # verifier, tree parity with JS, full contract cycle
+stellar contract build --manifest-path contracts/proof_of_stay/Cargo.toml   # tests upgrade to the built wasm
+cd contracts/proof_of_stay && cargo test       # verifier, tree parity with JS, full contract cycle, v2 auth checks
 cd ../.. && npm run test:sdk                   # SDK mock smoke test
 node scripts/golden_proof.mjs                  # regenerate and snarkjs-verify the golden proof
 ```
@@ -129,9 +134,9 @@ Deploy your own (testnet):
 
 ```bash
 stellar keys generate deployer --network testnet --fund     # plus arbiter, relayer, usdc-issuer, hotel1..3, cafe1, shop1, guest1
-./scripts/deploy.sh                    # test USDC SAC (unless USDC_SAC_ID is set) + contract with the depth-10 Semaphore key
+./scripts/deploy.sh                    # test USDC SAC (unless USDC_SAC_ID is set) + contract; writes config/testnet.json
 ./scripts/gate.sh                      # golden proof true, tampered input false, on chain
-PROOF_OF_STAY_CONTRACT_ID=C... node scripts/seed.ts      # places, checkouts, proven reviews, bookings, disputes
+node scripts/seed.ts                   # places, checkouts, proven reviews, bookings, disputes (contract ID from config/testnet.json)
 ./scripts/dev-server.sh                # backend on :8080 with keys from the local stellar keystore
 API=http://localhost:8080 node scripts/e2e.ts            # full cycle as a new guest
 ```

@@ -20,7 +20,7 @@ Every technical claim below was checked against primary sources. Sources and det
 
 ## 1. Product
 
-**Name:** Proof of Loyalty. **Tagline:** everywhere you go. **Brand and agent:** BookerBob. **First medium:** hotels; the hotel flow is labelled "proof of stay".
+**Hero:** BookerBob. Google for agentic commerce. Proof of loyalty, everywhere you go. (A descriptive comparison only: no Google logo, colors or implied partnership.) **Name:** Proof of Loyalty. **Tagline:** everywhere you go. **Brand and agent:** BookerBob. **First medium:** hotels; the hotel flow is labelled "proof of stay".
 
 **One line:** customers prove they were customers of a place without revealing who they are, and in return get honest reviews and returning-customer discounts. BookerBob, their agent, books using only this kind of data.
 
@@ -209,6 +209,7 @@ Roles: A circuits, converter, verifier. B tree, contract, USDC, deploy, seed. C 
 |---|---|---|
 | 0:00 | final frame "proof verified, price dropped" | cold open with the result |
 | 0:08 | the two problem facts | fake reviews, discount = giving up data |
+| 0:15 | "reviews nobody can buy": the agent ranks places by proven reviews only | the search part of agentic commerce |
 | 0:25 | guest: passkey login, agent picks a hotel by verified rating | user value |
 | 0:55 | USDC booking, checkout, leaf appears in the tree, explorer | Stellar on-chain |
 | 1:25 | anonymous review: proof verified on-chain; second review from the same stay rejected | ZK + anti-sybil |
