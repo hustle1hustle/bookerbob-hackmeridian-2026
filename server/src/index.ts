@@ -122,6 +122,13 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
     }))
   }
   // The disclosure package stays server-side (the arbiter's side); the public queue gets status only.
+  // checkout tx for a pass: GET /api/checkout-tx?merchant=&commitment= (only checkouts done through the demo desk)
+  if (req.method === "GET" && path === "/api/checkout-tx") {
+    const q = new URL(req.url ?? "", "http://x").searchParams
+    const mer = Number(q.get("merchant")), cm = String(q.get("commitment") ?? "")
+    if (!Number.isInteger(mer) || !/^\d{1,78}$/.test(cm)) return fail(res, { error: "BadParams" })
+    return json(res, 200, { txHash: store.checkoutTx(mer, cm) ?? null })
+  }
   if (req.method === "GET" && path === "/api/catalog") {
     const sn = await snapshot()
     const out: Record<number, unknown> = {}
@@ -237,6 +244,7 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
     if (!isInt(b.merchant) || !isDec(b.commitment)) return fail(res, { error: "BadParams" })
     const r = await ops.checkout(b.merchant, BigInt(b.commitment))
     if (!r.ok) return fail(res, r)
+    store.putCheckout(b.merchant, String(b.commitment), r.txHash)
     return json(res, 200, { txHash: r.txHash, root: String(r.value) })
   }
   if (path === "/api/faucet") {

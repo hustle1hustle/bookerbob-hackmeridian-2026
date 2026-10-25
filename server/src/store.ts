@@ -5,9 +5,9 @@ import type { DisclosurePackage } from "@bookerbob/pos-sdk"
 
 export interface ReviewMeta { text: string; txHash: string; time: number; demoActivity?: boolean }
 export interface Dispute { id: number; merchant: number; pkg?: DisclosurePackage; openedAt: number; attestTx?: string; openedBy?: "merchant" | "guest" }
-interface Db { reviews: Record<string, ReviewMeta>; disputes: Dispute[] }
+interface Db { reviews: Record<string, ReviewMeta>; disputes: Dispute[]; checkouts?: Record<string, string> }
 
-const empty = (): Db => ({ reviews: {}, disputes: [] })
+const empty = (): Db => ({ reviews: {}, disputes: [], checkouts: {} })
 const load = (path: string): Db => (existsSync(path) ? { ...empty(), ...JSON.parse(readFileSync(path, "utf8")) } : empty())
 
 export class Store {
@@ -28,6 +28,15 @@ export class Store {
   }
   putReview(id: number, m: ReviewMeta) {
     this.live.reviews[id] = m
+    this.save()
+  }
+  /** Checkout tx per (merchant, commitment), so a pass can link its transaction. */
+  checkoutTx(merchant: number, commitment: string): string | undefined {
+    const k = `${merchant}:${commitment}`
+    return this.live.checkouts?.[k] ?? this.seed.checkouts?.[k]
+  }
+  putCheckout(merchant: number, commitment: string, txHash: string) {
+    this.live.checkouts = { ...(this.live.checkouts ?? {}), [`${merchant}:${commitment}`]: txHash }
     this.save()
   }
   disputes(): Dispute[] {
