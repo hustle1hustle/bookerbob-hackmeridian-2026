@@ -9,7 +9,8 @@ import * as pos from "./lib/pos.ts"
 const DEPTH = 10
 const HOTEL = 0
 const SEASON = 1
-const GUEST = "GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI"
+// Contract address so the test SAC can hold a balance without a trustline.
+const GUEST = "CCLOMGDT63BV3OZDW5GYZBHG3QWOZNMEBPF62BLIKXNE7UBXT5BZQX6S"
 const MASTER = "fixture-master-secret"
 
 const { wasm, zkey } = await maybeGetSnarkArtifacts(Project.SEMAPHORE, { parameters: [DEPTH], version: "4.13.0" })
