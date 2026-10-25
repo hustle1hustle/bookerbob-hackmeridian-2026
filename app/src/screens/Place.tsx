@@ -1,6 +1,6 @@
 // Guest: one place. Header, review feed, book at full price or with the returning-guest discount.
 import { useEffect } from "react"
-import { errorCopy, formatUsdc } from "@bookerbob/pos-sdk"
+import { averageRating, errorCopy, formatUsdc } from "@bookerbob/pos-sdk"
 import { autoOnce } from "../demo"
 import { useWriteFlow } from "../flows"
 import { getPlace, getPlaceReviews, sdk, stayWord } from "../sdk"
@@ -9,6 +9,10 @@ import { useAsync } from "../store"
 import { Empty, Loading, TxLink } from "../ui"
 import { FlowStatus } from "../views/flow"
 import { PlaceHeader, ReviewFeed, discountPct } from "../views/places"
+import { RatingCompare } from "../views/explainer"
+
+/** Static demo copy for the comparison block (handoff), not data. */
+const PUBLIC_DEMO = { rating: "9.1", count: "2,000" }
 
 export function PlaceScreen({ id }: { id: number }) {
   const place = useAsync(() => getPlace(id), [id])
@@ -35,6 +39,14 @@ export function PlaceScreen({ id }: { id: number }) {
       <div className="cols section" style={{ marginTop: 8 }}>
         <div>
           <PlaceHeader place={p} />
+          {p.kind === "hotel" && (
+            <RatingCompare
+              publicRating={PUBLIC_DEMO.rating}
+              publicCount={PUBLIC_DEMO.count}
+              proven10={averageRating(p) === null ? null : averageRating(p)! * 2}
+              provenCount={p.ratingCount}
+            />
+          )}
           <h2 className="section">proven reviews</h2>
           {reviews.loading && !reviews.data ? (
             <Loading what="reviews" />

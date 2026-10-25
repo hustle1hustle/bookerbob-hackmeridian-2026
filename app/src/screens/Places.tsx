@@ -5,6 +5,7 @@ import { listPlaces, type Place } from "../sdk"
 import { useAsync } from "../store"
 import { Empty, Loading } from "../ui"
 import { PlaceList } from "../views/places"
+import { Explainer } from "../views/explainer"
 
 const usdc = (p: Place) => Number(p.price) / 10 ** USDC_DECIMALS
 
@@ -46,6 +47,9 @@ export function PlacesScreen() {
           hrefFor={(p) => `#/place/${p.id}`}
         />
       )}
+      <div className="section">
+        <Explainer compact />
+      </div>
     </>
   )
 }
