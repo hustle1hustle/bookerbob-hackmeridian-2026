@@ -2,6 +2,9 @@
 
 Breaking changes are marked **BREAKING**. Consumers: `app/`, the agent, the UCP module.
 
+## 0.3.1 (Sun 25 Oct)
+- Added (non-breaking): `wallet.signMessage(msg)` (SEP-53, for the Stellar wallet tier challenge); passkey wallets restore across reloads (lazy signer).
+
 ## 0.3.0 (Sun 25 Oct)
 - Added (non-breaking): `search.query()` (Ask Bob federated search), `chain.listGroups/perks/bookWithPerks` (context groups), `Review.demoActivity`, `wallet.signTransaction(xdr)`, `stays.identity(stay)`, `derive.ctxScope`, contract views `groupLeaves/groups/policy/merchantChain`.
 

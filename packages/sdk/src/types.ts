@@ -190,6 +190,8 @@ export interface Wallet {
   connect(kind?: WalletKind): Promise<string>
   /** Signs a prepared transaction envelope (base64 XDR) with the connected wallet, for flows built elsewhere (e.g. the UCP bridge quote). */
   signTransaction(xdr: string): Promise<string>
+  /** SEP-53 message signature (base64), e.g. for the Stellar wallet tier challenge. G accounts only. */
+  signMessage(message: string): Promise<string>
   disconnect(): void
   onChange(cb: (address: string | null) => void): () => void
 }

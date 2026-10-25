@@ -417,6 +417,9 @@ export const chain = {
             return { signedAuthEntry: r.signature, signerAddress: p.m.admin }
           },
         })
+        // re-simulate with the signed auth: the first simulation (recording-mode auth) declares a resource fee
+        // hundreds of times too high, which the fee-bump cap refuses
+        await tx.simulate()
       }
       await tx.sign()
       const sent = await post("/api/payer/feebump", { xdr: tx.signed.toXDR() })

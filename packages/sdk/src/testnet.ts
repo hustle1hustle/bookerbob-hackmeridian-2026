@@ -58,6 +58,7 @@ export function createTestnetSdk(opts: TestnetOptions = {}): Sdk {
   let address: string | null = null
   let kind: WalletKind | null = null
   let signer: Signer | null = null
+  let rawKey: Keypair | null = null
   const listeners = new Set<(a: string | null) => void>()
   const setWallet = (a: string | null, k: WalletKind | null, s: Signer | null) => {
     address = a
@@ -98,6 +99,7 @@ export function createTestnetSdk(opts: TestnetOptions = {}): Sdk {
           store.setItem("pos.localKey", secret)
         }
         const kp = Keypair.fromSecret(secret)
+        rawKey = kp
         if (fresh) await fetch(`https://friendbot.stellar.org/?addr=${kp.publicKey()}`).catch(() => null)
         const s = contract.basicNodeSigner(kp, c.networkPassphrase)
         setWallet(kp.publicKey(), "local", { publicKey: kp.publicKey(), signTransaction: s.signTransaction, signAuthEntry: s.signAuthEntry })
@@ -112,6 +114,7 @@ export function createTestnetSdk(opts: TestnetOptions = {}): Sdk {
             storage: store,
           })
           const kp = Keypair.fromRawEd25519Seed(Buffer.from(seed))
+          rawKey = kp
           const s = contract.basicNodeSigner(kp, c.networkPassphrase)
           setWallet(session.address, "passkey", { publicKey: kp.publicKey(), signTransaction: s.signTransaction, signAuthEntry: s.signAuthEntry })
           store.setItem("pos.pass_binding", session.binding)
@@ -129,7 +132,22 @@ export function createTestnetSdk(opts: TestnetOptions = {}): Sdk {
       const c = await cfg()
       return (await signer.signTransaction(xdr, { networkPassphrase: c.networkPassphrase })).signedTxXdr
     },
+    async signMessage(message: string) {
+      if (!address) throw new Error("WalletNotConnected")
+      if (kind === "freighter") {
+        const fr: any = await import("@stellar/freighter-api")
+        const r = await fr.signMessage(message, { address })
+        if (r.error) throw new Error(String(r.error.message ?? r.error))
+        return typeof r.signedMessage === "string" ? r.signedMessage : Buffer.from(r.signedMessage).toString("base64")
+      }
+      if (kind === "passkey" && !rawKey) await wallet.connect("passkey")
+      if (!rawKey) throw new Error("WalletNotConnected")
+      // SEP-53: ed25519 over sha256("Stellar Signed Message:\n" + message)
+      const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode("Stellar Signed Message:\n" + message)))
+      return Buffer.from(rawKey.sign(Buffer.from(digest))).toString("base64")
+    },
     disconnect() {
+      rawKey = null
       setWallet(null, null, null)
     },
     onChange(cb) {
