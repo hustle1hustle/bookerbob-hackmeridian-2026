@@ -121,7 +121,8 @@ export interface Perks {
 }
 
 export type ReviewDone = { reviewId: number }
-export type DiscountDone = { paid: Usdc; saved: Usdc }
+/** `payer`: the one-time address that paid (fresh payer per booking), when the SDK used one. */
+export type DiscountDone = { paid: Usdc; saved: Usdc; payer?: string }
 export type ContextDone = DiscountDone & { bps: number }
 
 /** Real events the UI animates on. No fake progress. */

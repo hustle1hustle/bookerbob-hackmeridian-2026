@@ -4,7 +4,7 @@ import { Account, Address, Asset, BASE_FEE, Keypair, Operation, TransactionBuild
 
 const NULL_ACCOUNT = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF"
 import type { Perk, Chain, Disclosure, Dispute, Merchant, ProofEvent, ProofRequest, Prover, Review, Sdk, Stay, Stays, Wallet, WalletKind, WriteResult, ErrorName, Usdc } from "./types.ts"
-import { getClient, views, write, proofArg, TESTNET, type NetworkConfig, type Signer } from "./contract.ts"
+import { getClient, views, write, proofArg, parseContractError, TESTNET, type NetworkConfig, type Signer } from "./contract.ts"
 import * as d from "./derive.ts"
 import { loadArtifacts, proveMembership, artifactsCached, DEFAULT_ARTIFACTS_URL } from "./prove.ts"
 import { buildDisclosure, checkDisclosure } from "./disclosure.ts"
@@ -12,6 +12,8 @@ import { buildDisclosure, checkDisclosure } from "./disclosure.ts"
 export interface TestnetOptions {
   /** BookerBob backend base URL ("" = same origin). */
   apiUrl?: string
+  /** Pay every booking from a fresh one-time address (sponsored, funded and fee-bumped by the backend). Default true. */
+  freshPayer?: boolean
   artifactsUrl?: string
   storage?: Pick<Storage, "getItem" | "setItem" | "removeItem">
 }
@@ -29,6 +31,7 @@ export function createTestnetSdk(opts: TestnetOptions = {}): Sdk {
   const api = opts.apiUrl ?? ""
   const store = opts.storage ?? (typeof localStorage !== "undefined" ? localStorage : memStorage())!
   const artifactsUrl = opts.artifactsUrl ?? DEFAULT_ARTIFACTS_URL
+  const freshPayer = opts.freshPayer ?? true
 
   let cfgP: Promise<ApiConfig> | null = null
   let contractId = ""
@@ -171,6 +174,37 @@ export function createTestnetSdk(opts: TestnetOptions = {}): Sdk {
     },
   }
 
+  // ---- fresh payer per booking (server/src/payer.ts) ----
+  // A one-time key per booking: BookerBob sponsors its account and trustline, funds it on testnet, and fee-bumps the
+  // booking, so the guest needs no XLM and two bookings by one guest come from unrelated addresses.
+  const openFreshPayer = async (amount: bigint): Promise<{ kp: Keypair; signer: Signer } | { error: ErrorName; message?: string }> => {
+    const c = await cfg()
+    const kp = Keypair.random()
+    const o = await post("/api/payer/open", { publicKey: kp.publicKey() })
+    if (o.error) return { error: o.error, message: o.message }
+    const tx = TransactionBuilder.fromXDR(o.xdr, c.networkPassphrase)
+    tx.sign(kp)
+    const a = await post("/api/payer/activate", { xdr: tx.toXDR(), amount })
+    if (a.error) return { error: a.error, message: a.message }
+    const s = contract.basicNodeSigner(kp, c.networkPassphrase)
+    return { kp, signer: { publicKey: kp.publicKey(), signTransaction: s.signTransaction, signAuthEntry: s.signAuthEntry } }
+  }
+  const sendFeeBumped = async (signer: Signer, method: string, args: Record<string, unknown>): Promise<{ ok: true; txHash: string; value: any } | { ok: false; error: ErrorName; message?: string }> => {
+    const client = await getClient(await cfg(), signer)
+    try {
+      const tx = await (client as any)[method](args)
+      await tx.sign()
+      const r = await post("/api/payer/feebump", { xdr: tx.signed.toXDR() })
+      if (r.error) {
+        const m = String(r.error).match(/^Contract(\d+)$/)
+        return { ok: false, error: m ? (parseContractError(`Error(Contract, #${m[1]})`) ?? "Unknown") : r.error, message: r.message }
+      }
+      return { ok: true, txHash: r.txHash, value: r.value }
+    } catch (e) {
+      return { ok: false, error: parseContractError(e) ?? "Unknown", message: String((e as any)?.message ?? e).slice(0, 300) }
+    }
+  }
+
   // ---- perks: which policy groups this browser's stays belong to ----
   const groupArg = (g: d.GroupRef) => ({ tag: g.kind === "merchant" ? "Merchant" : "Group", values: [g.id] })
   const planClaims = async (merchant: number) => {
@@ -202,7 +236,7 @@ export function createTestnetSdk(opts: TestnetOptions = {}): Sdk {
   const prover: Prover = {
     ready: artifactsCached,
     async *prove(req: ProofRequest): AsyncIterable<ProofEvent> {
-      if (req.kind === "discount" && !address) return yield { stage: "done", result: { error: "WalletNotConnected" } }
+      if (req.kind === "discount" && !freshPayer && !address) return yield { stage: "done", result: { error: "WalletNotConnected" } }
       if (!artifactsCached()) {
         const q: ProofEvent[] = []
         let wake: (() => void) | null = null
@@ -227,23 +261,36 @@ export function createTestnetSdk(opts: TestnetOptions = {}): Sdk {
       const artifacts = await loadArtifacts(artifactsUrl)
       const c = await reader()
       if (req.kind === "context") {
-        if (!address) return yield { stage: "done", result: { error: "WalletNotConnected" } }
+        if (!freshPayer && !address) return yield { stage: "done", result: { error: "WalletNotConnected" } }
         const plan = await planClaims(req.merchant)
         if (!plan || plan.claims.length === 0) return yield { stage: "done", result: { error: "NotInTree" } }
+        let payer = address!
+        let fresh: { kp: Keypair; signer: Signer } | null = null
+        if (freshPayer) {
+          const f = await openFreshPayer(plan.price)
+          if ("error" in f) return yield { stage: "done", result: { error: f.error, message: f.message } }
+          fresh = f
+          payer = f.kp.publicKey()
+        }
         yield { stage: "proving" }
-        const msg = d.discountMessage(address)
+        const msg = d.discountMessage(payer)
         const claims = []
         for (const cl of plan.claims) {
           const mp = await proveMembership(cl.identity, cl.leaves, msg, d.ctxScope(req.merchant, cl.group, req.season), artifacts)
           claims.push({ group: groupArg(cl.group), proof: proofArg(mp.proof), root: mp.root, nullifier: mp.nullifier })
         }
         yield { stage: "verifying" }
-        const w = await writer()
-        if (!w) return yield { stage: "done", result: { error: "WalletNotConnected" } }
-        const r = await write<bigint>(w, "book_with_context", { merchant: req.merchant, guest: address, season: req.season, amount: undefined, claims })
+        const args = { merchant: req.merchant, guest: payer, season: req.season, amount: undefined, claims }
+        let r: { ok: true; txHash: string; value: any } | { ok: false; error: any; message?: string }
+        if (fresh) r = await sendFeeBumped(fresh.signer, "book_with_context", args)
+        else {
+          const w = await writer()
+          if (!w) return yield { stage: "done", result: { error: "WalletNotConnected" } }
+          r = await write<bigint>(w, "book_with_context", args)
+        }
         if (!r.ok) return yield { stage: "done", result: { error: r.error, message: r.message } }
         const paid = BigInt(r.value as any)
-        return yield { stage: "done", result: { txHash: r.txHash, paid, saved: plan.price - paid, bps: plan.bps } }
+        return yield { stage: "done", result: { txHash: r.txHash, paid, saved: plan.price - paid, bps: plan.bps, payer } as any }
       }
       const leaves = await views.leaves(c, req.stay.merchant)
       const id = identityOf(req.stay)
@@ -260,16 +307,29 @@ export function createTestnetSdk(opts: TestnetOptions = {}): Sdk {
         if (!("error" in res)) updateStay({ ...req.stay, reviewId: res.reviewId })
         return yield { stage: "done", result: res }
       }
-      const mp = await proveMembership(id, leaves, d.discountMessage(address!), d.discountScope(req.stay.merchant, req.season), artifacts)
-      yield { stage: "verifying" }
-      const w = await writer()
-      if (!w) return yield { stage: "done", result: { error: "WalletNotConnected" } }
       const m = await views.merchant(c, req.stay.merchant)
-      const r = await write<bigint>(w, "book_with_discount", { merchant: req.stay.merchant, guest: address, season: req.season, proof: proofArg(mp.proof), root: mp.root, nullifier: mp.nullifier })
+      let payer = address!
+      let fresh: { kp: Keypair; signer: Signer } | null = null
+      if (freshPayer) {
+        const f = await openFreshPayer(m.price)
+        if ("error" in f) return yield { stage: "done", result: { error: f.error, message: f.message } }
+        fresh = f
+        payer = f.kp.publicKey()
+      }
+      const mp = await proveMembership(id, leaves, d.discountMessage(payer), d.discountScope(req.stay.merchant, req.season), artifacts)
+      yield { stage: "verifying" }
+      const dargs = { merchant: req.stay.merchant, guest: payer, season: req.season, proof: proofArg(mp.proof), root: mp.root, nullifier: mp.nullifier }
+      let r: { ok: true; txHash: string; value: any } | { ok: false; error: any; message?: string }
+      if (fresh) r = await sendFeeBumped(fresh.signer, "book_with_discount", dargs)
+      else {
+        const w = await writer()
+        if (!w) return yield { stage: "done", result: { error: "WalletNotConnected" } }
+        r = await write<bigint>(w, "book_with_discount", dargs)
+      }
       if (!r.ok) return yield { stage: "done", result: { error: r.error, message: r.message } }
       updateStay({ ...req.stay, discountSeasonsUsed: [...req.stay.discountSeasonsUsed, req.season] })
       const paid = BigInt(r.value as any)
-      return yield { stage: "done", result: { txHash: r.txHash, paid, saved: m.price - paid } }
+      return yield { stage: "done", result: { txHash: r.txHash, paid, saved: m.price - paid, payer } as any }
     },
   }
   const drain = async <T>(req: ProofRequest): Promise<WriteResult<T>> => {
@@ -322,6 +382,13 @@ export function createTestnetSdk(opts: TestnetOptions = {}): Sdk {
       return r.ok ? { txHash: r.txHash, root: String(r.value) } : { error: r.error, message: r.message }
     },
     async book(merchant) {
+      if (freshPayer) {
+        const m = await views.merchant(await reader(), merchant)
+        const f = await openFreshPayer(m.price)
+        if ("error" in f) return { error: f.error, message: f.message }
+        const r = await sendFeeBumped(f.signer, "book", { merchant, guest: f.kp.publicKey() })
+        return r.ok ? ({ txHash: r.txHash, paid: BigInt(r.value), payer: f.kp.publicKey() } as any) : { error: r.error, message: r.message }
+      }
       const w = await writer()
       if (!w) return { error: "WalletNotConnected" }
       const r = await write<bigint>(w, "book", { merchant, guest: address })

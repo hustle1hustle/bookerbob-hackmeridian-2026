@@ -7,6 +7,7 @@
 //   GET  /api/disputes  POST /api/disputes  dispute packages for the arbiter
 //   POST /api/attest                       demo arbiter: checks the disclosure, then attest_review
 //   POST /api/context/attest               context provider hook (stub)
+//   POST /api/payer/open|activate|feebump   fresh payer per booking, sponsored and fee-bumped by BookerBob
 //   GET  /api/search?q=                    Ask Bob: federated search over source adapters, ranked by proven reviews
 import { contractId } from "../../packages/sdk/src/deployment.ts"
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
@@ -21,6 +22,7 @@ import { federatedSearch } from "./search/index.ts"
 import { placesAdapter } from "./search/places.ts"
 import { ucpAdapter } from "./search/ucp.ts"
 import { jmprAdapter } from "./search/jmpr.ts"
+import { PayerService } from "./payer.ts"
 import type { Merchant, Review } from "../../packages/sdk/src/types.ts"
 
 const CONTRACT = contractId()
@@ -42,6 +44,7 @@ async function snapshot() {
   snap = { at: Date.now(), merchants, reviews }
   return snap
 }
+const payers = new PayerService(ops)
 const UCP_MERCHANTS = new Set((process.env.UCP_MERCHANTS ?? "5").split(",").filter(Boolean).map(Number))
 const adapters = [
   placesAdapter(async () => (await snapshot()).merchants, UCP_MERCHANTS),
@@ -123,6 +126,29 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
   // Context provider hook (docs/context-providers.md): a provider verifies its own evidence, then add_member.
   if (path === "/api/context/attest") {
     return json(res, 501, { error: "NotImplemented", message: "context provider attestation is not wired yet; see docs/context-providers.md" })
+  }
+  // Fresh payer per booking: sponsored account + trustline, funding, fee-bumped booking (server/src/payer.ts)
+  if (path === "/api/payer/open") {
+    if (typeof b.publicKey !== "string" || !/^G[A-Z2-7]{55}$/.test(b.publicKey)) return fail(res, { error: "BadParams" })
+    return json(res, 200, { xdr: await payers.open(b.publicKey) })
+  }
+  if (path === "/api/payer/activate") {
+    if (typeof b.xdr !== "string" || !isDec(b.amount)) return fail(res, { error: "BadParams" })
+    try {
+      return json(res, 200, await payers.activate(b.xdr, BigInt(b.amount)))
+    } catch (e) {
+      return fail(res, { error: "BadParams", message: String((e as any)?.message ?? e).slice(0, 200) })
+    }
+  }
+  if (path === "/api/payer/feebump") {
+    if (typeof b.xdr !== "string") return fail(res, { error: "BadParams" })
+    try {
+      return json(res, 200, await payers.feeBump(b.xdr))
+    } catch (e) {
+      const msg = String((e as any)?.message ?? e)
+      const code = msg.match(/Error\(Contract, #(\d+)\)/)
+      return fail(res, { error: code ? `Contract${code[1]}` : "BadParams", message: msg.slice(0, 200) })
+    }
   }
   if (path === "/api/review") {
     const ok = isInt(b.merchant) && isInt(b.rating) && typeof b.text === "string" && b.text.length <= 1000 && isHex(b.disclosureCommit, 64) && isDec(b.root) && isDec(b.nullifier) && b.proof && isHex(b.proof.a, 128) && isHex(b.proof.b, 256) && isHex(b.proof.c, 128)
