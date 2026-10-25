@@ -1904,8 +1904,8 @@ class Component extends DCLogic {
         const showScoreRow = r.id === 'wallet' && r.status === 'connected';
         const scoreLine = hasScore
           ? `wallet score ${score}/100 · tier ${tier}`
-          : (live && live.status === 'failed')
-            ? 'wallet score: could not score — disconnect and connect Freighter again'
+          : (live && (live.status === 'failed' || live.status === 'skipped') && live.why)
+            ? live.why
             : 'wallet score: scoring…';
         const st = r.id === 'wallet' && r.status === 'connected' ? r.stellarTier : null, stTx = st && st.tx ? this.tx(st.tx) : null;
         const tierBits = {

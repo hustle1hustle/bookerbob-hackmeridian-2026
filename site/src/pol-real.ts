@@ -1130,7 +1130,7 @@ export interface Source {
 const loyaltySeason = () => new Date().getUTCFullYear() * 100 + (new Date().getUTCMonth() + 1)
 const loyaltyCacheKey = (addr: string) => `bookerbob.loyalty.v2.${loyaltySeason()}.${addr}`
 type LoyaltyView = {
-  status: "none" | "pending" | "ready" | "failed"
+  status: "none" | "pending" | "ready" | "failed" | "skipped"
   rating?: number
   tier?: number
   txHash?: string | null
@@ -1171,6 +1171,8 @@ export const loyalty = {
   async ensure(address?: string | null) {
     const addr = address ?? wallet.address ?? sdk.wallet.address
     if (!addr) return (loyaltyState = { status: "none" })
+    // the demo key is a fresh, history-less account: nothing to score, and no error to show
+    if (sdk.wallet.kind === "local" && sdk.wallet.address === addr) return (loyaltyState = { status: "skipped", address: addr, why: "wallet score: connect a Stellar wallet with history (Freighter) to earn a tier" })
     const cached = readLoyaltyCache(addr)
     // Cache hit on rating alone (attest may have failed last time — still show score).
     if (cached && (cached.explorerUrl || cached.txHash)) {
@@ -1232,7 +1234,7 @@ export const loyalty = {
         return (loyaltyState = {
           status: "failed",
           address: addr,
-          why: "could not score this wallet. try again.",
+          why: "wallet score: not available for this wallet right now",
         })
       } finally {
         if (loyaltyInflight?.addr === addr) loyaltyInflight = null
@@ -1313,7 +1315,7 @@ export const stellarTier = {
   reason(): string {
     const addr = wallet.address ?? sdk.wallet.address
     if (!addr) return `connect a Stellar wallet with tier ${tierMin}+`
-    if (!addr.startsWith("G")) return "a passkey wallet is a contract account. connect Freighter or a demo key (G…) for the tier."
+    if (!addr.startsWith("G")) return "a passkey wallet is a contract account. connect Freighter for the tier."
     const ly = loyaltyState.address === addr ? loyaltyState : ({ status: "none" } as LoyaltyView)
     if (ly.status === "pending") return "scoring your wallet…"
     if (ly.status !== "ready" || typeof ly.tier !== "number") return `connect a Stellar wallet with tier ${tierMin}+`
