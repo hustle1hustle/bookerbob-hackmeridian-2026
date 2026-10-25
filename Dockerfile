@@ -10,7 +10,9 @@ RUN npm ci --no-audit --no-fund
 COPY packages packages
 COPY server server
 COPY app app
-RUN if [ -f app/vite.config.ts ]; then npm run build -w app; fi
+# the app talks to this same server (apiUrl ""), so the testnet SDK needs no URL
+ENV VITE_SDK_MODE=testnet
+RUN npm run build -w app
 
 FROM node:22-slim
 WORKDIR /repo

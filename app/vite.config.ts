@@ -8,7 +8,9 @@ const parent = fileURLToPath(new URL("..", import.meta.url))
 export default defineConfig({
   plugins: [react()],
   resolve: { alias: { "@bookerbob/pos-sdk": sdk } },
-  server: { fs: { allow: [parent] } },
+  // dev: the testnet SDK calls same-origin /api; forward it to the local backend (scripts/dev-server.sh)
+  server: { fs: { allow: [parent] }, proxy: { "/api": "http://localhost:8080" } },
+  build: { chunkSizeWarningLimit: 1500 },
   // no PostCSS: stops Vite from picking up a config from a parent directory
   css: { postcss: {} },
   // relative asset paths so the build works from any static host or subpath
