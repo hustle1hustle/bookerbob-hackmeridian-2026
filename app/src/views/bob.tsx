@@ -1,5 +1,5 @@
 // Presentational: hero, "ask bob" search and Bob's pick. Props only. REP Labs hero language.
-import type { Ranked } from "@bookerbob/agent"
+import type { Ranked } from "../../../agent/src/rank.ts"
 
 export function Hero() {
   return (

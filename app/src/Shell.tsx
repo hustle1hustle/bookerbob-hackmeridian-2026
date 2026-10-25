@@ -170,7 +170,10 @@ export function Shell({ children }: { children: ReactNode }) {
         {role === "guest" && (
           <div className="wrap">
             <nav className="guest-sub" aria-label="guest">
-              <a href="#/" aria-current={(path[0] ?? "") === "" ? "page" : undefined}>
+              <a href="#/" aria-current={(path[0] ?? "") === "" || path[0] === "ask" || path[0] === "buy" ? "page" : undefined}>
+                ask bob
+              </a>
+              <a href="#/places" aria-current={path[0] === "places" || path[0] === "place" ? "page" : undefined}>
                 places
               </a>
               <a href="#/stays" aria-current={path[0] === "stays" ? "page" : undefined}>

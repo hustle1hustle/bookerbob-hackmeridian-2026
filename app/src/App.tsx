@@ -2,6 +2,8 @@ import { Shell } from "./Shell"
 import { useRoute } from "./store"
 import { Empty } from "./ui"
 import { PlacesScreen } from "./screens/Places"
+import { AskBobScreen } from "./screens/AskBob"
+import { BuyScreen } from "./screens/Buy"
 import { PlaceScreen } from "./screens/Place"
 import { DeskScreen, FeedScreen } from "./screens/Hotel"
 import { ArbiterScreen } from "./screens/Arbiter"
@@ -9,7 +11,10 @@ import { AboutScreen } from "./screens/About"
 import { DiscloseScreen, DiscountScreen, ReviewScreen, StayScreen, StaysScreen } from "./screens/Stays"
 
 // Hash routes (static hosting):
-//   #/                 guest: places
+//   #/                 guest: Ask Bob (landing)
+//   #/ask/<query>      guest: Ask Bob results for a query
+//   #/buy/:id/<query>  guest: Buy with Bob, the agent run for one place
+//   #/places           guest: all places
 //   #/place/:id        guest: place page
 //   #/stays            guest: my stays (+ start a stay)
 //   #/stays/:i         guest: stay code and QR
@@ -18,6 +23,14 @@ import { DiscloseScreen, DiscountScreen, ReviewScreen, StayScreen, StaysScreen }
 //   #/feed/:id         hotel: review feed with disputes
 //   #/arbiter          arbiter: dispute queue
 //   #/about            what each party sees
+const safeDecode = (s?: string) => {
+  try {
+    return s ? decodeURIComponent(s) : ""
+  } catch {
+    return s ?? ""
+  }
+}
+
 export function App() {
   const { path } = useRoute()
   return <Shell>{render(path)}</Shell>
@@ -27,6 +40,12 @@ function render(path: string[]) {
   const n = (i: number) => Number(path[i])
   switch (path[0] ?? "") {
     case "":
+      return <AskBobScreen initial="" />
+    case "ask":
+      return <AskBobScreen key={path[1] ?? ""} initial={safeDecode(path[1])} />
+    case "buy":
+      return <BuyScreen key={path.join("/")} merchantId={n(1)} query={safeDecode(path[2])} />
+    case "places":
       return <PlacesScreen />
     case "place":
       return <PlaceScreen key={path[1]} id={n(1)} />
