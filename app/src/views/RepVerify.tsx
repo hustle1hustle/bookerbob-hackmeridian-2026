@@ -28,7 +28,8 @@ export function RepVerify() {
     timer.current = window.setInterval(async () => {
       setNow(Date.now())
       const res = await fetch(`/api/rep/result?sid=${r.sid}`).then((x) => x.json()).catch(() => null)
-      if (!res || res.status === "pending") {
+      // only an explicit verdict ends the wait; a lost or unknown session just runs out the clock
+      if (!res || (res.status !== "passed" && res.status !== "failed")) {
         if (Date.now() > r.expiresAt + 5000) (clearInterval(timer.current!), setPhase({ k: "failed", why: "the request expired, try again" }))
         return
       }
