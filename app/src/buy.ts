@@ -93,6 +93,7 @@ export function useBuyFlow(merchantId: number, query: string) {
       fail(e instanceof TypeError ? "Network" : "Unknown", false)
     } finally {
       bump()
+      setTimeout(bump, 6000) // the balance view settles a ledger later
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [merchantId, query])
