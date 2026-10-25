@@ -6,6 +6,19 @@ The Claude Design deliverable `Proof of Loyalty v2.dc.html` is served byte-exact
 2. the merchant view's two place labels, hardcoded as mock names ("alfama nine · hotel", "rep store · shop"), are built from the real place names;
 3. `<script src="/ops.js"></script>` as the first script in `<body>` (the backend's error tracker: errors only, scrubbed, no ids or cookies);
 4. the shop cart line appends the chosen size only when the product has sizes (the real store item has none, so it no longer shows a made-up ", m").
+5. **connect control** (marked `bb:connect-control`): the header's connect / disconnect buttons are replaced by one button showing a status chip per source (key, rep, passport, network; filled = connected, tinted = pending, red = failed, hollow = not connected) and a popover listing each source with what it proves, its status and one action. Data and actions come from new `pol-real` exports: `sources()`, `rep.start()` / `rep.poll()`, `passport.check()`, `wallet.current()`, and `wallet.connect('demo key')`. Class additions: `state.src`, `loadSources`, `openSources`, `srcAct`, `vSources` (merged into `renderVals`). `reload()` refreshes the sources. Built only with the v2 tokens; the whole block can be swapped for a Claude Design version.
+6. the place picker shows a "connect REP for +5%" link under an unearned verified-traveler perk, which opens the popover at REP.
+7. a review whose transaction hash is unknown shows a plain "proven stay" badge instead of a link to `/tx/null`.
+8. **no zeros before data**: until the component is `ready` (places loaded), the kind counts in the hero and the category tabs and the "my passes" count render empty instead of 0, and the ranking shows one line in the design's rank-line style, "reading the proven reviews". After the load, real counts, and an empty state only when there is truly nothing.
+
+Sources and what they read:
+
+| Source | Status from | Action |
+|---|---|---|
+| wallet | SDK wallet (passkey, Freighter, or a demo key remembered in this browser) | passkey / freighter / demo key, or disconnect |
+| REP verified traveler | membership in the attested "REP verified traveler" group (connected); a REP session in progress (pending, "approve in REP Bob on your phone"); a refused or expired one (failed) | verify with REP: a fresh stay at the store that is never checked in, `POST /api/rep/session`, then `/api/rep/result` polled every 2 s |
+| Stellar Passport | `GET /api/passport/lookup?address=` (verify_onchain_zk `fetchPassport`, read only) | check (needs a wallet) |
+| network member | this browser's checked-in stays | none (comes with the first stay or purchase) |
 
 `pol-real.js` is bundled from [`site/src/pol-real.ts`](../site/src/pol-real.ts) and exports exactly the mock's interface over the SDK, the contract and the BookerBob backend. The earlier app shell stays at `/classic/`.
 
@@ -44,3 +57,21 @@ Place ids: the design hardcodes 0 (hotel), 1, 3 (café) and 4 (the real shop). I
 | `config.forceError`, `sparse`, preset flows | design tooling only, not reachable on the live site | n/a |
 
 Data the design does not have a slot for: restaurants (we seed three; the design lists them as "restaurants next").
+
+## Copy: plain words, no chain jargon
+
+Visible text says "verified", "proven", "confirmed on Stellar" (only next to a transaction link), "your proof", "nobody sees who you are". Hashes, roots and transaction ids stay small and one click away. Error codes and JS keys (`NullifierUsed`, ...) are unchanged.
+
+| Where | Was | Now |
+|---|---|---|
+| index.html footer | stellar testnet · semaphore v4 | stellar testnet · proofs made on your device |
+| index.html agent step 6 (`AGL`) and pol-real `UCP_STEPS` | stellar verifies, spends the nullifier | stellar checks the proof, once |
+| pol-real `UCP_STEPS` step 6 detail | proof valid. the one-time nullifier is spent, so this discount cannot be reused. ... | proof valid. it works once, so this discount cannot be reused. ... |
+| pol-real `UCP_STEPS` step 5 detail | semaphore v4, made on this device. ... | made on this device. your secret never leaves it. |
+| index.html preset failure and pol-real failure detail | refused. this proof was spent before, so the nullifier check failed. | refused. this proof was already used, so it cannot count twice. |
+| index.html `ERR.HotelNotFound` | this place is not on chain. | this place is not listed. |
+| index.html `ERR.ReviewNotFound` | it is no longer on chain. | it is no longer listed. |
+| index.html header connect reason | to act on chain | to continue |
+| /classic `Shell.tsx` banner | every review is a real proof on chain | every review is a real, verified proof |
+| /classic `Stays.tsx` | kept in this browser only, never on chain. | kept in this browser only, never shared. |
+| /classic `PassConnect.tsx` | pass_connect · verify_onchain_zk; re-verify on-chain; on-chain activity rating | passkey · wallet check; verify again; wallet activity rating |

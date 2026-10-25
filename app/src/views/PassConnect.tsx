@@ -188,8 +188,8 @@ export function PassConnectPanel({ merchantId = 0, season }: { merchantId?: numb
   }
 
   return (
-    <section id="pass-connect" className="card pass-connect" aria-label="wallet connect and on-chain verify">
-      <span className="label">pass_connect · verify_onchain_zk</span>
+    <section id="pass-connect" className="card pass-connect" aria-label="wallet connect and verify">
+      <span className="label">passkey · wallet check</span>
       <h2>connect · score · attest</h2>
       <p className="muted">
         Freighter or platform passkey. on connect we score a verified tier (5→1), build a loyalty claim, and post one testnet attestation tx for the season.

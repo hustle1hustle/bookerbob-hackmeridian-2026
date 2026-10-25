@@ -59,7 +59,7 @@ export function StaysScreen() {
   return (
     <>
       <h1>my stays</h1>
-      <p className="muted">kept in this browser only, never on chain. each stay has its own identity, so two stays cannot be linked to each other.</p>
+      <p className="muted">kept in this browser only, never shared. each stay has its own identity, so two stays cannot be linked to each other.</p>
       {synced.loading && <Loading what="check-in status" />}
       <StayList
         items={stays.map((s, i) => (

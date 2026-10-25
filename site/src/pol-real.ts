@@ -438,8 +438,8 @@ export const UCP_STEPS = [
   { label: "add the t-shirt to the cart", detail: "" },
   { label: "claim returning customer", detail: "proof_of_loyalty extension · group: returning customer. no name, no email sent." },
   { label: "store offers 10% off, pending", detail: "" },
-  { label: "make the proof, locally", detail: "semaphore v4, made on this device. your secret never leaves it." },
-  { label: "stellar verifies, spends the nullifier", detail: "proof valid. the one-time nullifier is spent, so this discount cannot be reused. the store learns nothing about who." },
+  { label: "make the proof, locally", detail: "made on this device. your secret never leaves it." },
+  { label: "stellar checks the proof, once", detail: "proof valid. it works once, so this discount cannot be reused. the store learns nothing about who." },
   { label: "discount confirmed", detail: "", failDetail: "discount removed. checkout cannot complete with this claim." },
   { label: "pay in usdc on stellar", detail: "" },
   { label: "order paid in the shopify admin", detail: "" },
@@ -501,7 +501,7 @@ async function* ucpRun(reuse: boolean): AsyncGenerator<any> {
     const pr = await bpost("/buy/prove", { checkoutId: st.checkoutId, payer, root: mp.root.toString(), nullifier: mp.nullifier.toString(), proof: mp.proof })
     if (pr.error || !pr.verified) {
       const error = String(pr.code ?? pr.error ?? "InvalidProof")
-      yield step(5, "failed", { error, detail: /Nullifier|#6/.test(error) ? "refused. this proof was spent before, so the nullifier check failed." : "refused. the proof did not check out, so the discount was never real." })
+      yield step(5, "failed", { error, detail: /Nullifier|#6/.test(error) ? "refused. this proof was already used, so it cannot count twice." : "refused. the proof did not check out, so the discount was never real." })
       cart.discounts[0].removed = true
       cart.total = Number(item.price)
       yield snap()
@@ -594,7 +594,8 @@ export const wallet = {
   async connect(method = "passkey", _instant = false) {
     let used = method
     try {
-      this.address = await sdk.wallet.connect(method === "freighter" ? "freighter" : "passkey")
+      if (method === "demo key") this.address = await sdk.wallet.connect("local")
+      else this.address = await sdk.wallet.connect(method === "freighter" ? "freighter" : "passkey")
     } catch {
       used = "demo key"
       this.address = await sdk.wallet.connect("local")
@@ -607,6 +608,16 @@ export const wallet = {
     this.address = null
     this.method = null
   },
+  /** The wallet this browser already holds (the SDK restores a remembered demo key on load), or null. */
+  current() {
+    const a = this.address ?? sdk.wallet.address
+    if (!a) return null
+    if (!this.address) {
+      this.address = a
+      this.method = sdk.wallet.kind === "local" ? "demo key" : sdk.wallet.kind
+    }
+    return { address: a, method: this.method }
+  },
   get signer() {
     return this.address ? { sign: async (x: string) => sdk.wallet.signTransaction(x) } : null
   },
@@ -614,3 +625,100 @@ export const wallet = {
 
 void toBeHex
 void sleep
+
+// ---- connect sources (header control): what each source proves and its status, from real state only ----
+export type SourceStatus = "none" | "pending" | "connected" | "failed" | "soon"
+export interface Source {
+  id: "wallet" | "rep" | "passport" | "network"
+  label: string
+  /** One line on what it proves. */
+  proves: string
+  status: SourceStatus
+  detail: string
+}
+
+// REP verified traveler: the guest approves in the REP Bob app; the backend checks the REP-signed verdict and adds a
+// fresh identity of this browser to the attested group. The identity is a new stay at the store that is never checked
+// in, so the group tree cannot be linked to any place's customer tree.
+let repState: { status: SourceStatus; sid?: string; until?: number; tx?: string | null; why?: string } = { status: "none" }
+const travelerHeld = () => local.credentials().some((c: any) => c.group === "traveler" && c.held)
+
+export const rep = {
+  get state() {
+    return { ...repState }
+  },
+  async start() {
+    const stay = sdk.stays.create(UCP_MERCHANT)
+    const r = await fetch(`${API}/api/rep/session`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ commitment: stay.commitment }) })
+      .then((x) => x.json())
+      .catch(() => ({ error: "Network" }))
+    repState = r.error ? { status: "failed", why: "bookerbob could not open a request. try again." } : { status: "pending", sid: r.sid, until: r.expiresAt }
+    return { ...repState }
+  },
+  /** One poll; call every ~2 s while pending. Only an explicit verdict or the deadline ends the wait. */
+  async poll() {
+    if (repState.status !== "pending" || !repState.sid) return { ...repState }
+    const r = await fetch(`${API}/api/rep/result?sid=${repState.sid}`).then((x) => x.json()).catch(() => null)
+    if (r?.status === "passed") {
+      repState = { status: "connected", tx: r.txHash || null }
+      loading = null // the traveler group changed: re-read it so perks count it
+      await ready()
+    } else if (r?.status === "failed") repState = { status: "failed", why: r.reason === "expired" ? "the request expired. try again." : "REP could not confirm it." }
+    else if (repState.until && Date.now() > repState.until + 5000) repState = { status: "failed", why: "the request expired. try again." }
+    return { ...repState }
+  },
+}
+
+// Stellar Passport (verify_onchain_zk): a read-only lookup of the connected wallet's builder profile.
+let passportState: { status: SourceStatus; detail: string; address?: string } = { status: "none", detail: "" }
+export const passport = {
+  async check() {
+    const address = wallet.address ?? sdk.wallet.address
+    if (!address) return (passportState = { status: "none", detail: "connect a wallet first" })
+    passportState = { status: "pending", detail: "looking up your builder profile", address }
+    const r = await fetch(`${API}/api/passport/lookup?address=${address}`).then((x) => x.json()).catch(() => null)
+    if (!r || r.error) passportState = { status: "failed", detail: "the lookup did not answer. try again.", address }
+    else if (r.matched) passportState = { status: "connected", detail: `builder profile found${typeof r.score === "number" ? `, score ${r.score}` : ""}`, address }
+    else passportState = { status: "none", detail: "no builder profile for this wallet", address }
+    return { ...passportState }
+  },
+}
+
+export async function sources(): Promise<Source[]> {
+  await ready()
+  const addr = wallet.address ?? sdk.wallet.address
+  const ms = local.memberships() as any[]
+  const placesProven = new Set(ms.map((m) => m.place)).size
+  const held = travelerHeld()
+  const pp = passportState.address && passportState.address !== addr ? { status: "none" as SourceStatus, detail: "" } : passportState
+  return [
+    {
+      id: "wallet",
+      label: addr ? (wallet.method ?? (sdk.wallet.kind === "local" ? "demo key" : "wallet")) : "wallet",
+      proves: "pays for you. a fresh address for every payment, so purchases do not link.",
+      status: addr ? "connected" : "none",
+      detail: addr ? `${addr.slice(0, 4)}…${addr.slice(-4)}` : "passkey, freighter or a demo key in this browser",
+    },
+    {
+      id: "rep",
+      label: "REP verified traveler",
+      proves: "an attester vouches that you travel. not who you are.",
+      status: held ? "connected" : repState.status,
+      detail: held ? "verified traveler counts in your perks" : repState.status === "pending" ? "approve in REP Bob on your phone" : repState.status === "failed" ? (repState.why ?? "") : "+5% where places honor it",
+    },
+    {
+      id: "passport",
+      label: "Stellar Passport",
+      proves: "your builder profile on Stellar. read only.",
+      status: pp.status,
+      detail: pp.detail || (addr ? "check your wallet's builder profile" : "connect a wallet first"),
+    },
+    {
+      id: "network",
+      label: "network member",
+      proves: "you are a proven guest somewhere in the network. not where.",
+      status: ms.length ? "connected" : "none",
+      detail: ms.length ? `proven in ${placesProven} ${placesProven === 1 ? "place" : "places"}` : "comes with your first stay or purchase",
+    },
+  ]
+}
