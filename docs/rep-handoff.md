@@ -76,7 +76,7 @@ contract checks itself, so membership no longer depends on a trusted attester se
   signature, so an n - s copy of the same verdict is refused too.
 - Not on-chain: the issuer's revocation status list. `exp` and `max_age` bound the window; the server still
   checks revocation before it submits.
-- Cost: about 6.5M CPU instructions (limit 100M) and 160 KB memory; the wasm is 59 KB.
+- Cost: about 6.5M CPU instructions (1.6% of the 400M per-tx limit on testnet) and 160 KB memory; the wasm is 59 KB.
 - Tests: `cargo test` in `contracts/proof_of_stay` (`test_rep.rs`: real-shape verdict, low and high S, forged
   issuer, rotated key, wrong device key, wrong aud, at_hash for another verdict, nonce for another commitment,
   expired, too old, stale holder proof, before nbf, no tier, not a lodging source, wrong iss, replay, S-flip
