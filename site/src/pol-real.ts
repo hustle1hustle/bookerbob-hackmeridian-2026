@@ -774,7 +774,7 @@ async function ensureWallet() {
   return sdk.wallet.address!
 }
 
-async function* ucpRun(reuse: boolean): AsyncGenerator<any> {
+async function* ucpRun(reuse: boolean, noClaim = false): AsyncGenerator<any> {
   const cart: any = { items: [], discounts: [], total: 0, currency: "USDC", paid: false, tx: null }
   const snap = () => ({ type: "cart", cart: JSON.parse(JSON.stringify(cart)) })
   const step = (i: number, status: string, extra: any = {}) => ({ type: "step", i, status, detail: extra.detail ?? (status === "done" ? UCP_STEPS[i].detail : ""), ...extra })
@@ -792,12 +792,30 @@ async function* ucpRun(reuse: boolean): AsyncGenerator<any> {
   const payer = await ensureWallet()
   await ready()
   const shopStay = sdk.stays.list().find((s) => s.merchant === UCP_MERCHANT && (findP(4)?.leaves ?? []).includes(BigInt(s.commitment)))
-  const claim = !!shopStay || reuse
+  let claim = (!!shopStay || reuse) && !noClaim
   const next = sdk.stays.create(UCP_MERCHANT)
   yield step(2, "running")
-  const st = await bpost("/buy/start", { variantId: item.variantId, qty: 1, claim, nextCommitment: next.commitment })
+  let st = await bpost("/buy/start", { variantId: item.variantId, qty: 1, claim, nextCommitment: next.commitment })
   if (st.error) return yield step(2, "failed", { error: st.error, detail: String(st.error) })
-  yield step(2, "done", { detail: claim ? "you bought here before, so bob claims returning customer. no name, no email sent." : "no past purchase from this store in this browser, so no claim. full price this time." })
+  let claimNote = ""
+  // normal path only (never the replay demo): an already-spent discount is not offered, so a refusal never headlines
+  if (claim && !reuse && st.action && shopStay) {
+    try {
+      const scopeH = d.semaphoreHash(d.discountScope(UCP_MERCHANT, st.action.scope.season))
+      const nf = poseidon2([scopeH, sdk.stays.identity(shopStay).secretScalar])
+      const read = await getClient({ ...TESTNET, contractId: (await apiConfig()).contractId })
+      const spent = await (read as any).is_spent({ scope_hash: scopeH, nullifier: nf }).then((t: any) => !!t.result)
+      if (spent) {
+        claim = false
+        claimNote = "returning customer: already used this season. it renews next season. full price this time."
+        st = await bpost("/buy/start", { variantId: item.variantId, qty: 1, claim: false, nextCommitment: next.commitment })
+        if (st.error) return yield step(2, "failed", { error: st.error, detail: String(st.error) })
+      }
+    } catch {
+      /* if the check cannot run, the contract still refuses a reused proof; the reason is shown in plain words */
+    }
+  }
+  yield step(2, "done", { detail: claimNote || (claim ? (reuse ? "replaying the proof from your last purchase, on purpose. it should be refused." : "you bought here before, so bob claims returning customer. no name, no email sent.") : noClaim ? "paying full price, no claim." : "no past purchase from this store in this browser, so no claim. full price this time.") })
   if (claim && st.action) {
     yield step(3, "running")
     const off = round2(Number(item.price) * (st.action.discount_bps / 10000))
@@ -816,7 +834,11 @@ async function* ucpRun(reuse: boolean): AsyncGenerator<any> {
     const pr = await bpost("/buy/prove", { checkoutId: st.checkoutId, payer, root: mp.root.toString(), nullifier: mp.nullifier.toString(), proof: mp.proof })
     if (pr.error || !pr.verified) {
       const error = String(pr.code ?? pr.error ?? "InvalidProof")
-      yield step(5, "failed", { error, detail: /Nullifier|#6/.test(error) ? "refused. this proof was already used, so it cannot count twice." : "refused. the proof did not check out, so the discount was never real." })
+      const used = /Nullifier|#6/.test(error)
+      const why = used ? "this discount was already used this season" : /UnknownRoot|#5/.test(error) ? "the store's customer list changed while proving. try again" : /NonCanonical|#7/.test(error) ? "the proof was malformed" : "the proof didn't check out"
+      const headline = reuse ? "same proof again: refused. it only works once." : `discount refused: ${why}. you can still pay full price.`
+      yield step(5, "failed", { error, headline, reason: why, tx: pr.txHash ?? null, detail: used ? "refused by Stellar: this proof was already used, so it cannot count twice." : `refused by Stellar: ${why}.` })
+      yield { type: "headline", text: headline, reason: why, error }
       cart.discounts[0].removed = true
       cart.total = Number(item.price)
       yield snap()
@@ -870,7 +892,8 @@ async function payUcp(cart: { items: { title: string; price: number }[] }, group
 }
 
 export const ucp = {
-  run: ({ reuse = false } = {}) => ucpRun(reuse),
+  /** reuse: replay the last proof on purpose (the refusal demo). noClaim: pay full price (after a refusal). */
+  run: ({ reuse = false, noClaim = false } = {}) => ucpRun(reuse, noClaim),
   reset() {},
 }
 
