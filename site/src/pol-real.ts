@@ -1035,6 +1035,7 @@ export const wallet = {
   method: null as string | null,
   async connect(method = "passkey", _instant = false) {
     let used = method
+    const prev = this.address ?? sdk.wallet.address
     try {
       if (method === "demo key") this.address = await sdk.wallet.connect("local")
       else this.address = await sdk.wallet.connect(method === "freighter" ? "freighter" : "passkey")
@@ -1043,7 +1044,9 @@ export const wallet = {
       this.address = await sdk.wallet.connect("local")
     }
     this.method = used
-    if (this.address) void loyalty.ensure(this.address)
+    // Freighter after demo (or any address change): drop the old claim or sources() paints "none" and hides score.
+    if (this.address && this.address !== prev) loyalty.clear()
+    if (this.address) await loyalty.ensure(this.address)
     return { address: this.address, method: used }
   },
   disconnect() {

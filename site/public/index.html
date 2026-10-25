@@ -79,7 +79,8 @@ html,body{margin:0;padding:0;background:#EDEBE5}
               <sc-if value="{{ r.hasPerk }}" hint-placeholder-val="{{ false }}"><div style="margin-top:4px;font-family:var(--mono);font-size:11px;font-weight:600;color:var(--deal-ink);background:var(--deal);display:inline-block;padding:2px 6px">{{ r.perk }}</div></sc-if>
               <p style="margin:4px 0 0;font-size:13px;line-height:1.45;color:var(--ink-2)">{{ r.proves }}</p>
               <p style="margin:2px 0 0;font-size:13px;line-height:1.45;color:var(--ink-3)">{{ r.detail }}<sc-if value="{{ r.hasAccount }}" hint-placeholder-val="{{ false }}"> · <a href="{{ r.accountUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">account ↗</a></sc-if><sc-if value="{{ r.hasScore }}" hint-placeholder-val="{{ false }}"> · <a href="{{ r.scoreHref }}" target="{{ r.scoreTarget }}" rel="noopener" onClick="{{ r.onScore }}" title="wallet score {{ r.score }}/100 · tier {{ r.tier }}" style="font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">score{{ r.scoreArrow }}</a></sc-if><sc-if value="{{ r.scorePending }}" hint-placeholder-val="{{ false }}"> · <span style="font-family:var(--mono);font-size:12px">scoring…</span></sc-if></p>
-              <sc-if value="{{ r.scoreOpen }}" hint-placeholder-val="{{ false }}"><p style="margin:4px 0 0;font-size:12px;line-height:1.45;color:var(--ink-2)">wallet score <strong style="color:var(--ink)">{{ r.score }}</strong>/100 · tier {{ r.tier }}<sc-if value="{{ r.hasScoreProof }}" hint-placeholder-val="{{ false }}"> · <a href="{{ r.scoreUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">proof tx {{ r.scoreTxShort }} ↗</a></sc-if><sc-if value="{{ r.noScoreProof }}" hint-placeholder-val="{{ false }}"> · <span style="color:var(--ink-3)">proof tx pending / unavailable</span></sc-if></p></sc-if>
+              <!-- Score line is NOT behind sc-if alone: Freighter path used to leave src.list stale. Always emit when hasScore. -->
+              <p style="margin:4px 0 0;font-size:12px;line-height:1.45;color:var(--ink-2);display:{{ r.scoreDisplay }}">wallet score <strong style="color:var(--ink)">{{ r.score }}</strong>/100 · tier {{ r.tier }}<sc-if value="{{ r.hasScoreProof }}" hint-placeholder-val="{{ false }}"> · <a href="{{ r.scoreUrl }}" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px">proof tx {{ r.scoreTxShort }} ↗</a></sc-if><sc-if value="{{ r.noScoreProof }}" hint-placeholder-val="{{ false }}"> · <span style="color:var(--ink-3)">proof tx pending / unavailable</span></sc-if></p>
               <sc-if value="{{ r.hasGens }}" hint-placeholder-val="{{ false }}">
                 <div style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--rule-soft)">
                   <button onClick="{{ r.onStartOver }}" style="appearance:none;border:1px solid var(--ink);background:transparent;color:var(--ink);font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;height:30px;padding:0 10px;cursor:pointer">{{ r.startLabel }}</button>
@@ -1712,9 +1713,9 @@ class Component extends DCLogic {
     if (this.m.demo && this.opChecked === undefined) { this.opChecked = true; this.m.demo.isOperator().then(op => this.setState({ operator: !!op })).catch(() => {}); }
     try {
       const w = this.state.wallet || (this.m.wallet.current ? this.m.wallet.current() : null);
-      // Await shared ensure promise (wallet.connect + UI share one). Do not auto-retry forever on failed.
-      const ly = this.m.loyalty && this.m.loyalty.state.status;
-      if (w && this.m.loyalty && (ly === 'none' || ly === 'pending')) {
+      // Await shared ensure. Re-run when Freighter address ≠ cached claim address (stale demo claim hid the score).
+      const ly = this.m.loyalty && this.m.loyalty.state;
+      if (w && this.m.loyalty && (ly.status === 'none' || ly.status === 'pending' || (ly.address && ly.address !== w.address) || (ly.status === 'ready' && ly.rating == null))) {
         await this.m.loyalty.ensure(w.address);
       }
       const list = await this.m.sources(this.state.view === 'place' && this.state.role === 'guest' ? this.state.placeId : undefined);
@@ -1754,20 +1755,21 @@ class Component extends DCLogic {
           const w = await m.wallet.connect(how);
           this.setState({ wallet: w });
           ok = true;
-          // Keep panel open: score + proof tx land under "score" next to account.
-          if (m.loyalty) await m.loyalty.ensure(w.address);
+          // wallet.connect already awaited loyalty.ensure; refresh list from live state.
+          if (m.loyalty && m.loyalty.state.status !== 'ready') await m.loyalty.ensure(w.address);
         } catch (e) { console.error(e); }
         this.setState(s => ({ src: { ...s.src, busy: null } }));
         const fn = ok ? this.pending : null;
         if (ok) {
           this.pending = null;
-          // Leave connections open so Freighter row shows score / proof (was closing before ensure finished).
-          // with an action waiting (book, run bob, review), close so the action shows; else stay open for the score
+          // Keep connections open for Freighter so score + proof are visible (unless an action is waiting).
           this.setState(s => ({ src: { ...s.src, open: !fn, focus: 'wallet', reason: null, scoreOpen: true } }));
         }
         await this.loadSources();
-        await this.reload();
+        // Do not await reload here — it races and used to repaint the Freighter row without score.
+        void this.reload();
         if (fn) fn();
+        return;
       }
     } else if (id === 'rep') {
       await m.rep.start(); this.loadSources();
@@ -1814,14 +1816,24 @@ class Component extends DCLogic {
       srcChips: list.map(r => ({ short: short[r.id] || r.id, dot: (dots[r.status] || dots.none)[0], dotBd: (dots[r.status] || dots.none)[1], title: r.label + ': ' + (word[r.status] || r.status) })),
       srcCta: connected ? '' : 'connect →',
       srcRows: list.map((r, i) => {
-        const scoreUrl = r.scoreUrl || (r.id === 'wallet' && r.txHash ? this.tx(r.txHash).url : '');
-        const scoreTx = r.id === 'wallet' && r.txHash ? this.tx(r.txHash) : null;
+        // Live loyalty.state beats stale src.list (Freighter connect was painting account-only when list lagged).
+        const live = r.id === 'wallet' && this.m && this.m.loyalty ? this.m.loyalty.state : null;
+        const liveOk = !!(live && live.status === 'ready' && live.address && s.wallet && live.address === s.wallet.address && live.rating != null);
+        const livePending = !!(live && live.status === 'pending' && s.wallet && live.address === s.wallet.address);
+        const score = liveOk ? live.rating : (r.score != null ? r.score : null);
+        const tier = liveOk ? live.tier : (r.tier != null ? r.tier : null);
+        const liveTx = liveOk ? (live.txHash || null) : (r.txHash || null);
+        const scoreUrl = (liveOk && live.explorerUrl) || r.scoreUrl || (r.id === 'wallet' && liveTx ? this.tx(liveTx).url : '');
+        const scoreTx = r.id === 'wallet' && liveTx ? this.tx(liveTx) : null;
         const joinedTx = r.id !== 'wallet' && r.txHash;
-        const hasScore = r.id === 'wallet' && r.score != null;
-        const scorePending = r.id === 'wallet' && /scoring/i.test(String(r.detail || ''));
-        // Always expand score row when we have a rating (Freighter reconnect must show score + proof without an extra click).
-        const scoreOpen = hasScore;
-        return { ...this.genRow(r), hasNote: r.id === 'wallet' && !!src.fallback, note: r.id === 'wallet' ? (src.fallback || '') : '', hasAccount: !!r.accountUrl, accountUrl: r.accountUrl || '', hasScore, scorePending, scoreOpen: !!scoreOpen, hasScoreProof: !!(hasScore && scoreUrl), noScoreProof: !!(hasScore && !scoreUrl), score: r.score != null ? r.score : '', tier: r.tier != null ? r.tier : '', scoreUrl: scoreUrl || '', scoreHref: scoreUrl || '#', scoreTarget: scoreUrl ? '_blank' : '', scoreArrow: scoreUrl ? ' ↗' : '', onScore: (e) => { if (e && e.preventDefault && !scoreUrl) e.preventDefault(); this.setState(st => ({ src: { ...st.src, scoreOpen: true, focus: 'wallet' } })); }, scoreTxShort: scoreTx ? scoreTx.short : '', head: i === 1 ? 'add for more perks' : '', hasHead: i === 1, perk: r.perk || '', hasPerk: !!r.perk, hasTx: !!joinedTx, txUrl: joinedTx ? this.tx(r.txHash).url : '', txShort: joinedTx ? this.tx(r.txHash).short : '', label: r.label, proves: r.proves, detail: r.detail, status: word[r.status] || r.status, statusColor: r.status === 'connected' ? 'var(--accent)' : r.status === 'failed' ? 'var(--warn)' : 'var(--ink-3)', rule: i ? 'var(--rule-soft)' : 'transparent', bg: src.focus === r.id ? 'var(--accent-soft)' : 'transparent', actions: actions(r) };
+        const hasScore = r.id === 'wallet' && score != null;
+        const scorePending = r.id === 'wallet' && (livePending || /scoring/i.test(String(r.detail || '')));
+        const detail = hasScore
+          ? `${(s.wallet && s.wallet.address) ? (s.wallet.address.slice(0, 4) + '…' + s.wallet.address.slice(-4)) : r.detail} · score ${score} · tier ${tier}`
+          : scorePending
+            ? `${(s.wallet && s.wallet.address) ? (s.wallet.address.slice(0, 4) + '…' + s.wallet.address.slice(-4)) : r.detail} · scoring…`
+            : r.detail;
+        return { ...this.genRow(r), hasNote: r.id === 'wallet' && !!src.fallback, note: r.id === 'wallet' ? (src.fallback || '') : '', hasAccount: !!r.accountUrl, accountUrl: r.accountUrl || '', hasScore, scorePending, scoreOpen: !!hasScore, scoreDisplay: hasScore ? 'block' : 'none', hasScoreProof: !!(hasScore && scoreUrl), noScoreProof: !!(hasScore && !scoreUrl), score: score != null ? score : '', tier: tier != null ? tier : '', scoreUrl: scoreUrl || '', scoreHref: scoreUrl || '#', scoreTarget: scoreUrl ? '_blank' : '', scoreArrow: scoreUrl ? ' ↗' : '', onScore: (e) => { if (e && e.preventDefault && !scoreUrl) e.preventDefault(); this.setState(st => ({ src: { ...st.src, scoreOpen: true, focus: 'wallet' } })); }, scoreTxShort: scoreTx ? scoreTx.short : '', head: i === 1 ? 'add for more perks' : '', hasHead: i === 1, perk: r.perk || '', hasPerk: !!r.perk, hasTx: !!joinedTx, txUrl: joinedTx ? this.tx(r.txHash).url : '', txShort: joinedTx ? this.tx(r.txHash).short : '', label: r.label, proves: r.proves, detail, status: word[r.status] || r.status, statusColor: r.status === 'connected' ? 'var(--accent)' : r.status === 'failed' ? 'var(--warn)' : 'var(--ink-3)', rule: i ? 'var(--rule-soft)' : 'transparent', bg: src.focus === r.id ? 'var(--accent-soft)' : 'transparent', actions: actions(r) };
       }),
     };
   }
