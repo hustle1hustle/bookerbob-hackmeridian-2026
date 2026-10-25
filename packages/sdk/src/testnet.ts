@@ -136,6 +136,7 @@ export function createTestnetSdk(opts: TestnetOptions = {}): Sdk {
           return addr
         } catch (e) {
           if (e instanceof PassConnectException && e.code === "UserCancelled") throw new Error("UserRejected")
+          if (e instanceof PassConnectException && e.code === "NoPasskey") throw new Error("NoPasskey")
           if (e instanceof PassConnectException && e.code === "PasskeyUnsupported") throw new Error("passkey is not supported in this browser")
           throw e instanceof Error ? e : new Error("passkey connect failed")
         }

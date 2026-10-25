@@ -969,6 +969,8 @@ html,body{margin:0;padding:0;background:#EDEBE5}
         <p style="margin:10px 0 22px;font-size:15px;line-height:1.45;color:var(--ink-2)">no fees, no xlm. your proofs stay in this browser.</p>
         <button onClick="{{ connectPasskey }}" disabled="{{ connectBusy }}" style="appearance:none;width:100%;border:1px solid var(--ink);background:var(--ink);color:var(--bg);text-align:left;height:60px;padding:0 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;cursor:pointer;font-size:18px;letter-spacing:-.02em;transition:background .15s,border-color .15s,color .15s" style-hover="background:var(--accent);border-color:var(--accent);color:var(--accent-ink)">{{ passkeyLabel }}<span style="font-family:var(--mono)">→</span></button>
         <button onClick="{{ connectFreighter }}" disabled="{{ connectBusy }}" style="appearance:none;width:100%;margin-top:10px;border:1px solid var(--ink);background:transparent;color:var(--ink);text-align:left;height:52px;padding:0 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;cursor:pointer;font-size:16px;letter-spacing:-.02em;transition:background .15s,color .15s" style-hover="background:var(--ink);color:var(--bg)">{{ freighterLabel }}<span style="font-family:var(--mono)">→</span></button>
+        <sc-if value="{{ connectHasErr }}" hint-placeholder-val="{{ false }}"><p style="margin:14px 0 0;font-size:14px;line-height:1.45;color:var(--ink-2)">{{ connectErr }}</p></sc-if>
+        <sc-if value="{{ connectCanCreate }}" hint-placeholder-val="{{ false }}"><button onClick="{{ connectCreate }}" disabled="{{ connectBusy }}" style="appearance:none;width:100%;margin-top:10px;border:1px solid var(--ink);background:transparent;color:var(--ink);text-align:left;height:52px;padding:0 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;cursor:pointer;font-size:16px;letter-spacing:-.02em">{{ connectCreateLabel }}<span style="font-family:var(--mono)">→</span></button></sc-if>
       </div>
     </div>
   </div>
@@ -1218,7 +1220,7 @@ class Component extends DCLogic {
     if (!this.m || (this.state.connect && this.state.connect.pending)) return;
     this.setState({ connect: { ...this.state.connect, pending: method } });
     let w = null;
-    try { w = await this.m.wallet.connect(method); } catch (e) { console.warn('connect failed', e); this.setState({ connect: { ...this.state.connect, pending: null } }); return; }
+    try { w = await this.m.wallet.connect(method); } catch (e) { console.warn('connect failed', e); this.setState({ connect: { ...this.state.connect, pending: null, error: method === 'passkey' ? String((e && e.message) || 'this passkey could not sign in here.') : null, noPasskey: !!(e && e.noPasskey) } }); return; }
     if (!w) { this.setState({ connect: { ...this.state.connect, pending: null } }); return; }
     this.setState({ wallet: w, connect: null });
     if (this.m.loyalty) void this.m.loyalty.ensure(w.address).then(() => this.loadSources());
@@ -1774,6 +1776,10 @@ class Component extends DCLogic {
       connectOpen: !!cn, connectReason: cn ? cn.reason : '', connectBusy: !!(cn && cn.pending),
       passkeyLabel: cn && cn.pending === 'passkey' ? 'waiting for your passkey…' : 'continue with passkey', freighterLabel: cn && cn.pending === 'freighter' ? 'waiting for freighter…' : 'use freighter',
       connectPasskey: () => this.doConnect('passkey'), connectFreighter: () => this.doConnect('freighter'), closeConnect: this.closeConnect,
+      // bb:passkey-signin: sign-in never creates; nothing found -> say so, and creating is its own explicit button
+      connectHasErr: !!(cn && cn.error), connectErr: cn && cn.error ? cn.error : '', connectCanCreate: !!(cn && cn.noPasskey),
+      connectCreateLabel: cn && cn.pending === 'new passkey' ? 'creating your passkey…' : 'create a passkey',
+      connectCreate: () => { if (!this.m || !this.m.createPasskey) return; const p = this.m.createPasskey(); this.setState(st => ({ connect: { ...st.connect, pending: 'new passkey' } })); p.then(r => { if (r && r.fallback) this.setState(st => ({ connect: { ...st.connect, pending: null, error: r.why, noPasskey: false } })); }).catch(() => this.setState(st => ({ connect: { ...st.connect, pending: null } }))); },
     };
   }
   agBlank() { return { phase: 'idle', steps: this.AGL.map(label => ({ label, status: 'pending', detail: '', tx: null })), open: {}, cart: { items: [], discounts: [], total: 0, currency: 'USDC', paid: false, tx: null }, store: null, receipt: false, error: null }; }
@@ -1838,6 +1844,13 @@ class Component extends DCLogic {
     this.setState(s => ({ src: { ...s.src, busy: 'start over', fallback: null } }));
     p.then(r => { if (r && r.error) this.setState(s => ({ src: { ...s.src, busy: null, fallback: r.error } })); }).catch(() => this.setState(s => ({ src: { ...s.src, busy: null, fallback: 'could not start over here. your current history is unchanged.' } })));
   };
+  // "switch passkey": one prompt to pick any passkey for this site (never creates); it opens that passkey's own history
+  switchPasskey = () => {
+    if (!this.m || !this.m.passkey) return;
+    const p = this.m.passkey.switch();
+    this.setState(s => ({ src: { ...s.src, busy: 'switch passkey', fallback: null } }));
+    p.then(r => { if (r && r.error) this.setState(s => ({ src: { ...s.src, busy: null, fallback: r.error } })); }).catch(() => this.setState(s => ({ src: { ...s.src, busy: null } })));
+  };
   newPasskey = () => {
     if (!this.m || !this.m.createPasskey) return;
     const p = this.m.createPasskey();
@@ -1857,7 +1870,7 @@ class Component extends DCLogic {
           ok = true;
           // wallet.connect already awaited loyalty.ensure; refresh list from live state.
           if (m.loyalty && m.loyalty.state.status !== 'ready') await m.loyalty.ensure(w.address);
-        } catch (e) { console.error(e); }
+        } catch (e) { console.error(e); if (how === 'passkey') this.setState(s => ({ src: { ...s.src, fallback: String((e && e.message) || 'this passkey could not sign in here.') } })); }
         this.setState(s => ({ src: { ...s.src, busy: null } }));
         const fn = ok ? this.pending : null;
         if (ok) {
@@ -1906,8 +1919,9 @@ class Component extends DCLogic {
     const word = { connected: 'connected', pending: 'pending', failed: 'failed', soon: 'soon', none: 'not connected' };
     const short = { wallet: 'key', rep: 'rep', passport: 'passport', network: 'network' };
     const btn = (label, onClick, primary, disabled) => ({ label, onClick, disabled: !!disabled, op: disabled ? 0.45 : 1, bg: primary ? 'var(--ink)' : 'transparent', fg: primary ? 'var(--bg)' : 'var(--ink)' });
+    const pk = this.m && this.m.passkey && s.wallet && s.wallet.method === 'passkey' ? this.m.passkey.info() : null;
     const actions = r => {
-      if (r.id === 'wallet') return r.status === 'connected' ? [btn('disconnect', () => this.srcAct('wallet', 'disconnect'))]
+      if (r.id === 'wallet') return r.status === 'connected' ? [...(pk ? [btn(busy === 'switch passkey' ? 'waiting for your passkey…' : 'switch passkey', () => this.switchPasskey(), false, busy)] : []), btn('disconnect', () => this.srcAct('wallet', 'disconnect'))]
         : [btn(busy === 'passkey' ? 'waiting for your passkey…' : 'sign in with my passkey', () => this.srcAct('wallet', 'passkey'), true, busy),
            btn(busy === 'new passkey' ? 'creating your passkey…' : 'create a new passkey', () => this.newPasskey(), false, busy),
            btn(busy === 'freighter' ? 'waiting for freighter…' : 'freighter', () => this.srcAct('wallet', 'freighter'), false, busy), btn(busy === 'demo key' ? 'creating…' : 'demo key', () => this.srcAct('wallet', 'demo key'), false, busy)];
@@ -1968,7 +1982,7 @@ class Component extends DCLogic {
           tierHasPerk: !!(st && st.perk), tierPerk: st ? st.perk : '',
         };
         const shortAddr = addr ? addr.slice(0, 4) + '…' + addr.slice(-4) : '';
-        const detail = r.id === 'wallet' ? (shortAddr || r.detail) : r.detail;
+        const detail = r.id === 'wallet' ? ((pk ? pk.name + ' · ' + (pk.gen ? 'generation ' + pk.gen : 'original') + (shortAddr ? ' · ' + shortAddr : '') : '') || shortAddr || r.detail) : r.detail;
         return { ...this.genRow(r), ...tierBits, hasNote: r.id === 'wallet' && !!src.fallback, note: r.id === 'wallet' ? (src.fallback || '') : '', hasAccount: !!r.accountUrl, accountUrl: r.accountUrl || '', hasScore, showScoreRow, scoreLine, hasScoreProof: !!(hasScore && scoreUrl), score: score != null ? score : '', tier: tier != null ? tier : '', scoreUrl: scoreUrl || '', scoreTxShort: scoreTx ? scoreTx.short : '', head: i === 1 ? 'add for more perks' : '', hasHead: i === 1, perk: r.perk || '', hasPerk: !!r.perk, hasTx: !!joinedTx, txUrl: joinedTx ? this.tx(r.txHash).url : '', txShort: joinedTx ? this.tx(r.txHash).short : '', label: r.label, proves: r.proves, detail, status: word[r.status] || r.status, statusColor: r.status === 'connected' ? 'var(--accent)' : r.status === 'failed' ? 'var(--warn)' : 'var(--ink-3)', rule: i ? 'var(--rule-soft)' : 'transparent', bg: src.focus === r.id ? 'var(--accent-soft)' : 'transparent', actions: actions(r) };
       }),
     };

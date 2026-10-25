@@ -56,7 +56,8 @@ export async function createPasskey(): Promise<{ ok: true; address: string } | {
   const st = nsStorage(ns)!
   const label = `BookerBob demo ${new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`
   try {
-    const { session } = await connectPasskey({ rpName: "BookerBob", friendbotUrl: "https://friendbot.stellar.org", storage: st, displayName: label })
+    const { session } = await connectPasskey({ rpName: "BookerBob", friendbotUrl: "https://friendbot.stellar.org", storage: st, displayName: label, create: true })
+    passkeyNs.set(session.credentialId, ns)
     st.setItem("pos.wallet", "passkey")
     st.setItem("pos.pass_binding", session.binding)
     LS?.setItem(NS_KEY, ns)
@@ -67,6 +68,87 @@ export async function createPasskey(): Promise<{ ok: true; address: string } | {
     if (code === "UserCancelled") return { fallback: true, why: "cancelled. you can try again, or use Freighter or a demo key." }
     return { fallback: true, why: "this browser could not create a passkey here. use Freighter or a demo key." }
   }
+}
+
+/** Which namespace holds a passkey's history (credential id -> ns, "" = the browser's own). Signing in with a
+ *  passkey goes back to its own history instead of mixing two identities in one namespace. */
+const PK_NS_KEY = "pol.passkeyNs"
+const passkeyNs = {
+  all(): Record<string, string> {
+    try {
+      return JSON.parse(LS?.getItem(PK_NS_KEY) ?? "{}")
+    } catch {
+      return {}
+    }
+  },
+  set(cred: string, ns: string) {
+    const m = passkeyNs.all()
+    if (cred in m) return
+    m[cred] = ns
+    LS?.setItem(PK_NS_KEY, JSON.stringify(m))
+  },
+  /** The namespace already holding this credential (map, then the stored records), or null. */
+  find(cred: string): string | null {
+    const m = passkeyNs.all()
+    if (cred in m) return m[cred]
+    const credOf = (raw: string | null) => {
+      try {
+        return raw ? JSON.parse(raw).credentialId : null
+      } catch {
+        return null
+      }
+    }
+    if (credOf(LS?.getItem(PASS_KEY) ?? null) === cred) return ""
+    for (let i = 0; LS && i < LS.length; i++) {
+      const k = LS.key(i) ?? ""
+      // generation namespaces share the credential; its history starts in the base namespace
+      if (k.endsWith(`:${PASS_KEY}`) && !/^pk-g\d+-/.test(k) && credOf(LS.getItem(k)) === cred) return k.slice(0, -PASS_KEY.length - 1)
+    }
+    return null
+  },
+}
+const credHere = (): string | null => {
+  try {
+    return JSON.parse((nsStorage(nsNow) ?? LS)?.getItem(PASS_KEY) ?? "null")?.credentialId ?? null
+  } catch {
+    return null
+  }
+}
+
+/** The active passkey for Connect: its name and generation (0 = original). */
+export const passkey = {
+  info(): { name: string; gen: number } | null {
+    if (sdk.wallet.kind !== "passkey") return null
+    let rec: any = null
+    try {
+      rec = JSON.parse((nsStorage(nsNow) ?? LS)?.getItem(PASS_KEY) ?? "null")
+    } catch {}
+    if (!rec) return null
+    return { name: rec.name ?? `passkey ${String(rec.credentialId).slice(0, 6)}`, gen: Math.max(0, generations.current()) }
+  },
+  /** "switch passkey": pick any passkey for this site (one prompt, never creates), then open its own history. */
+  async switch(): Promise<{ ok: true } | { error: string; noPasskey?: boolean }> {
+    const { connectPasskey } = await import("../../packages/pass_connect/src/index.ts")
+    const mem = new Map<string, string>()
+    const tmp = { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => void mem.set(k, v), removeItem: (k: string) => void mem.delete(k) }
+    try {
+      const { session } = await connectPasskey({ rpName: "BookerBob", friendbotUrl: "", storage: tmp })
+      const found = passkeyNs.find(session.credentialId)
+      const ns = found ?? `pk-${Date.now()}`
+      const st = nsStorage(ns) ?? LS!
+      if (found === null) st.setItem(PASS_KEY, mem.get(PASS_KEY)!)
+      st.setItem("pos.wallet", "passkey")
+      passkeyNs.set(session.credentialId, ns)
+      if (ns) LS?.setItem(NS_KEY, ns)
+      else LS?.removeItem(NS_KEY)
+      reloadClean()
+      return { ok: true }
+    } catch (e: any) {
+      if (e?.code === "NoPasskey") return { error: "no passkey for this site on this device. create one?", noPasskey: true }
+      if (e?.code === "UserCancelled") return { error: "cancelled." }
+      return { error: "this passkey could not sign in here." }
+    }
+  },
 }
 
 /** "start over with this passkey": generation n+1 of the same passkey in namespace "<base>-g<n>": a new wallet key
@@ -1075,9 +1157,26 @@ export const wallet = {
     try {
       if (method === "demo key") this.address = await sdk.wallet.connect("local")
       else this.address = await sdk.wallet.connect(method === "freighter" ? "freighter" : "passkey")
-    } catch {
+    } catch (e: any) {
+      // a passkey sign-in that finds nothing says so (the UI offers "create one?"); it never makes a key behind your back
+      if (method !== "freighter" && method !== "demo key") {
+        const noPasskey = /NoPasskey/.test(String(e?.message ?? e))
+        throw Object.assign(new Error(noPasskey ? "no passkey for this site on this device. create one?" : /UserRejected/.test(String(e?.message)) ? "cancelled." : "this passkey could not sign in here."), { noPasskey })
+      }
       used = "demo key"
       this.address = await sdk.wallet.connect("local")
+    }
+    if (used === "passkey") {
+      const cred = credHere()
+      const home = cred ? passkeyNs.find(cred) : null
+      if (cred && home !== null && home !== nsNow && !/^pk-g\d+-/.test(nsNow)) {
+        // this passkey's history lives in another namespace: open it there (restored without a prompt)
+        const st = nsStorage(home) ?? LS!
+        st.setItem("pos.wallet", "passkey")
+        if (home) LS?.setItem(NS_KEY, home)
+        else LS?.removeItem(NS_KEY)
+        reloadClean()
+      } else if (cred) passkeyNs.set(cred, nsNow)
     }
     this.method = used
     // Freighter after demo (or any address change): drop the old claim or sources() paints "none" and hides score.
