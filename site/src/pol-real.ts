@@ -76,6 +76,9 @@ let state: { places: PlaceState[]; reviews: Map<number, any[]>; texts: Record<st
 let loading: Promise<void> | null = null
 const kindOut = (k: string) => (k === "cafe" ? "café" : k)
 
+// the real store's products from the UCP bridge (title, USDC price, store price, variant)
+let storeItems: any[] = []
+
 // One shared /api/config read (the backend computes it per request, so do not ask twice).
 let configP: Promise<any> | null = null
 const apiConfig = () => (configP ??= fetch(`${API}/api/config`).then((r) => r.json()))
@@ -84,12 +87,14 @@ async function load() {
   // everything that does not need the contract id starts now, in parallel with /api/config
   const catalogP = fetch(`${API}/api/catalog`).then((r) => r.json())
   const ledgerP = fetch(`${API}/api/ledger`).then((r) => r.json()).catch(() => ({}))
+  // the real store's products (UCP bridge); the first one is what Bob buys in ucp.run
+  const storeP = fetch(`${BRIDGE}/search?q=tee`).then((r) => r.json()).catch(() => [])
   const read = await getClient({ ...TESTNET, contractId: (await apiConfig()).contractId })
   const [n, groups] = await Promise.all([views.merchantCount(read), views.groups(read)])
   groupsMeta = groups
   const ids = Array.from({ length: n }, (_, i) => i)
   // one wave: merchants, policies, leaves, group leaves and backend reviews all at once
-  const [ms, policies, leaves, gLeaves, rlists, catalog, ledger] = await Promise.all([
+  const [ms, policies, leaves, gLeaves, rlists, catalog, ledger, store] = await Promise.all([
     Promise.all(ids.map((i) => views.merchant(read, i))),
     Promise.all(ids.map((i) => views.policy(read, i))),
     Promise.all(ids.map((i) => views.leaves(read, i))),
@@ -97,7 +102,9 @@ async function load() {
     Promise.all(ids.map((i) => fetch(`${API}/api/reviews/${i}`).then((r) => r.json()))),
     catalogP,
     ledgerP,
+    storeP,
   ])
+  storeItems = Array.isArray(store) ? store : []
   LEDGER_NOW = ledger.sequence ?? LEDGER_NOW
   const ucp = ms.find((m) => m.kind === "shop" && !catalog[m.id] && /shopify|rep store/i.test(m.name))
   if (ucp) UCP_MERCHANT = ucp.id
@@ -156,7 +163,12 @@ export function reset(opts: { sparse?: boolean } = {}) {
 const pub = (p: PlaceState) => {
   const rs = state!.reviews.get(p.mid) ?? []
   const sum = rs.reduce((a: number, r: any) => a + r.rating, 0)
-  const offers = p.catalog?.offers ?? [{ title: p.m.name, sub: "", price: Number(p.m.price) / 1e7 }]
+  const item = p.mid === UCP_MERCHANT ? storeItems[0] : null
+  const offers =
+    p.catalog?.offers ??
+    (item
+      ? [{ title: String(item.title).toLowerCase(), sub: item.storePrice ? `${Number(item.storePrice).toFixed(2)} ${String(item.storeCurrency ?? "").toLowerCase()} in the store` : "", price: Number(item.price) }]
+      : [{ title: p.m.name, sub: "", price: Number(p.m.price) / 1e7 }])
   return {
     id: toPlace(p.mid),
     name: p.m.name,
