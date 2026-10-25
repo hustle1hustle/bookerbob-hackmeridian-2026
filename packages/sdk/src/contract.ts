@@ -47,6 +47,9 @@ const CONTRACT_ERRORS: Record<number, ContractError> = {
   20: "RepHolder",
   21: "RepNonce",
   22: "RepReplay",
+  23: "BadSeason",
+  24: "NotMember",
+  25: "BadPath",
 }
 
 export const parseContractError = (e: unknown): ContractError | null => {

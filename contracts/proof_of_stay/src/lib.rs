@@ -50,6 +50,8 @@ pub enum Error {
     RepNonce = 21,
     RepReplay = 22,
     BadSeason = 23,
+    NotMember = 24,
+    BadPath = 25,
 }
 
 #[derive(Clone)]
@@ -275,6 +277,38 @@ fn load_group(env: &Env, id: u32) -> Group {
         .persistent()
         .get(&Key::Group(id))
         .unwrap_or_else(|| panic_with_error!(env, Error::GroupNotFound))
+}
+
+/// Moves a member to a new commitment in place (same index), for a user who starts over with a new identity.
+/// The root history restarts at the new root, so the old identity stops proving membership at once. Nullifiers
+/// the old identity spent stay spent. Returns the new root.
+fn move_leaf(env: &Env, gid: u32, old: &U256, new: &U256, siblings: &Vec<U256>) -> U256 {
+    if *new == U256::from_u32(env, 0) {
+        panic_with_error!(env, Error::BadLeaf);
+    }
+    require_canonical(env, new);
+    let ok = Key::GroupLeaf(gid, old.clone());
+    let index: u32 = env.storage().persistent().get(&ok).unwrap_or_else(|| panic_with_error!(env, Error::NotMember));
+    let nk = Key::GroupLeaf(gid, new.clone());
+    if env.storage().persistent().has(&nk) {
+        panic_with_error!(env, Error::DuplicateLeaf);
+    }
+    let lsk = Key::GroupLeaves(gid);
+    let mut leaves: Vec<U256> = env.storage().persistent().get(&lsk).unwrap_or(Vec::new(env));
+    leaves.set(index, new.clone());
+    let mut g = load_group(env, gid);
+    let root = g.tree.update(env, index, old, new, siblings).unwrap_or_else(|| panic_with_error!(env, Error::BadPath));
+    g.roots = Vec::from_array(env, [root.clone()]);
+    let gk = Key::Group(gid);
+    env.storage().persistent().set(&gk, &g);
+    bump_persistent(env, &gk);
+    env.storage().persistent().set(&lsk, &leaves);
+    bump_persistent(env, &lsk);
+    env.storage().persistent().remove(&ok);
+    env.storage().persistent().set(&nk, &index);
+    bump_persistent(env, &nk);
+    env.events().publish((soroban_sdk::symbol_short!("moved"), gid), (index, root.clone()));
+    root
 }
 
 /// Chain enrollment at checkout never blocks the checkout itself: a full chain group or a leaf already in it
@@ -658,6 +692,50 @@ impl ProofOfStay {
 
     pub fn is_tier_used(env: Env, jti: BytesN<16>) -> bool {
         env.storage().persistent().has(&Key::TierUsed(jti))
+    }
+
+    /// Group operator moves a member to a new commitment (a user who started over proved control of the old
+    /// identity to the operator off chain). Same index, new root, the old identity no longer proves membership.
+    /// `siblings`: the Merkle siblings of the old leaf in the current tree (Semaphore `generateMerkleProof`).
+    pub fn replace_member(env: Env, group: u32, old_commitment: U256, new_commitment: U256, siblings: Vec<U256>) -> U256 {
+        load_group(&env, group).admin.require_auth();
+        let root = move_leaf(&env, group, &old_commitment, &new_commitment, &siblings);
+        bump_instance(&env);
+        root
+    }
+
+    /// The same move without operator rights, on a move credential from the pinned tier issuer (see `tier.rs`):
+    /// it names both the old and the new commitment, so nobody can evict a leaf they did not prove control of.
+    pub fn replace_member_with_tier(
+        env: Env,
+        group: u32,
+        old_commitment: U256,
+        new_commitment: U256,
+        siblings: Vec<U256>,
+        cred: BytesN<137>,
+        sig: BytesN<64>,
+    ) -> U256 {
+        let _: TierPolicy = env
+            .storage()
+            .persistent()
+            .get(&Key::TierPolicy(group))
+            .unwrap_or_else(|| panic_with_error!(&env, Error::RepNotConfigured));
+        let c = tier::check_move(&env, group, &old_commitment, &new_commitment, &cred);
+        let key: BytesN<65> = env
+            .storage()
+            .persistent()
+            .get(&Key::TierKey(group, c.kid))
+            .unwrap_or_else(|| panic_with_error!(&env, Error::RepIssuer));
+        let uk = Key::TierUsed(c.jti.clone());
+        if env.storage().persistent().has(&uk) {
+            panic_with_error!(&env, Error::RepReplay);
+        }
+        tier::verify_bytes(&env, &key, &Bytes::from(cred), &sig);
+        env.storage().persistent().set(&uk, &true);
+        bump_persistent(&env, &uk);
+        let root = move_leaf(&env, group, &old_commitment, &new_commitment, &siblings);
+        bump_instance(&env);
+        root
     }
 
     /// A merchant joins a chain group; its future checkouts are enrolled there too. Both admins sign.

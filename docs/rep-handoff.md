@@ -97,6 +97,16 @@ the fallback.
 - An earlier version verified the full REP verdict (JWS + KB-JWT) in the contract; it worked, but would have
   published the verdict's bands and the device key, so it was replaced by this credential before going live.
 
+Start over (a user generates a new passkey and a new identity): the membership MOVES, it is never duplicated.
+`replace_member(group, old, new, siblings)` (group operator) or `replace_member_with_tier(group, old, new, siblings,
+cred, sig)` with a 137-byte move credential from the tier issuer (`"REPMOVE1" | kid | audience | old | new | iat | exp
+| jti`, signed only after the old identity proved control). `siblings` are the old leaf's Merkle siblings from
+Semaphore's `group.generateMerkleProof(index).siblings`. The contract checks they hash to the current root, swaps
+the leaf in place (same index), and restarts the group's root history at the new root, so the old identity stops
+proving membership at once. Nullifiers the old identity spent stay spent. About 29M CPU at a full group (1024).
+Errors: 24 NotMember, 4 DuplicateLeaf, 3 BadLeaf, 25 BadPath (stale siblings: re-read the leaves and retry).
+Side effect: other members' in-flight proofs against older roots must be re-made.
+
 Turn it on (testnet, after review):
 
 ```

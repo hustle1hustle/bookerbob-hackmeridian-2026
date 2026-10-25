@@ -30,6 +30,10 @@ const out = {
     attested: await claim([all[2]], { kind: "group", id: 1 }),
   },
 }
+// a user who started over: stay 2's attested membership moved to a new identity (replace_member), group 1 = [moved]
+const moved = d.stayIdentity("fixture-master-secret-2", MERCHANT, 0)
+const mp = await proveMembership(moved, [moved.commitment], msg, d.ctxScope(MERCHANT, { kind: "group", id: 1 }, SEASON, 0), artifacts)
+;(out as any).moved = { commitment: moved.commitment.toString(), claim: { proof: mp.proof, root: mp.root.toString(), nullifier: mp.nullifier.toString() } }
 writeFileSync(new URL("../circuits/golden/depth10/fixtures-groups.json", import.meta.url), JSON.stringify(out, null, 2))
 console.log("group fixtures ok")
 process.exit(0)
