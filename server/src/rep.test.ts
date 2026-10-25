@@ -435,3 +435,20 @@ test("a failed add does not spend the presentation; a tier issuer reuse falls ba
   assert.deepEqual(added, [602n])
   server.close()
 })
+
+test("operator rehearsal: a stale-evidence refusal from the tier issuer falls back to the operator key; other refusals do not", async () => {
+  await ready
+  for (const [err, ok] of [["tier issuer 403 EVIDENCE_STALE (verdict refused)", true], ["tier issuer 403 EVIDENCE_TIME_UNKNOWN (verdict refused)", true], ["tier issuer 403 REVOKED (verdict refused)", false]] as const) {
+    const added: bigint[] = []
+    const rep = createRep({ demoToken: DEMO, stateDir: mkdtempSync(join(tmpdir(), "rep-stale-")), jwks: { keys: [JWK] }, now: () => NOW * 1000, addMember: async (c) => (added.push(c), "op-tx"), addMemberWithRep: async () => { throw new Error(err) } })
+    const server = createServer((req, res) => rep.handle(req, res, new URL(req.url!, "http://x").pathname))
+    const base = await new Promise<string>((done) => server.listen(0, "127.0.0.1", () => done(`http://127.0.0.1:${(server.address() as any).port}/api/rep`)))
+    const call = async (path: string, body?: unknown) => (await fetch(`${base}${path}`, { method: "POST", headers: { "content-type": "application/json", "x-bb-demo": DEMO }, body: JSON.stringify(body ?? {}) })).status
+    await call("/session", { commitment: "701" })
+    const p = (await (await fetch(`${base}/pending`)).json()) as any
+    const v = verdict({ attestation_hash: "stale-proof-" + "d".repeat(40) })
+    assert.equal(await call("/present", { sid: p.sid, attestations: [{ jws: v, kbJwt: kb(v, p.nonce) }] }), ok ? 200 : 400, err)
+    assert.deepEqual(added, ok ? [701n] : [])
+    server.close()
+  }
+})

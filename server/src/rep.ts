@@ -199,9 +199,11 @@ export function createRep(deps: RepDeps) {
         try {
           s.txHash = await deps.addMemberWithRep(BigInt(s.commitment), a.jws, a.kbJwt, s.nonce)
         } catch (e) {
-          // The tier issuer keeps its own spent set per presentation, which the demo reset cannot clear. For the
-          // operator's own rehearsal joins only, the operator key adds the member instead.
-          if (!(s.viaOperator !== false && /already minted/i.test(String((e as Error).message)))) throw e
+          // Operator rehearsal joins only: when the tier issuer refuses for a reason that is about the demo, not the
+          // verdict (its own spent set, which the demo reset cannot clear; evidence older than its freshness ceiling),
+          // the operator key adds the member. The off-chain verdict checks above (signature, revocation, lodging
+          // tier) have already passed. Visitors keep the refusal.
+          if (!(s.viaOperator !== false && /already minted|EVIDENCE_STALE|EVIDENCE_TIME_UNKNOWN/.test(String((e as Error).message)))) throw e
           s.txHash = await deps.addMember(BigInt(s.commitment))
         }
       } else s.txHash = await deps.addMember(BigInt(s.commitment))
