@@ -56,3 +56,21 @@ Place ids: the design hardcodes 0 (hotel), 1, 3 (café) and 4 (the real shop). I
 | `config.forceError`, `sparse`, preset flows | design tooling only, not reachable on the live site | n/a |
 
 Data the design does not have a slot for: restaurants (we seed three; the design lists them as "restaurants next").
+
+## Copy: plain words, no chain jargon
+
+Visible text says "verified", "proven", "confirmed on Stellar" (only next to a transaction link), "your proof", "nobody sees who you are". Hashes, roots and transaction ids stay small and one click away. Error codes and JS keys (`NullifierUsed`, ...) are unchanged.
+
+| Where | Was | Now |
+|---|---|---|
+| index.html footer | stellar testnet · semaphore v4 | stellar testnet · proofs made on your device |
+| index.html agent step 6 (`AGL`) and pol-real `UCP_STEPS` | stellar verifies, spends the nullifier | stellar checks the proof, once |
+| pol-real `UCP_STEPS` step 6 detail | proof valid. the one-time nullifier is spent, so this discount cannot be reused. ... | proof valid. it works once, so this discount cannot be reused. ... |
+| pol-real `UCP_STEPS` step 5 detail | semaphore v4, made on this device. ... | made on this device. your secret never leaves it. |
+| index.html preset failure and pol-real failure detail | refused. this proof was spent before, so the nullifier check failed. | refused. this proof was already used, so it cannot count twice. |
+| index.html `ERR.HotelNotFound` | this place is not on chain. | this place is not listed. |
+| index.html `ERR.ReviewNotFound` | it is no longer on chain. | it is no longer listed. |
+| index.html header connect reason | to act on chain | to continue |
+| /classic `Shell.tsx` banner | every review is a real proof on chain | every review is a real, verified proof |
+| /classic `Stays.tsx` | kept in this browser only, never on chain. | kept in this browser only, never shared. |
+| /classic `PassConnect.tsx` | pass_connect · verify_onchain_zk; re-verify on-chain; on-chain activity rating | passkey · wallet check; verify again; wallet activity rating |

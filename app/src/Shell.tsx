@@ -161,7 +161,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
       <div className="app-body">
         <div className="banner">
-          <div className="wrap">demo data on Stellar testnet · fictional places · every review is a real proof on chain</div>
+          <div className="wrap">demo data on Stellar testnet · fictional places · every review is a real, verified proof</div>
         </div>
         {!address && (
           <div className="banner">

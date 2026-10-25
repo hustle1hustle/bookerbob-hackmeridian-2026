@@ -102,8 +102,8 @@ export function PassConnectPanel({ merchantId = 0, season }: { merchantId?: numb
   }
 
   return (
-    <section id="pass-connect" className="card pass-connect" aria-label="wallet connect and on-chain verify">
-      <span className="label">pass_connect · verify_onchain_zk</span>
+    <section id="pass-connect" className="card pass-connect" aria-label="wallet connect and verify">
+      <span className="label">passkey · wallet check</span>
       <h2>connect · score · attest</h2>
       <p className="muted">
         Freighter or platform passkey. on connect we read Horizon, score a basic rating, build a loyalty claim, and post a testnet attestation tx you can open on stellar.expert.
@@ -129,7 +129,7 @@ export function PassConnectPanel({ merchantId = 0, season }: { merchantId?: numb
           onClick={() => address && (lastVerified.current = null, runVerify(address))}
           disabled={phase === "inspecting" || !address}
         >
-          {phase === "inspecting" ? "scoring + attesting…" : "re-verify on-chain"}
+          {phase === "inspecting" ? "scoring + attesting…" : "verify again"}
         </button>
       </div>
       {copy && (
@@ -143,7 +143,7 @@ export function PassConnectPanel({ merchantId = 0, season }: { merchantId?: numb
             <span className="seal">loyalty claim</span>
             <span className="label">tier {claim.tier} of 5</span>
           </div>
-          <p className="claim">on-chain activity rating</p>
+          <p className="claim">wallet activity rating</p>
           <p className="band">{claim.rating} / 100</p>
           <div className="bars" aria-hidden="true">
             {[1, 2, 3, 4, 5].map((i) => (

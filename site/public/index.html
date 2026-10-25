@@ -747,7 +747,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
 <footer style="border-top:1px solid var(--rule)">
   <div style="max-width:1360px;margin:0 auto;padding:24px clamp(16px,4vw,48px) 36px;display:flex;flex-wrap:wrap;gap:8px 28px;font-family:var(--mono);font-size:11px;color:var(--ink-3)">
     <span style="color:var(--ink)">BookerBob · proof of loyalty</span>
-    <span>stellar testnet · semaphore v4</span>
+    <span>stellar testnet · proofs made on your device</span>
     <span style="flex:1 1 0"></span>
     <span>hackmeridian 2026</span>
   </div>
@@ -846,14 +846,14 @@ class Component extends DCLogic {
     ag: null,
   };
   mx = 0;
-  AGL = ['find the store', 'add the t-shirt', 'claim returning customer', 'store offers 10% off, pending', 'make the proof, locally', 'stellar verifies, spends the nullifier', 'discount confirmed', 'pay in usdc', 'order paid in the shopify admin', 'join the customer group'];
+  AGL = ['find the store', 'add the t-shirt', 'claim returning customer', 'store offers 10% off, pending', 'make the proof, locally', 'stellar checks the proof, once', 'discount confirmed', 'pay in usdc', 'order paid in the shopify admin', 'join the customer group'];
   ERR = {
-    HotelNotFound: { h: 'this place is not on chain.', b: 'nothing was posted, nothing was charged.', r: 'back to explore', k: 'home' },
+    HotelNotFound: { h: 'this place is not listed.', b: 'nothing was posted, nothing was charged.', r: 'back to explore', k: 'home' },
     UnknownRoot: { h: 'the place moved on.', b: 'this proof is for an older state of the place. refresh and retry.', r: 'refresh and retry', k: 'retry' },
     NonCanonical: { h: 'the proof did not check out.', b: 'nothing was posted, nothing was charged.', r: 'retry', k: 'retry' },
     InvalidProof: { h: 'the proof did not check out.', b: 'nothing was posted, nothing was charged.', r: 'retry', k: 'retry' },
     BadRating: { h: 'ratings run from 1 to 5.', b: 'pick a number and post again.', r: 'edit the review', k: 'edit' },
-    ReviewNotFound: { h: 'that review is gone.', b: 'it is no longer on chain.', r: 'close', k: 'close' },
+    ReviewNotFound: { h: 'that review is gone.', b: 'it is no longer listed.', r: 'close', k: 'close' },
     DuplicateLeaf: { h: 'already checked in.', b: 'this guest is already in the group.' },
     TreeFull: { h: 'the group is full.', b: 'a new season opens a fresh one.' },
     BadParams: { h: 'that did not look right.', b: 'nothing was sent. check it and try again.' },
@@ -1088,7 +1088,7 @@ class Component extends DCLogic {
       theme, themeAria: theme === 'dark' ? 'switch to light' : 'switch to dark', toggleTheme: () => this.setState({ theme: theme === 'dark' ? 'light' : 'dark' }),
       roles: [['guest', 'guest'], ['merchant', 'merchant'], ['arbiter', 'arbiter']].map(([k, label]) => ({ label, active: role === k, bg: role === k ? 'var(--ink)' : 'transparent', fg: role === k ? 'var(--bg)' : 'var(--ink)', onClick: () => this.setRole(k) })),
       connected, readOnly: !connected, walletMethod: s.wallet ? s.wallet.method : '',
-      openConnect: () => this.requireWallet('to act on chain', () => {}), disconnect: () => { if (this.m) this.m.wallet.disconnect(); this.setState({ wallet: null }); },
+      openConnect: () => this.requireWallet('to continue', () => {}), disconnect: () => { if (this.m) this.m.wallet.disconnect(); this.setState({ wallet: null }); },
       goHome: this.goHome, goPasses: this.goPasses, goAgent: this.goAgent,
       isGuest: role === 'guest', isMerchant: role === 'merchant', isArbiter: role === 'arbiter',
       vHome: role === 'guest' && s.view === 'home', vPlace: role === 'guest' && s.view === 'place', vPasses: role === 'guest' && s.view === 'passes', vReview: role === 'guest' && s.view === 'review', vAgent: role === 'guest' && s.view === 'agent',
@@ -1502,7 +1502,7 @@ class Component extends DCLogic {
     const U = this.m.UCP_STEPS, ag = this.agBlank(), pay = this.hex(64);
     ag.steps = U.map((u, i) => ({
       label: u.label, status: failed ? (i < 5 ? 'done' : i < 7 ? 'failed' : 'pending') : 'done',
-      detail: failed ? (i < 5 ? u.detail : i === 5 ? 'refused. this proof was spent before, so the nullifier check failed.' : i === 6 ? u.failDetail : '') : u.detail,
+      detail: failed ? (i < 5 ? u.detail : i === 5 ? 'refused. this proof was already used, so it cannot count twice.' : i === 6 ? u.failDetail : '') : u.detail,
       tx: !failed && i === 5 ? this.hex(64) : !failed && i === 7 ? pay : null,
     }));
     ag.phase = failed ? 'failed' : 'done'; ag.error = failed ? 'NullifierUsed' : null; ag.open = failed ? { 5: true } : {};

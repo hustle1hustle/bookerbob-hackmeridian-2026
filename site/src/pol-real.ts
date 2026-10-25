@@ -438,8 +438,8 @@ export const UCP_STEPS = [
   { label: "add the t-shirt to the cart", detail: "" },
   { label: "claim returning customer", detail: "proof_of_loyalty extension · group: returning customer. no name, no email sent." },
   { label: "store offers 10% off, pending", detail: "" },
-  { label: "make the proof, locally", detail: "semaphore v4, made on this device. your secret never leaves it." },
-  { label: "stellar verifies, spends the nullifier", detail: "proof valid. the one-time nullifier is spent, so this discount cannot be reused. the store learns nothing about who." },
+  { label: "make the proof, locally", detail: "made on this device. your secret never leaves it." },
+  { label: "stellar checks the proof, once", detail: "proof valid. it works once, so this discount cannot be reused. the store learns nothing about who." },
   { label: "discount confirmed", detail: "", failDetail: "discount removed. checkout cannot complete with this claim." },
   { label: "pay in usdc on stellar", detail: "" },
   { label: "order paid in the shopify admin", detail: "" },
@@ -501,7 +501,7 @@ async function* ucpRun(reuse: boolean): AsyncGenerator<any> {
     const pr = await bpost("/buy/prove", { checkoutId: st.checkoutId, payer, root: mp.root.toString(), nullifier: mp.nullifier.toString(), proof: mp.proof })
     if (pr.error || !pr.verified) {
       const error = String(pr.code ?? pr.error ?? "InvalidProof")
-      yield step(5, "failed", { error, detail: /Nullifier|#6/.test(error) ? "refused. this proof was spent before, so the nullifier check failed." : "refused. the proof did not check out, so the discount was never real." })
+      yield step(5, "failed", { error, detail: /Nullifier|#6/.test(error) ? "refused. this proof was already used, so it cannot count twice." : "refused. the proof did not check out, so the discount was never real." })
       cart.discounts[0].removed = true
       cart.total = Number(item.price)
       yield snap()
