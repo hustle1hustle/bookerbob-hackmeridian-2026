@@ -53,7 +53,16 @@ export class PayerService {
     r()
   }
   async open(fresh: string): Promise<string> {
-    await this.take(fresh)
+    // bounded wait for the sponsor: a clear, retryable error instead of a proxy timeout
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const taking = this.take(fresh)
+    const got = await Promise.race([taking.then(() => true), new Promise<boolean>((r) => (timer = setTimeout(() => r(false), 25_000)))])
+    clearTimeout(timer)
+    if (!got) {
+      // our queued turn still comes later; give it straight back when it does
+      void taking.then(() => this.free(fresh))
+      throw new Error("Busy: another booking is being set up, retry in a few seconds")
+    }
     try {
       return await this.openNow(fresh)
     } catch (e) {

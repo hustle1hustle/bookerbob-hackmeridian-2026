@@ -149,7 +149,7 @@ export function PassConnectPanel({ merchantId = 0, season }: { merchantId?: numb
       const r = await verifyOnConnect(addr, {
         merchantId,
         season: seasonVal,
-        attest: !alreadyAttested,
+        attest: false, // public attest off (privacy); the wallet tier joins group 2 privately
         proveScore: true,
         passportProxyBase: "",
       })

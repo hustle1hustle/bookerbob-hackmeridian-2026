@@ -1186,6 +1186,8 @@ export const loyalty = {
         loyaltyState = { status: "ready", address: addr, ...view }
         writeLoyaltyCache(addr, view)
         try {
+          // the public attest is off unless the backend enables it (privacy; it also raced the booking sponsor)
+          if (!(await apiConfig()).loyaltyAttest) return loyaltyState
           const digest = await claimDigest(claim)
           const attest = await attestLoyaltyClaim(claim, { apiBase: API, digest })
           view = {

@@ -162,7 +162,7 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
     const sn = await snapshot()
     const demo = sn.merchants.filter((x) => ops.keys.merchantAdmins.has(x.admin)).map((x) => x.id)
     configStatic ??= { usdc: await views.usdc(read), arbiter: await views.arbiter(read) }
-    return json(res, 200, { contractId: CONTRACT, rpcUrl: net.rpcUrl, networkPassphrase: net.networkPassphrase, demoMerchants: demo, usdc: configStatic.usdc, usdcIssuer: ops.keys.usdcIssuer?.publicKey(), arbiter: configStatic.arbiter })
+    return json(res, 200, { contractId: CONTRACT, rpcUrl: net.rpcUrl, networkPassphrase: net.networkPassphrase, demoMerchants: demo, usdc: configStatic.usdc, usdcIssuer: ops.keys.usdcIssuer?.publicKey(), arbiter: configStatic.arbiter, loyaltyAttest: process.env.LOYALTY_ATTEST === "1" })
   }
   if (req.method === "GET" && (m = path.match(/^\/api\/reviews\/(\d+)$/))) {
     const rs = await views.reviews(read, Number(m[1]))
@@ -341,6 +341,9 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
       return fail(res, { error: b.address.startsWith("G") ? "NoTrustline" : "Unknown", message: String(e).slice(0, 200) })
     }
   }
+  // Public wallet+tier attest is OFF by default (LOYALTY_ATTEST=1 enables it): it links a wallet to its tier in public,
+  // and it raced the fresh-payer sponsor. The wallet tier still works privately through group 2.
+  if (path === "/api/loyalty/attest" && process.env.LOYALTY_ATTEST !== "1") return json(res, 404, { error: "Disabled", message: "public loyalty attest is off" })
   if (path === "/api/loyalty/attest") {
     const ok =
       typeof b.address === "string" &&
