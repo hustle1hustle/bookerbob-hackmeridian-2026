@@ -8,7 +8,7 @@ import { createSdk, isErr, formatUsdc } from "../packages/sdk/src/index.ts"
 const mem = new Map<string, string>()
 const storage = { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => void mem.set(k, v), removeItem: (k: string) => void mem.delete(k) }
 const sdk = createSdk({ mode: "testnet", testnet: { apiUrl: process.env.API ?? "http://localhost:8080", storage } })
-const MERCHANT = Number(process.env.MERCHANT ?? 0)
+const MERCHANT = Number(process.env.MERCHANT ?? 4)
 const log = (...a: unknown[]) => console.log(new Date().toISOString().slice(11, 19), ...a)
 const ok = <T>(label: string, r: any): T => {
   if (isErr(r)) throw new Error(`${label}: ${r.error} ${r.message ?? ""}`)
@@ -58,5 +58,14 @@ ok("attest (demo arbiter)", await sdk.chain.attest(pkg.reviewId))
 const reviews = await sdk.chain.getReviews(MERCHANT)
 const mine = reviews.find((r) => r.id === pkg.reviewId)!
 assert.ok(mine.verified && mine.text?.startsWith("e2e review"))
+// context perks: the stay above was also enrolled in the chain group (its place joined the network),
+// so a place this guest never visited prices the network perk; one stacked booking
+const OTHER = Number(process.env.OTHER ?? 1)
+const perks = await sdk.chain.perks(OTHER)
+log("perks at", OTHER, JSON.stringify(perks, (_, v) => (typeof v === "bigint" ? formatUsdc(v) : v)))
+if (perks && perks.bps > 0) {
+  const ctx = ok<any>("book with perks", await sdk.chain.bookWithPerks(OTHER, 7))
+  log("paid", formatUsdc(ctx.paid), "saved", formatUsdc(ctx.saved), "bps", ctx.bps)
+}
 log("E2E OK", { reviewId: mine.id, verified: mine.verified })
 process.exit(0)

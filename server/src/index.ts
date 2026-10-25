@@ -6,6 +6,7 @@
 //   POST /api/faucet                       mints test USDC to an address
 //   GET  /api/disputes  POST /api/disputes  dispute packages for the arbiter
 //   POST /api/attest                       demo arbiter: checks the disclosure, then attest_review
+//   POST /api/context/attest               context provider hook (stub)
 import { contractId } from "../../packages/sdk/src/deployment.ts"
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
 import { readFileSync, existsSync, statSync } from "node:fs"
@@ -90,6 +91,10 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
   if (limited(req)) return json(res, 429, { error: "RateLimited" })
   const b = await body(req)
 
+  // Context provider hook (docs/context-providers.md): a provider verifies its own evidence, then add_member.
+  if (path === "/api/context/attest") {
+    return json(res, 501, { error: "NotImplemented", message: "context provider attestation is not wired yet; see docs/context-providers.md" })
+  }
   if (path === "/api/review") {
     const ok = isInt(b.merchant) && isInt(b.rating) && typeof b.text === "string" && b.text.length <= 1000 && isHex(b.disclosureCommit, 64) && isDec(b.root) && isDec(b.nullifier) && b.proof && isHex(b.proof.a, 128) && isHex(b.proof.b, 256) && isHex(b.proof.c, 128)
     if (!ok) return fail(res, { error: "BadParams" })
