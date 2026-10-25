@@ -10,6 +10,7 @@ import { Empty, Loading } from "../ui"
 import { PlaceCard, PlaceList } from "../views/places"
 import { AskBob, BobPick, Hero } from "../views/bob"
 import { Explainer } from "../views/explainer"
+import { PassConnectPanel } from "../views/PassConnect"
 
 const usdc = (p: Place) => Number(p.price) / 10 ** USDC_DECIMALS
 const examples = ["hotel under 120", "cafe", "shop under 50"]
@@ -100,6 +101,7 @@ export function PlacesScreen() {
           />
         </section>
       )}
+      <PassConnectPanel merchantId={data?.[0]?.id ?? 0} />
       <div className="section">
         <Explainer compact />
       </div>

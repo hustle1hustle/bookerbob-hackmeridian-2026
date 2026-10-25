@@ -7,6 +7,11 @@ export { createMockSdk } from "./mock.ts"
 export type { MockOptions } from "./mock.ts"
 export { fixtureMerchants, fixtureReviews } from "./fixtures.ts"
 
+/** Passkey connect module (WebAuthn → Stellar session). */
+export * as pass_connect from "../../pass_connect/src/index.ts"
+/** On-chain inspect + rating + loyalty ZK claim for discounts. */
+export * as verify_onchain_zk from "../../verify_onchain_zk/src/index.ts"
+
 import type { Sdk } from "./types.ts"
 import { createMockSdk, type MockOptions } from "./mock.ts"
 import { createTestnetSdk, type TestnetOptions } from "./testnet.ts"

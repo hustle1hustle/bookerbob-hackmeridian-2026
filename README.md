@@ -117,10 +117,12 @@ The contract is merchant-generic: a merchant of any `kind` (hotel, café, shop, 
 contracts/proof_of_stay   Soroban contract: verifier, Poseidon LeanIMT, reviews, discounts, attestations, tests
 circuits/golden           golden Semaphore v4 test vectors (proof, public signals, vkey, contract fixtures)
 packages/sdk              TypeScript SDK: chain / prover / wallet bind points, mock and testnet implementations
+packages/pass_connect     Passkey (WebAuthn) → Stellar session — docs/modules/pass_connect.md
+packages/verify_onchain_zk  Wallet inspect + rating + loyalty ZK claim — docs/modules/verify_onchain_zk.md
 server                    BookerBob backend: demo desk, review relayer, demo arbiter, test USDC faucet, static app
 app                       web app (guest / place / arbiter)
 scripts                   deploy, golden proof gate, seed, end-to-end test, benchmark
-docs                      verification log, testnet record, benchmarks, design handoff, AI usage
+docs                      verification log, testnet record, benchmarks, design handoff, AI usage, modules/
 ```
 
 ## Setup

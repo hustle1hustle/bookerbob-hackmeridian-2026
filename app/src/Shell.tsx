@@ -107,8 +107,8 @@ export function ConnectButton() {
       <button type="button" className="secondary" onClick={() => connect("freighter")} disabled={busy}>
         {busy && st.kind === "freighter" ? "waiting for Freighter" : "Freighter"}
       </button>
-      <button type="button" className="secondary" disabled title="coming soon">
-        passkey
+      <button type="button" className="secondary" onClick={() => connect("passkey")} disabled={busy}>
+        {busy && st.kind === "passkey" ? "waiting for passkey…" : "passkey"}
       </button>
       {!busy && (
         <button type="button" className="secondary" onClick={() => setSt({ status: "idle" })}>

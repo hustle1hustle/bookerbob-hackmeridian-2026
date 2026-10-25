@@ -36,6 +36,7 @@ export function createMockSdk(opts: MockOptions = {}): Sdk {
       return kind
     },
     async connect(k: WalletKind = "passkey") {
+      // mock: all kinds succeed with a fixed demo address; passkey is first-class in UI
       await sleep(400)
       address = "GD7BGIJFPGQROLTO3TNWZG4Q4H4EDDSL6XZ2ENPKVGMBYEUJA6FDPWG4"
       kind = k
