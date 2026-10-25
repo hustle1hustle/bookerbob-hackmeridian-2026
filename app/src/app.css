@@ -239,6 +239,16 @@ main.app-main {
 .pass-connect .score-rubric li {
   margin: 6px 0;
 }
+.loyalty-tier-chip {
+  text-decoration: none;
+  white-space: nowrap;
+}
+.wallet-score-hint {
+  margin-top: 4px;
+}
+.wallet-score-hint p {
+  margin: 6px 0;
+}
 
 .site-foot {
   margin-top: auto;

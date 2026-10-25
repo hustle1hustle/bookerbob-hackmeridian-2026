@@ -5,6 +5,7 @@ import { errorCopy, formatUsdc, type WalletKind } from "@bookerbob/pos-sdk"
 import { useWriteFlow } from "./flows"
 import { faucet, sdk } from "./sdk"
 import { useAsync, useRoute, useWallet, type Role } from "./store"
+import { LoyaltyTierChip } from "./views/LoyaltyChip"
 
 const roles: { id: Role; label: string; to: string }[] = [
   { id: "guest", label: "Guest", to: "#/" },
@@ -153,6 +154,7 @@ export function Shell({ children }: { children: ReactNode }) {
             </a>
             <div className="head-actions">
               <RoleSwitcher role={role} />
+              <LoyaltyTierChip />
               <ConnectButton />
             </div>
           </header>

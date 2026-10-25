@@ -159,11 +159,11 @@ Nullifier is unique per (identity, scope) — one loyalty proof per season per s
 | Surface | What to show |
 |---|---|
 | **`#pass-connect` (primary)** | Tier ladder 5→1, score rubric `<details>`, attest tx link, ZK nullifier |
-| Ask Bob header (after connect) | Small **tier N** chip linking to `#pass-connect` |
-| Place / Buy | Discount hint from `claim.discountHintBps` once claim exists |
+| Ask Bob header (after connect) | `LoyaltyTierChip` — **tier N** (+ zk) → `#pass-connect` |
+| Place / Buy | `WalletScoreHint` — `discountHintBps` clamped to place; stay-proof discount stays separate |
 | Agent handoff | Pass `claim` + `proved.publicSignals` JSON — do not put secrets on chain |
 
-Home card auto-runs `verifyOnConnect` on Freighter/passkey connect.
+Home card auto-runs `verifyOnConnect` on Freighter/passkey connect. Cache key: `bookerbob.loyalty.v2.{season}.{addr}` (`app/src/loyaltyClaim.ts`).
 
 ## Tests
 

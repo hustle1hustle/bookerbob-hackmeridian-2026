@@ -1,6 +1,7 @@
 // Presentational + thin wiring: passkey / Freighter → score + attest + ZK score proof.
 import { useEffect, useRef, useState } from "react"
 import { errorCopy, type WalletKind } from "@bookerbob/pos-sdk"
+import { loyaltyCacheKey, loyaltySeason, readLoyaltyClaim } from "../loyaltyClaim"
 import { sdk } from "../sdk"
 import { useWallet } from "../store"
 import { TxLink } from "../ui"
@@ -25,21 +26,15 @@ type ClaimView = {
   } | null
 }
 
-const seasonNow = () => new Date().getUTCFullYear() * 100 + (new Date().getUTCMonth() + 1)
-const cacheKey = (addr: string, season: number) => `bookerbob.loyalty.v2.${season}.${addr}`
+const seasonNow = loyaltySeason
 
 function loadCache(addr: string, season: number): ClaimView | null {
-  try {
-    const raw = localStorage.getItem(cacheKey(addr, season))
-    return raw ? (JSON.parse(raw) as ClaimView) : null
-  } catch {
-    return null
-  }
+  return readLoyaltyClaim(addr, season) as ClaimView | null
 }
 
 function saveCache(addr: string, season: number, claim: ClaimView) {
   try {
-    localStorage.setItem(cacheKey(addr, season), JSON.stringify(claim))
+    localStorage.setItem(loyaltyCacheKey(addr, season), JSON.stringify(claim))
   } catch {
     /* quota */
   }

@@ -7,6 +7,7 @@ import { ConnectButton, FaucetButton } from "../Shell"
 import { useAsync } from "../store"
 import { Empty, Loading, Note } from "../ui"
 import { BuyTimeline, Cart } from "../views/askbob"
+import { WalletScoreHint } from "../views/LoyaltyChip"
 
 export function BuyScreen({ merchantId, query }: { merchantId: number; query: string }) {
   const place = useAsync(() => getPlace(merchantId), [merchantId])
@@ -60,7 +61,12 @@ export function BuyScreen({ merchantId, query }: { merchantId: number; query: st
           )}
           {running && <p className="small muted" role="status">bob is working</p>}
         </section>
-        <Cart title={place.data.name} perks={st.perks} listPrice={place.data.price} result={st.result} />
+        <div>
+          <Cart title={place.data.name} perks={st.perks} listPrice={place.data.price} result={st.result} />
+          <div className="card section" style={{ marginTop: 12 }}>
+            <WalletScoreHint merchantDiscountBps={place.data.discountBps} />
+          </div>
+        </div>
       </div>
     </>
   )
