@@ -13,7 +13,9 @@
  * + attest tx land in one shot. Discount wiring (next module): clamp bps + nullifier
  * into book_with_discount. This module does not call the merchant contract itself.
  */
-import type { Identity } from "@semaphore-protocol/identity"
+import { Identity } from "@semaphore-protocol/identity"
+import { keccak256 } from "ethers/crypto"
+import { concat, toBeHex, toUtf8Bytes } from "ethers/utils"
 import {
   loadArtifacts,
   proveMembership,
@@ -141,8 +143,15 @@ export interface VerifyOnConnectOptions extends VerifyOptions {
   apiBase?: string
   /** Post /api/loyalty/attest so there is a clickable testnet tx. Default true. */
   attest?: boolean
-  /** Optional Semaphore prove (needs identity already in leaves). */
+  /**
+   * Issue a Groth16 score proof after the claim (default true).
+   * Uses a wallet-season loyalty identity in a one-leaf tree unless `prove.leaves` is provided
+   * (real group membership after checkout / context enroll).
+   */
+  proveScore?: boolean
+  /** Override identity/leaves/artifacts for the score proof. */
   prove?: Omit<ProveLoyaltyInput, "claim">
+  artifactsUrl?: string
 }
 
 export interface VerifyOnConnectResult {
@@ -152,7 +161,26 @@ export interface VerifyOnConnectResult {
   digest: string
   attest: LoyaltyAttest | null
   proved: ProveLoyaltyResult | null
+  /** How the score proof was built (null if proveScore was off / failed). */
+  proofMode: "group" | "self" | null
 }
+
+/** Transparent rubric shown in UI / docs. Caps sum to 100 (Horizon) + Passport bonus (then clamp). */
+export const SCORE_RUBRIC = {
+  horizon: [
+    { id: "age", label: "account age (~1y → full)", cap: 40 },
+    { id: "ops", label: "log10(1 + ops scored)", cap: 35 },
+    { id: "pays", label: "log10(1 + payment ops)", cap: 25 },
+  ],
+  passportCap: 20,
+  tiers: [
+    { tier: 5 as const, min: 85 },
+    { tier: 4 as const, min: 70 },
+    { tier: 3 as const, min: 50 },
+    { tier: 2 as const, min: 30 },
+    { tier: 1 as const, min: 0 },
+  ],
+} as const
 
 const DEFAULT_HORIZON = "https://horizon-testnet.stellar.org"
 
@@ -471,6 +499,15 @@ function encodeScope(claim: LoyaltyClaim): bigint {
 }
 
 /**
+ * Deterministic Semaphore identity for a wallet + season (same G… → same commitment all season).
+ * Not the hotel stay identity — dedicated to loyalty/score proofs.
+ */
+export function loyaltyIdentity(address: string, season: number): Identity {
+  const secret = keccak256(concat([toUtf8Bytes("pos/loyalty/id"), toUtf8Bytes(address), toBeHex(season, 4)]))
+  return new Identity(secret)
+}
+
+/**
  * Issue a Groth16 membership proof for the loyalty claim on the Stellar/Semaphore stack.
  * Requires the identity to already be a leaf in `leaves` (checkout / context group insert).
  */
@@ -486,6 +523,37 @@ export async function proveLoyaltyClaim(input: ProveLoyaltyInput): Promise<Prove
     message,
     scope,
   }
+}
+
+/**
+ * Score proof for connect-time UX.
+ * Default: one-leaf tree (self-membership) — binds rating|tier|address into the circuit message
+ * with a real Groth16 proof on the same stack as Proof of Stay. Pass `leaves` from an enrolled
+ * context/merchant group for a real anonymity set.
+ */
+export async function issueScoreProof(
+  claim: LoyaltyClaim,
+  opts: {
+    identity?: Identity
+    leaves?: bigint[]
+    artifacts?: Artifacts
+    artifactsUrl?: string
+  } = {},
+): Promise<{ proved: ProveLoyaltyResult; proofMode: "group" | "self" }> {
+  const identity = opts.identity ?? loyaltyIdentity(claim.address, claim.season)
+  const groupLeaves = opts.leaves && opts.leaves.length > 0
+  const leaves = groupLeaves ? opts.leaves! : [identity.commitment]
+  if (!leaves.some((l) => l === identity.commitment)) {
+    throw new Error("loyalty identity is not in the provided leaves")
+  }
+  const proved = await proveLoyaltyClaim({
+    claim,
+    identity,
+    leaves,
+    artifacts: opts.artifacts,
+    artifactsUrl: opts.artifactsUrl,
+  })
+  return { proved, proofMode: groupLeaves && leaves.length > 1 ? "group" : "self" }
 }
 
 /** Convenience: inspect → claim in one call. Horizon only — no write tx. */
@@ -546,7 +614,7 @@ export async function attestLoyaltyClaim(
 }
 
 /**
- * Connect-time pipeline: Horizon score → claim → optional attest tx → optional ZK prove.
+ * Connect-time pipeline: Horizon (+Passport) score → claim → attest tx → ZK score proof.
  * Use after Freighter, passkey, or local wallet connect.
  */
 export async function verifyOnConnect(address: string, opts: VerifyOnConnectOptions = {}): Promise<VerifyOnConnectResult> {
@@ -559,10 +627,22 @@ export async function verifyOnConnect(address: string, opts: VerifyOnConnectOpti
     attest = await attestLoyaltyClaim(claim, { apiBase: opts.apiBase, fetch: opts.fetch, digest })
   }
   let proved: ProveLoyaltyResult | null = null
+  let proofMode: VerifyOnConnectResult["proofMode"] = null
   if (opts.prove) {
     proved = await proveLoyaltyClaim({ ...opts.prove, claim })
+    proofMode = opts.prove.leaves && opts.prove.leaves.length > 1 ? "group" : "self"
+  } else if (opts.proveScore !== false) {
+    try {
+      const r = await issueScoreProof(claim, { artifactsUrl: opts.artifactsUrl })
+      proved = r.proved
+      proofMode = r.proofMode
+    } catch {
+      // Artifacts / snark failure must not break connect — claim + attest still stand.
+      proved = null
+      proofMode = null
+    }
   }
-  return { inspect, claim, digest, attest, proved }
+  return { inspect, claim, digest, attest, proved, proofMode }
 }
 
 export { semaphoreHash, loadArtifacts }

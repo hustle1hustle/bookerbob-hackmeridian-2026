@@ -221,6 +221,24 @@ main.app-main {
 .pass-connect .verified-score .band {
   margin-top: 14px;
 }
+.pass-connect .score-rubric {
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.pass-connect .score-rubric summary {
+  cursor: pointer;
+  font-family: var(--mono, ui-monospace, Menlo, monospace);
+  font-size: 12px;
+  color: var(--ink);
+}
+.pass-connect .score-rubric ul {
+  margin: 10px 0 0;
+  padding-left: 18px;
+}
+.pass-connect .score-rubric li {
+  margin: 6px 0;
+}
 
 .site-foot {
   margin-top: auto;
