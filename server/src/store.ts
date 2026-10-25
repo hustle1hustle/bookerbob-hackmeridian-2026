@@ -4,7 +4,7 @@ import { join } from "node:path"
 import type { DisclosurePackage } from "@bookerbob/pos-sdk"
 
 export interface ReviewMeta { text: string; txHash: string; time: number; demoActivity?: boolean }
-export interface Dispute { id: number; merchant: number; pkg: DisclosurePackage; openedAt: number; attestTx?: string }
+export interface Dispute { id: number; merchant: number; pkg?: DisclosurePackage; openedAt: number; attestTx?: string; openedBy?: "merchant" | "guest" }
 interface Db { reviews: Record<string, ReviewMeta>; disputes: Dispute[] }
 
 const empty = (): Db => ({ reviews: {}, disputes: [] })
@@ -36,8 +36,18 @@ export class Store {
     return [...byId.values()]
   }
   openDispute(pkg: DisclosurePackage): Dispute {
-    const d = { id: pkg.reviewId, merchant: pkg.merchant, pkg, openedAt: Date.now() }
+    const prev = this.disputes().find((x) => x.id === pkg.reviewId)
+    const d: Dispute = { id: pkg.reviewId, merchant: pkg.merchant, pkg, openedAt: prev?.openedAt ?? Date.now(), openedBy: prev?.openedBy ?? "guest" }
     this.live.disputes = this.live.disputes.filter((x) => x.id !== d.id).concat(d)
+    this.save()
+    return d
+  }
+  /** A merchant disputes a review; it waits for the guest's disclosure. */
+  openAwaiting(id: number, merchant: number): Dispute {
+    const prev = this.disputes().find((x) => x.id === id)
+    if (prev) return prev
+    const d: Dispute = { id, merchant, openedAt: Date.now(), openedBy: "merchant" }
+    this.live.disputes = this.live.disputes.concat(d)
     this.save()
     return d
   }
