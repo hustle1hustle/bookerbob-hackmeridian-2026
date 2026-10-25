@@ -1162,7 +1162,7 @@ class Component extends DCLogic {
       kind: P.kind, name: P.name, area: P.area.toLowerCase(), note: P.note, isReal: !!P.real,
       isHotel: hotel, isShop: P.kind === 'shop', isCafe: P.kind === 'café', offerTitle: { hotel: 'rooms', shop: 'the product', 'café': 'menu' }[P.kind] || '',
       hasScore: P.review_count > 0, noScore: !P.review_count, score: this.score(P) || '', reviewCount: P.review_count ? `${P.review_count} proven · ${P.verified_count} verified` : 'none yet',
-      groupSize: String(P.group_size), groupWord: this.groupWord(P, P.group_size), groupAria: `${P.group_size} of 32`, noun: this.noun(P), cap: '−' + c.pol.max_bps / 100 + '%',
+      groupSize: String(P.group_size), groupWord: this.groupWord(P, P.group_size), groupAria: `${P.group_size} of ${(this.m && this.m.TREE_CAP) || 32}`, noun: this.noun(P), cap: '−' + c.pol.max_bps / 100 + '%',
       noReviewsText: P.real ? 'real purchases only, so the first one will be real too.' : 'the first one will carry a proof.',
       verbTitle: { book: 'book', buy: 'buy', order: 'order' }[v],
     };
@@ -1333,7 +1333,7 @@ class Component extends DCLogic {
         input: dk.input, scanning: dk.scanning, scanLabel: dk.scanning ? 'stop' : 'scan qr',
         canSubmit: dk.phase !== 'submitting', submitting: dk.phase === 'submitting', success: dk.phase === 'success', notSuccess: dk.phase !== 'success', error: dk.phase === 'error',
         errHead: dErr ? dErr.h : '', errBody: dErr ? dErr.b : '', leafIdx: newIdx >= 0 ? String(newIdx + 1) : '',
-        root: P0 ? this.short(P0.roots[P0.roots.length - 1], 8, 6) : '', txUrl: dTx ? dTx.url : '', treeLabel: P0 ? `${P0.group_size} of 32` : '',
+        root: P0 ? this.short(P0.roots[P0.roots.length - 1], 8, 6) : '', txUrl: dTx ? dTx.url : '', treeLabel: P0 ? `${P0.group_size} of ${(this.m && this.m.TREE_CAP) || 32}` : '',
       },
       leaves: Array.from({ length: 32 }, (_, i) => { const f = P0 && i < P0.group_size, nw = i === newIdx; return { bg: nw ? 'var(--accent)' : f ? 'var(--ink)' : 'transparent', bd: nw ? 'var(--accent)' : f ? 'var(--ink)' : 'var(--rule-soft)' }; }),
       onDeskInput: e => this.setDesk({ input: e.target.value, detected: false }), deskScan: this.deskScan,
@@ -1379,7 +1379,7 @@ class Component extends DCLogic {
     const sd = s.disputes.find(x => x.id === ar.sel), sr = sd ? (s.reviews[sd.hotel] || []).find(x => x.id === sd.reviewId) : null, pk = sd && sd.package;
     const ad = {
       has: !!sd, awaiting: !!sd && sd.status === 'awaiting', hasPkg: !!pk, stars: this.stars(sr ? sr.rating : 0), aria: sr ? sr.rating + ' of 5' : '', text: sr ? (s.texts[sr.content_hash] || 'text unavailable') : '',
-      secret: pk ? (ar.reveal ? this.short(pk.secret, 10, 6) : '••••••••') : '', sig: pk ? this.short(pk.signature, 6, 4) : '', leaf: pk ? String(pk.leafIndex) : '', revealLabel: ar.reveal ? 'hide' : 'reveal',
+      secret: pk ? (ar.reveal ? (String(pk.secret).startsWith('0x') ? this.short(pk.secret, 10, 6) : pk.secret) : '••••••••') : '', sig: pk ? (String(pk.signature).startsWith('0x') ? this.short(pk.signature, 6, 4) : pk.signature) : '', leaf: pk ? String(pk.leafIndex) : '', revealLabel: ar.reveal ? 'hide' : 'reveal',
     };
     const attested = !!sd && sd.status === 'attested', chk = attested ? ['ok', 'ok', 'ok'] : ar.checks;
     const checks = ['commitment matches', 'signature valid', 'leaf in the group'].map((label, i) => ({ label, status: { wait: '', active: 'checking', ok: 'pass ✓', fail: 'fail' }[chk[i]], color: chk[i] === 'active' ? 'var(--accent)' : chk[i] === 'fail' ? 'var(--warn)' : 'var(--ink)', labelColor: chk[i] === 'wait' ? 'var(--ink-3)' : 'var(--ink)' }));

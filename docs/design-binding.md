@@ -10,6 +10,8 @@ The Claude Design deliverable `Proof of Loyalty v2.dc.html` is served byte-exact
 6. the place picker shows a "connect REP for +5%" link under an unearned verified-traveler perk, which opens the popover at REP.
 7. a review whose transaction hash is unknown shows a plain "proven stay" badge instead of a link to `/tx/null`.
 8. **no zeros before data**: until the component is `ready` (places loaded), the kind counts in the hero and the category tabs and the "my passes" count render empty instead of 0, and the ranking shows one line in the design's rank-line style, "reading the proven reviews". After the load, real counts, and an empty state only when there is truly nothing.
+9. the customer-group label reads "N of 1024" (the real tree capacity, pol-real `TREE_CAP`) instead of the hardcoded "of 32"; the 32-cell grid stays as drawn.
+10. the arbiter's package fields that are words ("held by the arbiter") are shown as they are, not cut like a hash.
 
 Sources and what they read:
 

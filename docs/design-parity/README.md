@@ -34,3 +34,20 @@ Verdict per diff: **data** = the real data differs (expected), **craft** = the l
 1. **`/api/cosign` rejects every server-priced cart (blocking).** The browser's stellar-sdk signs auth entries with a `soroban_authorization_with_address` preimage, while `server/src/catalog.ts` `cosign()` (line 53) reads only `soroban_authorization` / `sorobanAuthorization`, so `fn` is undefined and it throws BadParams. Fix: `const auth = plain.soroban_authorization ?? plain.sorobanAuthorization ?? plain.soroban_authorization_with_address`. Affected: hotel bookings over more than one night (the design's default is 2), café menus, any cart that isn't the single list price.
 2. **`/api/config` takes 2.5 to 6.4 s per request.** It reads every merchant one by one to build `demoMerchants`, with no cache. It gates the first paint (the contract id comes from it). Fix: cache it, or `Promise.all`.
 3. **Review tx hashes.** Reviews posted outside the backend have `txHash: null`, and the design links them anyway. A backfill (or a guard in index.html) removes the dead link.
+
+## Remaining flows, driven for real (item 4)
+
+All flows below ran in one browser (passkey through a CDP virtual authenticator) against Stellar testnet.
+
+| Flow | Real result | Pair |
+|---|---|---|
+| book (Casa Azulejo Nove, 1 night) | paid 110.00, tx 36d6f73df268816516f012ec4007fd12227bd6939f28086543765c05c0bd6c56; the pass appears in my passes | `flow-success-book-real` vs `flow-success-design` |
+| review | posted r-67 with a proof made in the browser, tx 2c02c7ae37d603954c6e95f910f1cc1a942ba1eb34e42d341c5ce87a657b2954 | `review-real` / `flow-review-success-real` vs `review-design` |
+| rejected double review | a second review from the same stay is refused by the contract (`NullifierUsed`), shown as "this stay already reviewed." | `flow-rejected-real` vs `flow-rejected-design` |
+| hotel disputes the review | the card shows "disputed · waiting on the guest" (off chain, no tx by design) | `merchant-hotel-disputed-real` vs `merchant-hotel-design` |
+| guest discloses to the arbiter only | dispute d-67 becomes "disclosed"; the package stays with the arbiter | `passes-disclosed-real` vs `passes-design` |
+| arbiter: 3 checks | commitment matches, signature valid, leaf in the group: all pass (checked on the server) | `arbiter-real` vs `arbiter-design` |
+| attest | attested, tx a7374c889eeed5d948d59f4ec4c933421af8cc128772fd1597aa547ff0a3076a; the review now shows "verified stay" | `arbiter-attested-real` |
+| error screen | a cart the server cannot price (an item not in the catalog) fails as `BadParams`; the design's "that did not look right" screen with retry | `flow-error-real` vs `flow-error-design` |
+
+Fixed while driving: the arbiter's redacted package words were cut like hashes ("held b…iter"), and the desk said "of 32" (the real tree holds 1024). Both are listed index.html edits (9, 10).
