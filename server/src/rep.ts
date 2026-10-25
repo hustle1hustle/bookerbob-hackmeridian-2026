@@ -239,7 +239,7 @@ const done = (r: Awaited<ReturnType<typeof write>>) => {
 }
 
 /** The REP tier issuer (rep-attest-tier): full verdict in, 106-byte tier credential + P-256 signature out. */
-export async function tierCredential(base: string, b: { jws: string; kbJwt: string; nonce: string; commitment: string }): Promise<{ cred: Buffer; sig: Buffer }> {
+export async function tierCredential(base: string, b: { jws: string; kbJwt: string; nonce: string; commitment: string; contract?: string; group?: number }): Promise<{ cred: Buffer; sig: Buffer }> {
   const r = await fetch(`${base.replace(/\/$/, "")}/issue`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(b), signal: AbortSignal.timeout(15_000) })
   const j: any = await r.json().catch(() => ({}))
   if (!r.ok || typeof j.cred !== "string" || typeof j.sig !== "string") throw new Error(`tier issuer ${r.status}${j.reasons ? " " + j.reasons.join(",") : ""}`)
@@ -267,8 +267,9 @@ export function repApi(req: IncomingMessage, res: ServerResponse, path: string) 
     ...(mode === "tier"
       ? {
           async addMemberWithRep(commitment: bigint, jws: string, kbJwt: string, nonce: string) {
-            const { cred, sig } = await tierCredential(tierUrl, { jws, kbJwt, nonce, commitment: commitment.toString() })
+            // the credential's audience pins this contract and group: sha256("<contract>:<group>")
             const { c, group } = await client("REP_RELAYER_SECRET")
+            const { cred, sig } = await tierCredential(tierUrl, { jws, kbJwt, nonce, commitment: commitment.toString(), contract: contractId(), group })
             return done(await write(c, "add_member_with_tier", { group, id_commitment: commitment, cred, sig }))
           },
         }

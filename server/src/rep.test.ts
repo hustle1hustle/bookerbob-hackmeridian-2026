@@ -242,10 +242,10 @@ test("tier issuer client: passes verdict, holder proof, nonce and commitment; re
     res.end(JSON.stringify({ cred: Buffer.alloc(mode === "short" ? 50 : 106, 1).toString("base64url"), sig: Buffer.alloc(64, 2).toString("base64url") }))
   })
   const base = await new Promise<string>((ok) => srv.listen(0, "127.0.0.1", () => ok(`http://127.0.0.1:${(srv.address() as any).port}`)))
-  const r = await tierCredential(base, { jws: "J", kbJwt: "K", nonce: "pos:9:aa", commitment: "9" })
+  const r = await tierCredential(base, { jws: "J", kbJwt: "K", nonce: "pos:9:aa", commitment: "9", contract: "CX", group: 1 })
   assert.equal(r.cred.length, 106)
   assert.equal(r.sig.length, 64)
-  assert.deepEqual(got[0], { path: "/issue", body: { jws: "J", kbJwt: "K", nonce: "pos:9:aa", commitment: "9" } })
+  assert.deepEqual(got[0], { path: "/issue", body: { jws: "J", kbJwt: "K", nonce: "pos:9:aa", commitment: "9", contract: "CX", group: 1 } })
   mode = "refuse"
   await assert.rejects(tierCredential(base, { jws: "J", kbJwt: "K", nonce: "pos:9:aa", commitment: "9" }), /403 REVOKED/)
   mode = "short"
