@@ -153,3 +153,4 @@ The wallet row in Connect offers "sign in with my passkey" (`wallet.connect('pas
 44. **arbiter package line**: one line "the stay package: secret, leaf and signature, held by the arbiter" instead of "leaf ·" placeholders.
 45. **/classic/ plain words**: the wallet panel says "wallet score" and "your Stellar wallet history earns a score and a tier (1 to 5, 5 best). places see the tier, never the wallet." (was "pass_connect · verify_onchain_zk", "verified tier (5→1)", "Groth16 score proof").
 46. **final judge pass**: fresh profile, every screen at 1440 and 390, `docs/design-parity/final-*.jpg` (home, two typed Ask Bob queries, hotel/café/shop/restaurant place pages, bob shops, passes, connect, merchant, arbiter, a real booking's proof moment and result, /how, /classic/ home and places).
+47. **demo key tier reason**: an unscored demo key says "a demo key is brand new, so it has no tier. connect Freighter with tier 3+".

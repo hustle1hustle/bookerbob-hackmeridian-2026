@@ -1339,6 +1339,7 @@ export const stellarTier = {
     if (!addr) return `connect a Stellar wallet with tier ${tierMin}+`
     if (!addr.startsWith("G")) return "a passkey wallet is a contract account. connect Freighter for the tier."
     const ly = loyaltyState.address === addr ? loyaltyState : ({ status: "none" } as LoyaltyView)
+    if (sdk.wallet.kind === "local" && ly.status !== "ready") return `a demo key is brand new, so it has no tier. connect Freighter with tier ${tierMin}+`
     if (ly.status === "pending") return "scoring your wallet…"
     if (ly.status !== "ready" || typeof ly.tier !== "number") return `connect a Stellar wallet with tier ${tierMin}+`
     if (ly.tier < tierMin) return `your wallet scores tier ${ly.tier}, needs ${tierMin}`
