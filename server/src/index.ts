@@ -356,6 +356,7 @@ function serveFile(res: ServerResponse, root: string, rel: string) {
 
 function serveStatic(res: ServerResponse, path: string) {
   if (path === "/classic" || path.startsWith("/classic/")) return serveFile(res, STATIC, path.slice("/classic".length) || "/")
+  if (path === "/how" || path === "/how/") return serveFile(res, SITE, "/how.html") // "how it works" page
   if (existsSync(join(SITE, "index.html"))) return serveFile(res, SITE, path)
   return serveFile(res, STATIC, path)
 }
