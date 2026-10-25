@@ -586,13 +586,13 @@ async function* ucpRun(reuse: boolean): AsyncGenerator<any> {
   const items = await fetch(`${BRIDGE}/search?q=tee`).then((r) => r.json()).catch(() => [])
   const item = items[0]
   if (!item) return yield step(0, "failed", { error: "Network", detail: "the store did not answer." })
-  yield step(0, "done", { detail: `found REP Store on Shopify. its UCP profile: ${item.ucp ?? BRIDGE + "/.well-known/ucp"}` })
+  yield step(0, "done", { detail: "found REP Store on Shopify. it speaks UCP: checkout, cart and proof of loyalty.", link: { url: item.ucp ?? `${BRIDGE}/.well-known/ucp`, label: "UCP profile" } })
   yield step(1, "running")
   cart.nextBps = Number(item.returningDiscountBps ?? 0)
   cart.items.push({ title: String(item.title).toLowerCase(), price: Number(item.price), imageUrl: item.imageUrl ?? null, storePrice: item.storePrice ?? null, storeCurrency: item.storeCurrency ?? null })
   cart.total = Number(item.price)
   yield snap()
-  yield step(1, "done", { detail: `1 × ${String(item.title).toLowerCase()} · ${Number(item.price).toFixed(2)} usdc${item.storePrice ? ` (${Number(item.storePrice).toFixed(2)} ${String(item.storeCurrency ?? "").toLowerCase()} in the store)` : ""} · shopify variant ${String(item.variantId ?? "").split("/").pop()}` })
+  yield step(1, "done", { detail: `1 × ${String(item.title).toLowerCase()} · ${Number(item.price).toFixed(2)} usdc${item.storePrice ? ` (${Number(item.storePrice).toFixed(2)} ${String(item.storeCurrency ?? "").toLowerCase()} in the store)` : ""} · shopify variant ${String(item.variantId ?? "").split("/").pop()}`, ...(item.url ? { link: { url: item.url, label: "product page on Shopify" } } : {}) })
   const payer = await ensureWallet()
   await ready()
   const shopStay = sdk.stays.list().find((s) => s.merchant === UCP_MERCHANT && (findP(4)?.leaves ?? []).includes(BigInt(s.commitment)))
@@ -626,7 +626,7 @@ async function* ucpRun(reuse: boolean): AsyncGenerator<any> {
       yield snap()
       return yield step(6, "failed", { detail: UCP_STEPS[6].failDetail })
     }
-    yield step(5, "done", pr.txHash ? { tx: pr.txHash, detail: "stellar checked the proof. it works once, so this discount cannot be reused." } : {})
+    yield step(5, "done", pr.txHash ? { tx: pr.txHash, detail: "stellar checked the proof. it works once, so this discount cannot be reused." } : { detail: "the proof checks out. stellar verifies it once, inside the payment." })
     yield step(6, "running")
     cart.discounts[0].proven = true
     yield snap()
@@ -645,9 +645,16 @@ async function* ucpRun(reuse: boolean): AsyncGenerator<any> {
   cart.total = Number(BigInt(q.quote.pays_raw)) / 1e7
   yield snap()
   yield step(7, "done", { tx: sent.txHash, detail: `${cart.total.toFixed(2)} usdc on stellar.` })
+  // with a claim, the proof is verified and spent inside the payment itself: same transaction
+  if (cart.discounts.length && cart.discounts[0].proven) {
+    yield step(5, "done", { tx: sent.txHash, detail: "stellar checked the proof in the same transaction as the payment. it works once, so it cannot be reused." })
+    yield step(6, "done", { tx: sent.txHash, detail: `−${cart.discounts[0].amount.toFixed(2)} usdc, confirmed in the same transaction as the payment.` })
+  }
   yield step(8, "running")
   const done = await bpost("/buy/complete", { checkoutId: st.checkoutId, txHash: sent.txHash })
-  const orderId = done?.order?.name ?? done?.order?.id ?? null
+  // Shopify returns a gid (gid://shopify/Order/123); show the order number, never the raw id
+  const rawOrder = done?.order?.name ?? done?.order?.id ?? null
+  const orderId = rawOrder ? (String(rawOrder).startsWith("gid://") ? `#${String(rawOrder).split("/").pop()}` : String(rawOrder)) : null
   yield step(8, "done", { tx: sent.txHash, detail: orderId ? `order ${orderId} · recorded in REP Store on Shopify` : "paid. the store records the order once draft orders are enabled." })
   yield step(9, "running")
   loading = null
@@ -766,6 +773,8 @@ export interface Source {
   txHash?: string | null
   /** What it unlocks at this place, or across the network. */
   perk?: string
+  /** stellar.expert page of the connected account. */
+  accountUrl?: string
 }
 
 /** The REP app, one config value (may move to r3p.xyz). */
@@ -854,6 +863,7 @@ export async function sources(placeId?: number): Promise<Source[]> {
       proves: "pays for you. a fresh address for every payment, so purchases do not link.",
       status: addr ? "connected" : "none",
       detail: addr ? `${addr.slice(0, 4)}…${addr.slice(-4)}` : "passkey, freighter or a demo key in this browser",
+      ...(addr ? { accountUrl: `https://stellar.expert/explorer/testnet/account/${addr}` } : {}),
     },
     {
       id: "rep",

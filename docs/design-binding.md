@@ -90,3 +90,12 @@ Visible text says "verified", "proven", "confirmed on Stellar" (only next to a t
 | /classic `Shell.tsx` banner | every review is a real proof on chain | every review is a real, verified proof |
 | /classic `Stays.tsx` | kept in this browser only, never on chain. | kept in this browser only, never shared. |
 | /classic `PassConnect.tsx` | pass_connect · verify_onchain_zk; re-verify on-chain; on-chain activity rating | passkey · wallet check; verify again; wallet activity rating |
+
+## Links (edit 17)
+
+Every reference the UI shows is a real link (new tab) or is removed; no fake links.
+
+- Agent run: "UCP profile ↗" (the bridge's `/.well-known/ucp`), "product page on Shopify ↗" (bridge `/search` `url`), the payment tx; with a claim, "stellar checks the proof, once" and "discount confirmed" link the payment tx and say "same transaction as the payment" (UCP `book_with_discount_amount` verifies and spends the proof inside the payment); the Shopify order shows its order number (the bridge returns no order URL, so no link); "join the customer group" links the join tx (`/buy/complete` `joined`, else `/api/checkout-tx`). Steps carry an optional `link` (`{url, label}`), rendered next to the tx link. The cart shows its payment tx when paid (no "receipt" toggle).
+- Desk: the checkout tx reads "tx …↗"; the root stays small and copies the full value on click (⧉).
+- Arbiter, store view, merchant orders: "tx …↗" with the short hash.
+- Connect: the connected wallet's address links to its stellar.expert account.
