@@ -1,8 +1,18 @@
-LFG
-
 # BookerBob: Proof of Loyalty
 
 **BookerBob. Google for agentic commerce. Proof of loyalty, everywhere you go.**
+
+**For judges, 60 seconds**
+
+1. Open [stellarbob2026.xyz](https://stellarbob2026.xyz) and ask Bob: "a quiet room in lisbon under 120, best proven rating".
+2. Connect a demo key, order at Café Lento, then book Belém Garden Inn and watch the inline ZK steps.
+3. On-chain, Stellar testnet:
+   - anonymous review: [86c01995…](https://stellar.expert/explorer/testnet/tx/86c01995cc6e8d084ff55d17e5ac750160d295a3dc8ec83221587a16e01129b8)
+   - proof and USDC payment in one tx: [bacf4990…](https://stellar.expert/explorer/testnet/tx/bacf4990eb6ed224e82dd54f55c02787fc63bc9cd80a3fd7342e31753e6376dd)
+   - stacked perks: [f9c5b201…](https://stellar.expert/explorer/testnet/tx/f9c5b2019acd616db39074a5e4442fe7b3d253cdbeb1e676d1349427a4fadb9d)
+   - REP verified traveler joined, P-256 checked on-chain: [b1d54046…](https://stellar.expert/explorer/testnet/tx/b1d540463dfff82ea998f12a80162915549af1cbe5b1e874de2e3d0292bca81f)
+4. Video: _link at submission_
+5. How it works: [stellarbob2026.xyz/how](https://stellarbob2026.xyz/how)
 
 Customers prove they were customers of a place without revealing who they are. In return they get honest reviews and returning-customer discounts, and BookerBob, their agent, ranks and books places using only reviews nobody can buy. First medium: hotels (the hotel flow is "proof of stay").
 
@@ -13,10 +23,10 @@ Customers prove they were customers of a place without revealing who they are. I
 
 ## Problem
 
-1. Reviews on travel platforms are inflated, and neither a guest nor the guest's agent can tell a real review from a bought one.
-2. Returning-guest discounts require handing the hotel personal data and history. The guest pays for the discount with their data.
+1. Reviews on travel and commerce platforms are inflated, and neither a customer nor the customer's agent can tell a real review from a bought one.
+2. Returning-customer discounts require handing the place personal data and history. The customer pays for the discount with their data.
 
-Users: the guest, the place (hotel, café, shop), and the guest's agent that books on their behalf.
+Users: the customer (a guest, a diner, a shopper), the place (hotel, café, shop), and the customer's agent that books and buys on their behalf.
 
 ## How it works
 
