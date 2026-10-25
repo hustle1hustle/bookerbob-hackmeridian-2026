@@ -78,7 +78,7 @@ export function UcpCart({ title, imageUrl, listUsdc, currency, subtotal, provisi
       )}
       {proved?.applied && (
         <p className="small">
-          returning customer (proven): -{minor(proved.discount)} {currency}, now {minor(proved.subtotal)} {currency}
+          returning customer (proven): -{minor(proved.discount)} {currency}, store total {minor(proved.subtotal - proved.discount)} {currency}
         </p>
       )}
       {shown && (
