@@ -6,6 +6,7 @@
 <script src="./support.js"></script>
 </head>
 <body>
+<script src="/ops.js"></script>
 <x-dc>
 <helmet>
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -1113,7 +1114,7 @@ class Component extends DCLogic {
     const sel = this.state.sel;
     if (!P) return { items: [] };
     if (P.kind === 'hotel') { const o = P.offers[sel.room] || P.offers[0]; return { items: [{ title: `${o.title}, ${this.plural(sel.nights, 'night')}`, price: Math.round(o.price * sel.nights * 100) / 100 }] }; }
-    if (P.kind === 'shop') { const o = P.offers[0]; return { items: [{ title: `${o.title}, ${sel.size}${sel.qty > 1 ? ' × ' + sel.qty : ''}`, price: Math.round(o.price * sel.qty * 100) / 100 }] }; }
+    if (P.kind === 'shop') { const o = P.offers[0]; return { items: [{ title: `${o.title}${o.sizes && o.sizes.length ? ', ' + sel.size : ''}${sel.qty > 1 ? ' × ' + sel.qty : ''}`, price: Math.round(o.price * sel.qty * 100) / 100 }] }; }
     return { items: P.offers.map((o, i) => ({ o, q: sel.menu[i] || 0 })).filter(x => x.q > 0).map(x => ({ title: `${x.o.title}${x.q > 1 ? ' × ' + x.q : ''}`, price: Math.round(x.o.price * x.q * 100) / 100 })) };
   }
   checkoutCalc(P) {

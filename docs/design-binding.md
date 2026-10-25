@@ -1,9 +1,11 @@
 # Design binding: Proof of Loyalty v2
 
-The Claude Design deliverable `Proof of Loyalty v2.dc.html` is served byte-exact at `/` from `site/public/`, with its runtime `support.js`. Two lines differ from the delivered file:
+The Claude Design deliverable `Proof of Loyalty v2.dc.html` is served byte-exact at `/` from `site/public/`, with its runtime `support.js`. These lines differ from the delivered file:
 
 1. its data import points at `./pol-real.js` instead of `./pol-mock.js`;
-2. the merchant view's two place labels, hardcoded as mock names ("alfama nine · hotel", "rep store · shop"), are built from the real place names.
+2. the merchant view's two place labels, hardcoded as mock names ("alfama nine · hotel", "rep store · shop"), are built from the real place names;
+3. `<script src="/ops.js"></script>` as the first script in `<body>` (the backend's error tracker: errors only, scrubbed, no ids or cookies);
+4. the shop cart line appends the chosen size only when the product has sizes (the real store item has none, so it no longer shows a made-up ", m").
 
 `pol-real.js` is bundled from [`site/src/pol-real.ts`](../site/src/pol-real.ts) and exports exactly the mock's interface over the SDK, the contract and the BookerBob backend. The earlier app shell stays at `/classic/`.
 
