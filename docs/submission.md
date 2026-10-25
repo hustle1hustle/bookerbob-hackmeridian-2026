@@ -87,7 +87,7 @@ Every commit in the repository was made during the hackathon: `aae8033` (Sun 25 
 | 0:__ | _agent at the Shopify store over UCP: TBD_ |
 | 0:__ | _close: TBD_ |
 
-Video link: _TBD_
+Video link: https://youtu.be/2z7azyU-_Rw
 
 ## Facts not verified while drafting
 

@@ -11,13 +11,13 @@
    - proof and USDC payment in one tx: [bacf4990…](https://stellar.expert/explorer/testnet/tx/bacf4990eb6ed224e82dd54f55c02787fc63bc9cd80a3fd7342e31753e6376dd)
    - stacked perks: [f9c5b201…](https://stellar.expert/explorer/testnet/tx/f9c5b2019acd616db39074a5e4442fe7b3d253cdbeb1e676d1349427a4fadb9d)
    - REP verified traveler joined, P-256 checked on-chain: [b1d54046…](https://stellar.expert/explorer/testnet/tx/b1d540463dfff82ea998f12a80162915549af1cbe5b1e874de2e3d0292bca81f)
-4. Video: _link at submission_
+4. Video: [youtu.be/2z7azyU-_Rw](https://youtu.be/2z7azyU-_Rw)
 5. How it works: [stellarbob2026.xyz/how](https://stellarbob2026.xyz/how)
 
 Customers prove they were customers of a place without revealing who they are. In return they get honest reviews and returning-customer discounts, and BookerBob, their agent, ranks and books places using only reviews nobody can buy. First medium: hotels (the hotel flow is "proof of stay").
 
 - Live demo: [https://stellarbob2026.xyz](https://stellarbob2026.xyz) (read-only without a wallet; a demo key in the browser is enough to walk the full cycle). API: `https://stellarbob2026.xyz/api/config`
-- Video: _link at submission_
+- Video: [https://youtu.be/2z7azyU-_Rw](https://youtu.be/2z7azyU-_Rw)
 - Contract (Stellar testnet): [`CBEGVNZFDZMOBKYVP27D5Q6Y7OHKWC2P3DAKQNC3MGTO5OW5JHAL5EBY`](https://stellar.expert/explorer/testnet/contract/CBEGVNZFDZMOBKYVP27D5Q6Y7OHKWC2P3DAKQNC3MGTO5OW5JHAL5EBY)
 - Built at HackMeridian 2026 (Stellar), Genesis path, track Stellar Unlocked, by team BookerBob. Plan: [PLAN.md](PLAN.md). Prior work: [PRIOR_WORK.md](PRIOR_WORK.md). AI usage: [docs/ai-usage.md](docs/ai-usage.md). Raven MCP + passkeys on Stellar: [docs/raven.md](docs/raven.md).
 
