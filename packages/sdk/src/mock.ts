@@ -1,6 +1,7 @@
 // In-memory mock of all SDK bind points. Same types as the testnet implementation; timings mimic the real flow.
 import type { Chain, Disclosure, Merchant, ProofEvent, ProofRequest, Prover, Review, Sdk, Stay, Stays, Wallet, WalletKind, WriteResult } from "./types.ts"
 import { isErr } from "./types.ts"
+import { stayIdentity } from "./derive.ts"
 import { fixtureMerchants, fixtureReviews, mockDec, mockHex } from "./fixtures.ts"
 
 export interface MockOptions {
@@ -43,6 +44,10 @@ export function createMockSdk(opts: MockOptions = {}): Sdk {
       listeners.forEach((cb) => cb(address))
       return address
     },
+    async signTransaction(xdr: string) {
+      if (!address) throw new Error("WalletNotConnected")
+      return xdr
+    },
     disconnect() {
       address = null
       kind = null
@@ -62,6 +67,7 @@ export function createMockSdk(opts: MockOptions = {}): Sdk {
   myStays.forEach((s) => leaves.add(`${s.merchant}:${s.commitment}`))
   const stays: Stays = {
     list: () => myStays,
+    identity: (s) => stayIdentity("mock-master", s.merchant, s.stayIndex),
     create(merchant) {
       const idx = myStays.filter((s) => s.merchant === merchant).length
       const s: Stay = { merchant, stayIndex: idx, commitment: mockDec(1000 + myStays.length), createdAt: Date.now(), checkedIn: false, reviewId: null, discountSeasonsUsed: [] }

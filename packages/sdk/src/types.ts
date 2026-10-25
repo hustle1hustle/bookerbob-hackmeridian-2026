@@ -176,6 +176,8 @@ export interface Wallet {
   readonly address: string | null
   readonly kind: WalletKind | null
   connect(kind?: WalletKind): Promise<string>
+  /** Signs a prepared transaction envelope (base64 XDR) with the connected wallet, for flows built elsewhere (e.g. the UCP bridge quote). */
+  signTransaction(xdr: string): Promise<string>
   disconnect(): void
   onChange(cb: (address: string | null) => void): () => void
 }
@@ -187,6 +189,8 @@ export interface Stays {
   create(merchant: number): Stay
   /** Refresh checkedIn by looking the commitment up on chain. */
   sync(): Promise<Stay[]>
+  /** The Semaphore identity behind a stay (secret stays in this browser), for proofs built outside the SDK flows. */
+  identity(stay: Stay): import("@semaphore-protocol/identity").Identity
 }
 
 /** What the guest privately hands the arbiter in a dispute. */

@@ -121,6 +121,11 @@ export function createTestnetSdk(opts: TestnetOptions = {}): Sdk {
       }
       throw new Error("unknown wallet kind")
     },
+    async signTransaction(xdr: string) {
+      if (!signer) throw new Error("WalletNotConnected")
+      const c = await cfg()
+      return (await signer.signTransaction(xdr, { networkPassphrase: c.networkPassphrase })).signedTxXdr
+    },
     disconnect() {
       setWallet(null, null, null)
     },
@@ -149,6 +154,7 @@ export function createTestnetSdk(opts: TestnetOptions = {}): Sdk {
   const updateStay = (s: Stay) => saveStays(loadStays().map((x) => (x.merchant === s.merchant && x.stayIndex === s.stayIndex ? s : x)))
   const stays: Stays = {
     list: loadStays,
+    identity: (s) => identityOf(s),
     create(merchant) {
       const all = loadStays()
       const idx = all.filter((s) => s.merchant === merchant).length
