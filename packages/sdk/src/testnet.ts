@@ -25,6 +25,16 @@ const memStorage = (): TestnetOptions["storage"] => {
   return { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => void m.set(k, v), removeItem: (k) => void m.delete(k) }
 }
 
+/** Seed for passkey generation n: sha256(prfSeed || "pos/gen" || be32(n)). Generation 0 is the PRF seed itself. */
+export async function passkeyGenSeed(seed: Uint8Array, gen: number): Promise<Buffer> {
+  const tag = new TextEncoder().encode("pos/gen")
+  const buf = new Uint8Array(seed.length + tag.length + 4)
+  buf.set(seed, 0)
+  buf.set(tag, seed.length)
+  new DataView(buf.buffer).setUint32(seed.length + tag.length, gen)
+  return Buffer.from(new Uint8Array(await crypto.subtle.digest("SHA-256", buf)))
+}
+
 const randomHex = (n: number) => Array.from(crypto.getRandomValues(new Uint8Array(n)), (b) => b.toString(16).padStart(2, "0")).join("")
 
 export function createTestnetSdk(opts: TestnetOptions = {}): Sdk {
@@ -113,12 +123,17 @@ export function createTestnetSdk(opts: TestnetOptions = {}): Sdk {
             friendbotUrl: "https://friendbot.stellar.org",
             storage: store,
           })
-          const kp = Keypair.fromRawEd25519Seed(Buffer.from(seed))
+          // generation n > 0 ("start over with this passkey"): a new, unlinked key from the same PRF secret
+          const gen = Number(store.getItem("pos.passkeyGen") ?? 0)
+          const genSeed = gen > 0 ? await passkeyGenSeed(seed, gen) : Buffer.from(seed)
+          const kp = Keypair.fromRawEd25519Seed(genSeed)
           rawKey = kp
           const s = contract.basicNodeSigner(kp, c.networkPassphrase)
-          setWallet(session.address, "passkey", { publicKey: kp.publicKey(), signTransaction: s.signTransaction, signAuthEntry: s.signAuthEntry })
+          const addr = gen > 0 ? kp.publicKey() : session.address
+          if (gen > 0) store.setItem("pos.passkeyAddress", addr)
+          setWallet(addr, "passkey", { publicKey: kp.publicKey(), signTransaction: s.signTransaction, signAuthEntry: s.signAuthEntry })
           store.setItem("pos.pass_binding", session.binding)
-          return session.address
+          return addr
         } catch (e) {
           if (e instanceof PassConnectException && e.code === "UserCancelled") throw new Error("UserRejected")
           if (e instanceof PassConnectException && e.code === "PasskeyUnsupported") throw new Error("passkey is not supported in this browser")
@@ -487,8 +502,9 @@ export function createTestnetSdk(opts: TestnetOptions = {}): Sdk {
   if (store.getItem("pos.wallet") === "passkey") {
     import("../../pass_connect/src/index.ts")
       .then(({ restorePasskey }) => {
-        const r = restorePasskey({ storage: store })
-        if (!r) return
+        const r0 = restorePasskey({ storage: store })
+        if (!r0) return
+        const r = { ...r0, address: store.getItem("pos.passkeyAddress") ?? r0.address }
         let real: Signer | null = null
         const lazy: Signer = {
           publicKey: r.address,

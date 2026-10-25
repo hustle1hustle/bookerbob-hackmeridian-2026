@@ -63,6 +63,58 @@ export async function createPasskey(): Promise<{ ok: true; address: string } | {
   }
 }
 
+/** "start over with this passkey": generation n+1 of the same passkey in namespace "<base>-g<n>": a new wallet key
+ *  (from the same PRF secret), new stay identities, zero passes. Earlier generations stay reachable via switchTo().
+ *  Must run inside the click (one passkey prompt). */
+const GENS_KEY = "pol.gens"
+const PASS_KEY = "bookerbob.pass_connect.v1"
+type Gen = { ns: string; n: number; at: number }
+export const generations = {
+  note: "your earlier history stays on Stellar. this starts a new, unlinked one.",
+  list(): Gen[] {
+    let xs: Gen[] = []
+    try {
+      xs = JSON.parse(LS?.getItem(GENS_KEY) ?? "[]")
+    } catch {}
+    return [{ ns: "", n: 0, at: 0 }, ...xs]
+  },
+  current(): number {
+    return Number(nsStorage(nsNow)?.getItem("pos.passkeyGen") ?? (nsNow ? -1 : 0))
+  },
+  async startOver(): Promise<{ ok: true } | { error: string }> {
+    const cur = nsStorage(nsNow) ?? LS
+    const cred = cur?.getItem(PASS_KEY)
+    if (!cred) return { error: "connect your passkey first" }
+    const xs = generations.list()
+    const n = Math.max(...xs.map((g) => g.n)) + 1
+    const ns = `pk-g${n}-${Date.now()}`
+    const st = nsStorage(ns)!
+    st.setItem(PASS_KEY, cred)
+    st.setItem("pos.wallet", "passkey")
+    st.setItem("pos.passkeyGen", String(n))
+    // one prompt now (inside the click) to derive and remember this generation's address
+    const { connectPasskey } = await import("../../packages/pass_connect/src/index.ts")
+    const { passkeyGenSeed } = await import("../../packages/sdk/src/testnet.ts")
+    try {
+      const { seed } = await connectPasskey({ rpName: "BookerBob", friendbotUrl: "https://friendbot.stellar.org", storage: st })
+      const kp = Keypair.fromRawEd25519Seed(await passkeyGenSeed(seed, n))
+      st.setItem("pos.passkeyAddress", kp.publicKey())
+      await fetch(`https://friendbot.stellar.org/?addr=${kp.publicKey()}`).catch(() => null)
+    } catch (e: any) {
+      return { error: e?.code === "UserCancelled" ? "cancelled" : "the passkey prompt failed" }
+    }
+    LS?.setItem(GENS_KEY, JSON.stringify([...xs.filter((g) => g.n > 0), { ns, n, at: Date.now() }]))
+    LS?.setItem(NS_KEY, ns)
+    reloadClean()
+    return { ok: true }
+  },
+  switchTo(ns: string) {
+    if (ns) LS?.setItem(NS_KEY, ns)
+    else LS?.removeItem(NS_KEY)
+    reloadClean()
+  },
+}
+
 export const demo = {
   /** Current fresh-demo namespace, "" for the operator's own wallet. */
   active: () => nsNow,
