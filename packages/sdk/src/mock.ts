@@ -154,7 +154,7 @@ export function createMockSdk(opts: MockOptions = {}): Sdk {
       return structuredClone(reviews.filter((r) => r.hotel === hotel).reverse())
     },
     explorerTx: (h) => `https://stellar.expert/explorer/testnet/tx/${h}`,
-    explorerContract: () => "https://stellar.expert/explorer/testnet/contract/CDRKD65UBKOVLOABILPJTSZYB7JXWZQOLCJGD4FHQ37EXEPGHEFIPYWN",
+    explorerContract: () => "https://stellar.expert/explorer/testnet/contract/CBZ7I3VOQEMK5LKDZLCUJ4VU6KQX5WT747XN4KLGM23EIUCISTDX5MTL",
     async checkout(hotel, commitment) {
       const nw = need<{ root: string }>()
       if (nw) return nw
