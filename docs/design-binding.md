@@ -99,3 +99,7 @@ Every reference the UI shows is a real link (new tab) or is removed; no fake lin
 - Desk: the checkout tx reads "tx …↗"; the root stays small and copies the full value on click (⧉).
 - Arbiter, store view, merchant orders: "tx …↗" with the short hash.
 - Connect: the connected wallet's address links to its stellar.expert account.
+
+## Operator fresh demo (edit 18, marked `bb:operator-demo`)
+
+Visible only when `demo.isOperator()` is true (the demo cookie, `GET /api/rep/status`). Outside a demo: "fresh demo · reset" starts a clean identity (`demo.reset()`). Inside one (`demo.active()` set): a "fresh demo" tag, "reset" for another clean identity, and "back to my passkey" (`demo.exit()`), which returns to the operator's own passkey / Freighter / demo-key state. Both reload the page; the namespace is fixed at load.

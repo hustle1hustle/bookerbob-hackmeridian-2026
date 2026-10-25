@@ -48,6 +48,14 @@ html,body{margin:0;padding:0;background:#EDEBE5}
       </sc-for>
     </nav>
     <button onClick="{{ toggleTheme }}" aria-label="{{ themeAria }}" style="appearance:none;border:1px solid var(--rule);background:transparent;color:var(--ink);width:36px;height:36px;display:grid;place-items:center;cursor:pointer;font-size:15px;line-height:1" style-hover="background:var(--ink);color:var(--bg)">◐</button>
+    <!-- bb:operator-demo (only for the demo operator: pol-real demo.isOperator()) -->
+    <sc-if value="{{ opShow }}" hint-placeholder-val="{{ false }}">
+      <div role="group" aria-label="operator demo" style="display:flex;align-items:center;gap:6px">
+        <sc-if value="{{ opActive }}" hint-placeholder-val="{{ false }}"><span title="{{ opNs }}" style="display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;background:var(--deal);color:var(--deal-ink);font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase"><span style="width:6px;height:6px;background:var(--deal-ink)"></span>fresh demo</span></sc-if>
+        <button onClick="{{ opReset }}" style="appearance:none;border:1px solid var(--rule);background:transparent;color:var(--ink);font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;height:30px;padding:0 10px;cursor:pointer" style-hover="background:var(--ink);color:var(--bg)">{{ opResetLabel }}</button>
+        <sc-if value="{{ opActive }}" hint-placeholder-val="{{ false }}"><button onClick="{{ opExit }}" style="appearance:none;border:1px solid var(--rule);background:transparent;color:var(--ink);font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;height:30px;padding:0 10px;cursor:pointer" style-hover="background:var(--ink);color:var(--bg)">back to my passkey</button></sc-if>
+      </div>
+    </sc-if>
     <!-- bb:connect-control (pol-real sources(); swappable for a Claude Design version) -->
     <div style="position:relative">
       <button onClick="{{ srcToggle }}" aria-expanded="{{ srcOpen }}" aria-haspopup="dialog" aria-label="connections" style="appearance:none;border:1px solid var(--ink);background:{{ srcBtnBg }};color:{{ srcBtnFg }};height:36px;padding:0 10px 0 12px;display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;transition:background .15s,color .15s">
@@ -1599,7 +1607,7 @@ class Component extends DCLogic {
     this.setField('settle', 'check');
   }
   // bb:connect-control
-  loadSources = async () => { if (!this.m || !this.m.sources) return; try { const list = await this.m.sources(this.state.view === 'place' && this.state.role === 'guest' ? this.state.placeId : undefined); const w = !this.state.wallet && this.m.wallet.current ? this.m.wallet.current() : null; this.setState(s => ({ src: { ...s.src, list }, ...(w ? { wallet: w } : {}) })); } catch (e) { console.error(e); } };
+  loadSources = async () => { if (!this.m || !this.m.sources) return; if (this.m.demo && this.opChecked === undefined) { this.opChecked = true; this.m.demo.isOperator().then(op => this.setState({ operator: !!op })).catch(() => {}); } try { const list = await this.m.sources(this.state.view === 'place' && this.state.role === 'guest' ? this.state.placeId : undefined); const w = !this.state.wallet && this.m.wallet.current ? this.m.wallet.current() : null; this.setState(s => ({ src: { ...s.src, list }, ...(w ? { wallet: w } : {}) })); } catch (e) { console.error(e); } };
   openSources = (focus = null) => { this.setState(s => ({ src: { ...s.src, open: true, focus } })); this.loadSources(); };
   srcAct = async (id, how) => {
     const m = this.m; if (!m) return;
@@ -1635,8 +1643,10 @@ class Component extends DCLogic {
       if (r.id === 'passport') return r.status === 'connected' || r.status === 'soon' ? [] : [btn(r.status === 'pending' ? 'checking…' : 'check', () => this.srcAct('passport'), false, r.status === 'pending' || !s.wallet)];
       return [];
     };
-    const open = !!src.open, connected = !!s.wallet;
+    const open = !!src.open, connected = !!s.wallet, ns = (this.m && this.m.demo) ? this.m.demo.active() : '';
     return {
+      opShow: !!s.operator, opActive: !!ns, opNs: ns, opResetLabel: ns ? 'reset' : 'fresh demo · reset',
+      opReset: () => { if (this.m && this.m.demo) this.m.demo.reset(); }, opExit: () => { if (this.m && this.m.demo) this.m.demo.exit(); },
       srcOpen: open, srcToggle: () => (open ? (this.pending = null, this.setState(st => ({ src: { ...st.src, open: false, focus: null, reason: null } }))) : this.openSources()),
       srcHasReason: !!src.reason, srcReason: src.reason ? 'connect ' + src.reason + '.' : '',
       srcBtnBg: connected ? 'transparent' : 'var(--ink)', srcBtnFg: connected ? 'var(--ink)' : 'var(--bg)',
