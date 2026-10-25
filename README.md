@@ -71,6 +71,10 @@ More in [docs/testnet.md](docs/testnet.md).
 
 Loyalty does not have to stop at one place. A place's discount policy can reward **context groups**: its own returning customers, a **chain group** (every stay at any member place is enrolled at checkout, "guest anywhere in the network") and **attested groups** owned by independent context providers (REP "verified traveler" from Booking proofs, a Stellar wallet history module, later booking partners). `book_with_context` stacks one proof per group, caps the total, and pays in one transaction. On testnet: a guest whose only stay was at Casa Azulejo Nove booked Pátio do Vento with the network and verified-traveler perks, 95 to 85.5 USDC, [`f9c5b201…`](https://stellar.expert/explorer/testnet/tx/f9c5b2019acd616db39074a5e4442fe7b3d253cdbeb1e676d1349427a4fadb9d). Providers plug in without contract changes: [docs/context-providers.md](docs/context-providers.md).
 
+## Agentic checkout over UCP
+
+The same proof works at a real store. [`ucp/`](ucp/README.md) is a bridge for a Shopify test store that speaks the Universal Commerce Protocol: the buyer's agent searches the store (it shows up in Ask Bob as a UCP source), proves it is a returning customer of merchant 5 in our contract, gets the discount applied at checkout, and pays in test USDC on Stellar through `book_with_discount_amount`, with the store's admin co-signing the order amount. A card payment can still spend the discount on chain through `redeem`. Details, evidence logs and its own prior-work notes: [ucp/README.md](ucp/README.md).
+
 ## Numbers
 
 From [docs/bench.md](docs/bench.md):
