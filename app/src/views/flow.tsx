@@ -80,7 +80,7 @@ export function ProofMoment({ state, cached, connect, success, alreadyDone, onRe
         <li data-state={step(0)}>preparing proving files <span className="small muted">{dl}</span></li>
         <li data-state={step(1)}>proving in your browser <span className="small muted">your stay identity stays on this device</span></li>
         <li data-state={step(2)}>verifying on Stellar</li>
-        <li data-state={at === 3 ? "done" : "todo"}>done</li>
+        <li data-state={state.status === "success" || state.status === "alreadyDone" ? "done" : "todo"}>done</li>
       </ol>
       {state.status === "success" && success}
       {state.status === "alreadyDone" && alreadyDone(state.copy)}

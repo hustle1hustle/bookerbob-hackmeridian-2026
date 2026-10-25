@@ -101,6 +101,12 @@ export function Shell({ children }: { children: ReactNode }) {
           <div className="wrap">read-only. every place, rating and review is visible. connect to book, review or check someone in.</div>
         </div>
       )}
+      {role === "guest" && (
+        <nav className="wrap row small" aria-label="guest" style={{ paddingTop: 12 }}>
+          <a href="#/">places</a>
+          <a href="#/stays">my stays</a>
+        </nav>
+      )}
       <main id="main" className="wrap">
         {children}
       </main>

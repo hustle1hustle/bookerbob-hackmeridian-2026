@@ -1,9 +1,10 @@
 // One explicit state machine per action. Views render a FlowState and call the hook's run/reset;
 // they never touch the SDK. The proof flows advance only on real prover events.
-import { useCallback, useEffect, useReducer, useRef } from "react"
-import { errorCopy, nullifierCopy, isErr, type ErrorName, type ProofEvent, type ProofRequest, type WriteOk, type WriteResult } from "@bookerbob/pos-sdk"
+import { useCallback, useEffect, useReducer, useRef, useState } from "react"
+import { errorCopy, nullifierCopy, isErr, type ErrorName, type ProofEvent, type ProofRequest, type Stay, type DisclosureCheck, type DisclosurePackage, type WriteOk, type WriteResult } from "@bookerbob/pos-sdk"
 import { sdk } from "./sdk"
 import { bump } from "./store"
+import { attachDisclosure } from "./disputes"
 
 export type Action = "review" | "discount" | "book" | "checkout" | "attest"
 
@@ -129,4 +130,36 @@ export function useWriteFlow<R>(action: "book" | "checkout" | "attest") {
     [send],
   )
   return { state, run, reset: () => send({ type: "reset" }) }
+}
+
+/** Guest: build the private disclosure package in this browser and hand it to the arbiter. Off chain, no wallet. */
+export type DiscloseState = { status: "idle" } | { status: "building" } | { status: "sent" } | { status: "error"; copy: string }
+export function useDiscloseFlow() {
+  const [state, set] = useState<DiscloseState>({ status: "idle" })
+  const send = useCallback(async (stay: Stay) => {
+    set({ status: "building" })
+    try {
+      attachDisclosure(await sdk.disclosure.build(stay))
+      set({ status: "sent" })
+    } catch {
+      set({ status: "error", copy: errorCopy.Unknown })
+    }
+  }, [])
+  return { state, send }
+}
+
+/** Arbiter: the 3-step check of a disclosure package before attest. */
+export type CheckState = { status: "idle" } | { status: "checking" } | { status: "checked"; result: DisclosureCheck; allOk: boolean } | { status: "error"; copy: string }
+export function useCheckFlow() {
+  const [state, set] = useState<CheckState>({ status: "idle" })
+  const check = useCallback(async (pkg: DisclosurePackage) => {
+    set({ status: "checking" })
+    try {
+      const result = await sdk.disclosure.check(pkg)
+      set({ status: "checked", result, allOk: result.commitmentMatches && result.signatureValid && result.leafInTree })
+    } catch {
+      set({ status: "error", copy: errorCopy.Unknown })
+    }
+  }, [])
+  return { state, check }
 }
