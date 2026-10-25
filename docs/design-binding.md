@@ -99,3 +99,17 @@ Every reference the UI shows is a real link (new tab) or is removed; no fake lin
 - Desk: the checkout tx reads "tx …↗"; the root stays small and copies the full value on click (⧉).
 - Arbiter, store view, merchant orders: "tx …↗" with the short hash.
 - Connect: the connected wallet's address links to its stellar.expert account.
+
+## Operator fresh demo (edit 18, marked `bb:operator-demo`)
+
+Visible only when `demo.isOperator()` is true (the demo cookie, `GET /api/rep/status`). Outside a demo: "fresh demo · reset" starts a clean identity (`demo.reset()`). Inside one (`demo.active()` set): a "fresh demo" tag, "reset" for another clean identity, and "back to my passkey" (`demo.exit()`), which returns to the operator's own passkey / Freighter / demo-key state. Both reload the page; the namespace is fixed at load.
+
+## Passkey: sign in or create (edit 19)
+
+The wallet row in Connect offers "sign in with my passkey" (`wallet.connect('passkey')`) and "create a new passkey" (`createPasskey()`, called straight from the click so WebAuthn keeps the gesture; a new named credential in a new storage namespace, then a reload: zero passes, zero memberships), plus Freighter and demo key. The row's copy: "face id. no seed phrase. your proofs come back on any of your devices." When `createPasskey()` returns `{ fallback, why }`, the reason shows calmly under the wallet row next to Freighter and demo key, never as an error.
+
+## First paint, generations, dropped claims (edits 20-22)
+
+20. **first paint**: the page head starts `GET /api/state` (`window.__polState`) and preloads `pol-real.js`; `load()` hydrates from that one snapshot (strings to BigInt), estimates the current ledger from the newest timed review until `/api/ledger` answers, builds the contract client only when a held proof needs a spent check, and never waits on the UCP bridge. A live chain read follows ~4 s later and the page re-reads on `pol:data`. Until the places are in, the ranking shows three skeleton rows in the real row layout (pulse off with reduced motion), and the counts stay empty. Measured on a local backend: first card 0.51 s cold (fresh browser), 0.50 s warm (was 4.1 s / 1.7 s).
+21. **passkey generations**: with a passkey connected, the wallet row shows "start over with this passkey" (`generations.startOver()` inside the click) with the note "your earlier history stays on Stellar. this starts a new, unlinked one.", and a "switch generation" list ("original", "started HH:MM"; `generations.switchTo(ns)`). A REP verify refused with "this presentation already joined" says "a new generation needs a new proof in REP Bob."
+22. **dropped claims**: the receipt lists claims `pay()` could not prove in this session greyed, "○ <label> · this proof isn't available in this session, not counted"; the price shown is already recomputed.
