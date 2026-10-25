@@ -29,7 +29,7 @@ Customers prove on Stellar that they were customers of a place, with a zero-know
 | Poseidon permutation (CAP-0075) via `soroban-poseidon`: the contract keeps the LeanIMT tree itself, root equal to the Semaphore JS library byte for byte | `src/tree.rs` | tree insert (checkout) 1.1M instructions |
 | USDC through a Stellar Asset Contract: proof check and payment in one tx | `book_with_discount`, `book_with_context`, `book_with_discount_amount` | `book_with_discount` 31.7M instructions, `book` 1.1M |
 | keccak256 host function: Semaphore's `hash(x) >> 8` for scope and message | `src/lib.rs` | |
-| Native P-256 (`secp256r1_verify`): the contract checks a REP verdict (ES256 JWS) and the phone's holder proof itself | branch `choly/rep-onchain`, `src/rep.rs`, **off on the live deployment** | about 6.5M instructions, 1.6% of the limit (unit-test budget) |
+| Native P-256 (`secp256r1_verify`): the contract verifies a REP tier credential signed by the REP tier issuer, so a group can be joined without a trusted operator key | `add_member_with_tier`, `src/tier.rs`, **off on the live deployment until the admin upgrade** | about 3.4M instructions, under 1% of the limit (unit-test budget) |
 
 Fees on writes are dominated by storage rent (TTL extended about 29 days so the demo survives judging), not compute. Source: `docs/bench.md`.
 
@@ -70,7 +70,7 @@ Most of the code and docs were written with Claude Code (Anthropic, Claude Opus 
 - The contract enforces: roots only from the place's recent history and never 0, canonical inputs, scope and message computed on chain, proofs bound to the payer, nullifiers burned in persistent storage, admin-gated `upgrade()`.
 - Trusted on testnet: BookerBob checks in demo places, acts as the dispute arbiter, and sponsors one-time payers. In production a place signs its own checkouts and the arbiter becomes a blind node (TEE or MPC).
 - Group operators are trusted for membership. Today the REP attester key adds "verified traveler" members after an off-chain check of REP's signed verdict (issuer key, holder binding, nonce, revocation).
-- An on-chain REP check (native P-256) is built and tested but **off** on the live deployment: the verdict would become public tx data carrying bands and a device key. Production needs a tier-only verdict and a pairwise holder key. The Groth16 verifier follows the official example, which is unaudited.
+- An on-chain REP path (native P-256) removes the trusted operator: a REP tier issuer signs a 106-byte credential and the contract verifies it, so no verdict, spend or device key reaches the ledger. It is **off** on the live deployment until the admin upgrade. Open: per-account sybil resistance needs a stable account id from REP. The Groth16 verifier follows the official example, which is unaudited.
 
 ## Built during the event
 

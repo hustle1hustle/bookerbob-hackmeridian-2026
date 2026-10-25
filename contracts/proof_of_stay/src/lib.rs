@@ -7,11 +7,11 @@ use soroban_sdk::{
     token, xdr::ToXdr, Address, Symbol, Bytes, BytesN, Env, String, Vec, U256,
 };
 
-pub mod rep;
+pub mod tier;
 pub mod tree;
 pub mod verifier;
 
-use rep::RepIssuer;
+use tier::TierPolicy;
 use tree::LeanImt;
 use verifier::{Proof, VerificationKey};
 
@@ -107,8 +107,9 @@ enum Key {
     GroupLeaves(u32),
     Policy(u32),
     MerchantChain(u32),
-    RepIssuer(u32),
-    RepUsed(BytesN<32>),
+    TierKey(u32, u32),
+    TierPolicy(u32),
+    TierUsed(BytesN<16>),
 }
 
 /// A context group: a tree of commitments that a merchant's discount policy can reward.
@@ -524,52 +525,78 @@ impl ProofOfStay {
         load_group(&env, group).tree.root(&env)
     }
 
-    /// Contract admin pins the REP issuer for an attested group: its P-256 key (from the JWKS), iss, aud,
-    /// max verdict age and accepted sources. Rotating the REP key is another call here.
-    pub fn set_rep_issuer(env: Env, group: u32, issuer: RepIssuer) {
+    /// Contract admin pins a tier issuer key for an attested group under `kid` (the credential's byte 8).
+    /// Rotation: pin the new kid, then remove the old one with `None`.
+    pub fn set_tier_issuer(env: Env, group: u32, kid: u32, pubkey: Option<BytesN<65>>) {
         let cadmin: Address = env.storage().instance().get(&Key::Admin).unwrap();
         cadmin.require_auth();
-        if load_group(&env, group).kind != Symbol::new(&env, "attested") || issuer.hosts.is_empty() || issuer.max_age == 0 {
+        if load_group(&env, group).kind != Symbol::new(&env, "attested") || kid > 255 {
             panic_with_error!(&env, Error::BadParams);
         }
-        let k = Key::RepIssuer(group);
-        env.storage().persistent().set(&k, &issuer);
+        let k = Key::TierKey(group, kid);
+        match pubkey {
+            Some(pk) => {
+                env.storage().persistent().set(&k, &pk);
+                bump_persistent(&env, &k);
+            }
+            None => env.storage().persistent().remove(&k),
+        }
+    }
+
+    /// Contract admin sets which credentials an attested group admits: the issuer's group hash and the lowest tier.
+    pub fn set_tier_policy(env: Env, group: u32, policy: TierPolicy) {
+        let cadmin: Address = env.storage().instance().get(&Key::Admin).unwrap();
+        cadmin.require_auth();
+        if load_group(&env, group).kind != Symbol::new(&env, "attested") || policy.min_tier == 0 || policy.min_tier > 255 {
+            panic_with_error!(&env, Error::BadParams);
+        }
+        let k = Key::TierPolicy(group);
+        env.storage().persistent().set(&k, &policy);
         bump_persistent(&env, &k);
     }
 
-    pub fn get_rep_issuer(env: Env, group: u32) -> Option<RepIssuer> {
-        env.storage().persistent().get(&Key::RepIssuer(group))
+    pub fn get_tier_issuer(env: Env, group: u32, kid: u32) -> Option<BytesN<65>> {
+        env.storage().persistent().get(&Key::TierKey(group, kid))
     }
 
-    /// Anyone may submit: joins an attested group on a REP verdict checked here, not by an attester server.
-    /// `verdict` is the compact JWS from REP, `kb` the phone's compact KB-JWT whose nonce is
-    /// `pos:<id_commitment>:<rand>`. One verdict adds one member (its signing-input hash is spent).
-    /// The operator's `add_member` stays as the fallback path.
-    pub fn add_member_with_rep(env: Env, group: u32, id_commitment: U256, verdict: Bytes, kb: Bytes) -> U256 {
-        let issuer: RepIssuer = env
+    pub fn get_tier_policy(env: Env, group: u32) -> Option<TierPolicy> {
+        env.storage().persistent().get(&Key::TierPolicy(group))
+    }
+
+    /// Anyone may submit: joins an attested group on a tier credential (see `tier.rs`) signed by a pinned issuer
+    /// key, for exactly this commitment. Each credential (jti) adds one member. The ledger sees the credential
+    /// only: no REP verdict, device key, spend or source. The operator's `add_member` stays as the fallback.
+    pub fn add_member_with_tier(env: Env, group: u32, id_commitment: U256, cred: BytesN<106>, sig: BytesN<64>) -> U256 {
+        let policy: TierPolicy = env
             .storage()
             .persistent()
-            .get(&Key::RepIssuer(group))
+            .get(&Key::TierPolicy(group))
             .unwrap_or_else(|| panic_with_error!(&env, Error::RepNotConfigured));
         if id_commitment == U256::from_u32(&env, 0) {
             panic_with_error!(&env, Error::BadLeaf);
         }
         require_canonical(&env, &id_commitment);
-        let checked = rep::check(&env, &issuer, &id_commitment, &verdict, &kb);
-        let uk = Key::RepUsed(checked.verdict_id.clone());
+        let c = tier::check(&env, &policy, &id_commitment, &cred);
+        let key: BytesN<65> = env
+            .storage()
+            .persistent()
+            .get(&Key::TierKey(group, c.kid))
+            .unwrap_or_else(|| panic_with_error!(&env, Error::RepIssuer));
+        let uk = Key::TierUsed(c.jti.clone());
         if env.storage().persistent().has(&uk) {
             panic_with_error!(&env, Error::RepReplay);
         }
+        tier::verify(&env, &key, &cred, &sig);
         env.storage().persistent().set(&uk, &true);
         bump_persistent(&env, &uk);
         insert_group_leaf(&env, group, &id_commitment);
         bump_instance(&env);
-        env.events().publish((soroban_sdk::symbol_short!("rep"), group), checked.verdict_id);
+        env.events().publish((soroban_sdk::symbol_short!("tier"), group), c.jti);
         load_group(&env, group).tree.root(&env)
     }
 
-    pub fn is_rep_used(env: Env, verdict_id: BytesN<32>) -> bool {
-        env.storage().persistent().has(&Key::RepUsed(verdict_id))
+    pub fn is_tier_used(env: Env, jti: BytesN<16>) -> bool {
+        env.storage().persistent().has(&Key::TierUsed(jti))
     }
 
     /// A merchant joins a chain group; its future checkouts are enrolled there too. Both admins sign.
@@ -835,4 +862,4 @@ impl ProofOfStay {
 #[cfg(test)]
 mod test;
 #[cfg(test)]
-mod test_rep;
+mod test_tier;
