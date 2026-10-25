@@ -1,0 +1,10 @@
+.env
+.env.*
+!.env.example
+node_modules/
+target/
+dist/
+.stellar/
+*.log
+.DS_Store
+.vercel
