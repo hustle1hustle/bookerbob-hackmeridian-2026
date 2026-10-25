@@ -22,11 +22,11 @@ export type PassConnectError =
   | "Network"
 
 export class PassConnectException extends Error {
-  constructor(
-    readonly code: PassConnectError,
-    message: string,
-  ) {
+  // Explicit field instead of a parameter property: Node's type stripping (scripts, tests) rejects those.
+  readonly code: PassConnectError
+  constructor(code: PassConnectError, message: string) {
     super(message)
+    this.code = code
     this.name = "PassConnectException"
   }
 }
