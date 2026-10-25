@@ -762,6 +762,7 @@ export async function search(q: string) {
     title: String(x.title ?? ""), kind: kindOut(String(x.kind ?? "")), price: Number(x.price ?? 0), currency: String(x.currency ?? "USDC"),
     provenRating: typeof x.provenRating === "number" ? x.provenRating : null, reviewCount: Number(x.reviewCount ?? 0), verifiedCount: Number(x.verifiedCount ?? 0),
     url: x.url ?? null, variantId: x.extra?.variantId ?? x.variantId ?? null,
+    area: x.extra?.area ? String(x.extra.area) : null,
   }))
   return { query: q, kind: r?.parsed?.kind ? kindOut(String(r.parsed.kind)) : null, results }
 }

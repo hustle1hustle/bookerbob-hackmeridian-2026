@@ -197,7 +197,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
                 </span>
                 <span style="display:flex;align-items:center;gap:20px 28px;flex-wrap:wrap">
                   <span style="font-size:clamp(44px,5vw,72px);letter-spacing:-.065em;line-height:.85">{{ r.score }}</span>
-                  <span style="background:var(--deal);color:var(--deal-ink);font-family:var(--mono);font-size:12px;font-weight:600;padding:6px 10px">{{ r.deal }}</span>
+                  <sc-if value="{{ r.deal }}" hint-placeholder-val="{{ true }}"><span style="background:var(--deal);color:var(--deal-ink);font-family:var(--mono);font-size:12px;font-weight:600;padding:6px 10px">{{ r.deal }}</span></sc-if>
                   <span style="font-family:var(--mono);font-size:16px">→</span>
                 </span>
               </span>
@@ -207,7 +207,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
         <sc-for list="{{ unranked }}" as="u" hint-placeholder-count="0">
           <li>
             <button onClick="{{ u.onOpen }}" style="appearance:none;width:100%;text-align:left;background:transparent;color:var(--ink);border:0;border-top:1px solid var(--rule);padding:clamp(18px,2.4vw,28px) 0;display:grid;grid-template-columns:clamp(64px,9vw,140px) minmax(0,1fr);gap:0 clamp(12px,2vw,28px);align-items:center;cursor:pointer;transition:background .15s" style-hover="background:var(--surface)">
-              <span style="font-size:clamp(54px,8vw,124px);font-weight:300;letter-spacing:-.075em;line-height:.8;color:var(--ink-3)">new</span>
+              <span style="font-size:clamp(54px,8vw,124px);font-weight:300;letter-spacing:-.075em;line-height:.8;color:var(--ink-3)">{{ u.tag }}</span>
               <span style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px 32px;min-width:0">
                 <span style="display:block;min-width:0;flex:1 1 260px">
                   <span style="display:block;font-size:clamp(28px,3.2vw,48px);font-weight:500;letter-spacing:-.045em;line-height:1">{{ u.name }}</span>
@@ -215,7 +215,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
                 </span>
                 <span style="display:flex;align-items:center;gap:20px 28px;flex-wrap:wrap">
                   <span style="font-size:15px;color:var(--ink-3)">not ranked yet</span>
-                  <span style="background:var(--deal);color:var(--deal-ink);font-family:var(--mono);font-size:12px;font-weight:600;padding:6px 10px">{{ u.deal }}</span>
+                  <sc-if value="{{ u.deal }}" hint-placeholder-val="{{ true }}"><span style="background:var(--deal);color:var(--deal-ink);font-family:var(--mono);font-size:12px;font-weight:600;padding:6px 10px">{{ u.deal }}</span></sc-if>
                   <span style="font-family:var(--mono);font-size:16px">→</span>
                 </span>
               </span>
@@ -854,7 +854,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
           </sc-if>
           <sc-if value="{{ ad.hasPkg }}" hint-placeholder-val="{{ false }}">
             <div style="padding:20px 24px;border-bottom:1px solid var(--rule-soft);display:flex;flex-wrap:wrap;gap:8px 24px;align-items:center;font-family:var(--mono);font-size:12px">
-              <span>secret {{ ad.secret }}</span><span>leaf {{ ad.leaf }}</span><span>signature {{ ad.sig }}</span>
+              <span>{{ ad.pkgLine }}</span>
             </div>
             <div style="padding:4px 24px 0">
               <sc-for list="{{ checks }}" as="c" hint-placeholder-count="3">
@@ -1246,7 +1246,7 @@ class Component extends DCLogic {
     const proven = res.results.filter(r => r.provenRating != null), top = proven[0];
     const kind = res.kind && ['hotel', 'café', 'shop', 'restaurant'].includes(res.kind) ? res.kind : this.state.kind;
     const log = [`searching proven reviews for "${q}"`,
-      `${this.plural(res.results.length, 'result')}, ${proven.length} with proven reviews. only those are ranked.`,
+      `${this.plural(res.results.length, 'result')}, ${proven.length} with proven reviews. only those are ranked: by proven rating, weighted by how many reviews back it.`,
       top ? `top: ${top.title.toLowerCase()}, ${(top.provenRating * 2).toFixed(1)}` : 'nothing proven here yet. no rank without proof.'];
     this.setState({ rank: 'done', kind, rankRes: res, rankLog: log });
   };
@@ -1297,7 +1297,9 @@ class Component extends DCLogic {
       return {
         ranked: rows.map((r, i) => { const P = r.source === 'places' ? this.byId(r.placeId) : null; if (!P) return ucpRow(r, i);
           return { rank: String(i + 1).padStart(2, '0'), rankColor: i === 0 ? 'var(--accent)' : 'var(--ink)', isTop: i === 0 && rows.length > 1, name: P.name, meta: placeMeta(P), score: (r.provenRating * 2).toFixed(1), deal: this.dealLabel(P.id), delay: this.reduced ? '0ms' : i * 90 + 'ms', onOpen: () => this.openPlace(P.id) }; }),
-        unranked: un.map(r => this.byId(r.placeId)).filter(Boolean).map(P => ({ name: P.name, meta: `${P.area.toLowerCase()} · ${this.priceLine(P)}`, deal: this.dealLabel(P.id), onOpen: () => this.openPlace(P.id) })),
+        unranked: un.map(r => this.byId(r.placeId)).filter(Boolean).map(P => ({ tag: 'new', name: P.name, meta: `${P.area.toLowerCase()} · ${this.priceLine(P)}`, deal: this.dealLabel(P.id), onOpen: () => this.openPlace(P.id) }))
+          // federated results from outside BookerBob (JMPR hotels): listed, never ranked, because nothing there is proven
+          .concat(res.results.filter(r => r.source !== 'places' && r.source !== 'ucp').map(r => ({ tag: '—', name: r.title, meta: `${r.source.toLowerCase()} · from ${this.money(r.price)} usdc${r.kind === 'hotel' ? ' a night' : ''} · no proven reviews, so not ranked`, deal: '', onOpen: () => {} }))),
       };
     })() : null;
     const pickKind = k => { this.setKind(k); this.scrollToRank(); };
@@ -1306,7 +1308,7 @@ class Component extends DCLogic {
       heroKinds: kinds.map(([k, label]) => ({ label, count: s.ready ? String(count(k)) : '', onClick: () => pickKind(k) })),
       scrollToRank: this.scrollToRank,
       cats: kinds.map(([k, label]) => ({ label, count: s.ready ? String(count(k)) : '', on: s.kind === k, line: s.kind === k ? 'var(--ink)' : 'transparent', fg: s.kind === k ? 'var(--ink)' : 'var(--ink-3)', onClick: () => this.setKind(k) })),
-      rankQuery: queries[s.kind] || '', rankInput: s.rankQ, onRankInput: e => this.setState({ rankQ: e.target.value }), onRankKey: e => { if (e.key === 'Enter') { e.preventDefault(); this.askBob(); } },
+      rankQuery: queries[s.kind] || '', rankInput: s.rankQ, onRankInput: e => this.setState({ rankQ: e.target.value }), onRankKey: e => { if (e.key === 'Enter') { e.preventDefault(); const v = e.target.value; this.setState({ rankQ: v }); this.askBob(v); } },
       rankTries: ['hotel in lisbon under 120', 'best hotel', 'coffee nearby', 'restaurant dinner', 't-shirt under 50 usdc', 'hoodie'].map(q => ({ label: q, onClick: () => this.askBob(q) })),
       askBob: () => this.askBob(), rankBusy: s.rank === 'thinking', rankBtn: s.rank === 'thinking' ? 'ranking' : s.rank === 'done' ? 'again' : 'ask bob',
       rankSkeleton: s.ready ? [] : [{ w: '62%' }, { w: '48%' }, { w: '55%' }], skAnim: this.reduced ? 'none' : 'bb-pulse 1.6s ease-in-out infinite',
@@ -1318,7 +1320,7 @@ class Component extends DCLogic {
         meta: placeMeta(P),
         score: this.score(P), deal: this.dealLabel(P.id), delay: s.rank === 'done' ? i * 90 + 'ms' : '0ms', onOpen: () => this.openPlace(P.id),
       })),
-      unranked: unranked.map(P => ({ name: P.name, meta: P.real ? `${P.area.toLowerCase()} · ${this.priceLine(P)} · real store, real purchases only` : `${P.area.toLowerCase()} · ${this.priceLine(P)}`, deal: this.dealLabel(P.id), onOpen: () => this.openPlace(P.id) })) }),
+      unranked: unranked.map(P => ({ tag: 'new', name: P.name, meta: P.real ? `${P.area.toLowerCase()} · ${this.priceLine(P)} · real store, real purchases only` : `${P.area.toLowerCase()} · ${this.priceLine(P)}`, deal: this.dealLabel(P.id), onOpen: () => this.openPlace(P.id) })) }),
     };
   }
   setSel(patch) { this.setState(s => ({ sel: { ...s.sel, ...patch } })); }
@@ -1637,7 +1639,7 @@ class Component extends DCLogic {
     const sd = s.disputes.find(x => x.id === ar.sel), sr = sd ? (s.reviews[sd.hotel] || []).find(x => x.id === sd.reviewId) : null, pk = sd && sd.package;
     const ad = {
       has: !!sd, awaiting: !!sd && sd.status === 'awaiting', hasPkg: !!pk, stars: this.stars(sr ? sr.rating : 0), aria: sr ? sr.rating + ' of 5' : '', text: sr ? (s.texts[sr.content_hash] || 'rating only, no text') : '',
-      secret: pk ? (String(pk.secret).startsWith('0x') ? this.short(pk.secret, 10, 6) : pk.secret) : '', sig: pk ? (String(pk.signature).startsWith('0x') ? this.short(pk.signature, 6, 4) : pk.signature) : '', leaf: pk ? String(pk.leafIndex) : '', revealLabel: ar.reveal ? 'hide' : 'reveal',
+      secret: pk ? (String(pk.secret).startsWith('0x') ? this.short(pk.secret, 10, 6) : pk.secret) : '', sig: pk ? (String(pk.signature).startsWith('0x') ? this.short(pk.signature, 6, 4) : pk.signature) : '', leaf: pk ? String(pk.leafIndex) : '', pkgLine: !pk ? '' : /held by/.test(String(pk.secret)) ? 'the stay package: secret, leaf and signature, held by the arbiter' : `secret ${String(pk.secret).startsWith('0x') ? this.short(pk.secret, 10, 6) : pk.secret} · leaf ${pk.leafIndex} · signature ${String(pk.signature).startsWith('0x') ? this.short(pk.signature, 6, 4) : pk.signature}`, revealLabel: ar.reveal ? 'hide' : 'reveal',
     };
     const attested = !!sd && sd.status === 'attested', chk = attested ? ['ok', 'ok', 'ok'] : ar.checks;
     const checks = ['commitment matches', 'signature valid', 'leaf in the group'].map((label, i) => ({ label, status: { wait: '', active: 'checking', ok: 'pass ✓', fail: 'fail' }[chk[i]], color: chk[i] === 'active' ? 'var(--accent)' : chk[i] === 'fail' ? 'var(--warn)' : 'var(--ink)', labelColor: chk[i] === 'wait' ? 'var(--ink-3)' : 'var(--ink)' }));
