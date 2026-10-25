@@ -16,10 +16,10 @@ import { createHash, randomBytes } from "node:crypto"
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { Keypair, StrKey } from "@stellar/stellar-sdk"
-import { getClient, write, TESTNET } from "../../packages/sdk/src/contract.ts"
+import { getClient, write, views, TESTNET } from "../../packages/sdk/src/contract.ts"
 import { contractId } from "../../packages/sdk/src/deployment.ts"
 import { signerOf } from "./core.ts"
-import { checkRebind, commitmentKey } from "./rebind.ts"
+import { checkRebind, commitmentKey, siblingsFor } from "./rebind.ts"
 
 const FR = 21888242871839275222246405745257275088548364400416034343698204186575808495617n
 export const GROUP_NAME = "Stellar wallet tier"
@@ -224,9 +224,12 @@ export function stellarTierApi(req: IncomingMessage, res: ServerResponse, path: 
     },
     async replaceMember(oldCommitment, newCommitment) {
       const { c, group } = await attester()
-      const r = await write(c, "replace_member", { group, old_commitment: oldCommitment, new_commitment: newCommitment })
-      if (r.ok) return r.txHash
-      throw new Error(r.error)
+      for (let attempt = 0; ; attempt++) {
+        const siblings = siblingsFor(await views.groupLeaves(c, group), oldCommitment)
+        const r = await write(c, "replace_member", { group, old_commitment: oldCommitment, new_commitment: newCommitment, siblings })
+        if (r.ok) return r.txHash
+        if (attempt > 0 || !/BadPath|#25/.test(String(r.message ?? r.error))) throw new Error(r.error === "Unknown" ? String(r.message ?? r.error) : r.error)
+      }
     },
     async addMember(commitment) {
       const { c, group } = await attester()

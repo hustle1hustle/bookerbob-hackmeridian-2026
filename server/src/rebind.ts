@@ -6,6 +6,7 @@
 import { createHash } from "node:crypto"
 import { Identity } from "@semaphore-protocol/identity"
 import { poseidon2 } from "poseidon-lite"
+import { Group } from "@semaphore-protocol/group"
 
 const FR = 21888242871839275222246405745257275088548364400416034343698204186575808495617n
 
@@ -45,4 +46,12 @@ export function signRebind(old: Identity, group: number, newCommitment: string, 
     publicKey: [old.publicKey[0].toString(), old.publicKey[1].toString()],
     signature: { R8: [sig.R8[0].toString(), sig.R8[1].toString()], S: sig.S.toString() },
   }
+}
+
+/** The OLD leaf's Merkle siblings for replace_member (Semaphore LeanIMT order, as the contract expects). */
+export function siblingsFor(leaves: bigint[], old: bigint): bigint[] {
+  const g = new Group(leaves)
+  const i = g.indexOf(old)
+  if (i < 0) throw new Error("NotMember")
+  return g.generateMerkleProof(i).siblings
 }

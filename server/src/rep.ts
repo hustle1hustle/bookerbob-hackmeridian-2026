@@ -19,12 +19,12 @@ import { randomBytes, createHash, timingSafeEqual } from "node:crypto"
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { Keypair } from "@stellar/stellar-sdk"
-import { getClient, write, TESTNET } from "../../packages/sdk/src/contract.ts"
+import { getClient, write, views, TESTNET } from "../../packages/sdk/src/contract.ts"
 import { contractId } from "../../packages/sdk/src/deployment.ts"
 import { signerOf } from "./core.ts"
 // @ts-ignore plain JS kit, no types
 import { verifyRepAttestation } from "./verify-rep.mjs"
-import { checkRebind, commitmentKey, type RebindProof } from "./rebind.ts"
+import { checkRebind, commitmentKey, siblingsFor, type RebindProof } from "./rebind.ts"
 
 export const REP_ISSUER = "https://rep-attest.fly.dev"
 export const AUD = "bookerbob"
@@ -324,9 +324,14 @@ export function repApi(req: IncomingMessage, res: ServerResponse, path: string) 
       return done(await write(c, "add_member", { group, id_commitment: commitment }))
     },
     async replaceMember(oldCommitment, newCommitment) {
-      // contract upgrade: replace_member(group, old, new), group operator only
+      // replace_member(group, old, new, siblings of the old leaf), group operator only; a stale path (BadPath,
+      // someone joined in between) is re-read once
       const { c, group } = await client("REP_ATTESTER_SECRET")
-      return done(await write(c, "replace_member", { group, old_commitment: oldCommitment, new_commitment: newCommitment }))
+      for (let attempt = 0; ; attempt++) {
+        const siblings = siblingsFor(await views.groupLeaves(c, group), oldCommitment)
+        const r = await write(c, "replace_member", { group, old_commitment: oldCommitment, new_commitment: newCommitment, siblings })
+        if (r.ok || attempt > 0 || !/BadPath|#25/.test(String(r.message ?? r.error))) return done(r)
+      }
     },
     ...(mode === "tier"
       ? {
