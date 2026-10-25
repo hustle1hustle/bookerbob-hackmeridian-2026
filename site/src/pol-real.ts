@@ -961,15 +961,19 @@ async function* ucpRun(reuse: boolean, noClaim = false): AsyncGenerator<any> {
   yield step(1, "done", { detail: `1 × ${String(item.title).toLowerCase()} · ${Number(item.price).toFixed(2)} usdc${item.storePrice ? ` (${Number(item.storePrice).toFixed(2)} ${String(item.storeCurrency ?? "").toLowerCase()} in the store)` : ""} · shopify variant ${String(item.variantId ?? "").split("/").pop()}`, ...(item.url ? { link: { url: item.url, label: "product page on Shopify" } } : {}) })
   const payer = await ensureWallet()
   await ready()
-  const shopStay = pastShopStay()
-  // the replay demo needs a proof that was used before: without a past purchase there is nothing to replay
-  if (reuse && !shopStay) {
+  // the store's customer tree read live: the bridge adds a buyer's leaf itself, so the 15 s snapshot can lag a fresh purchase
+  const shopLeaves = await views.leaves(await getClient({ ...TESTNET, contractId: (await apiConfig()).contractId }), UCP_MERCHANT).catch(() => null)
+  const shopStay = shopLeaves ? sdk.stays.list().find((s) => s.merchant === UCP_MERCHANT && shopLeaves.includes(BigInt(s.commitment))) : pastShopStay()
+  // the replay demo resends the exact proof of the last proven purchase (same nullifier); without one there is nothing to replay
+  const lastProof = reuse ? readLastUcpProof(payer) : null
+  if (reuse && !shopStay && !lastProof) {
     const headline = "you need a past purchase first."
     yield step(2, "failed", { error: "NoPastPurchase", headline, detail: "a reused proof replays the proof from your last purchase at this store. this browser has none yet: run bob once, then try it." })
     return yield { type: "headline", text: headline, reason: "no past purchase in this browser", error: "NoPastPurchase" }
   }
   let claim = (!!shopStay || reuse) && !noClaim
   const next = sdk.stays.create(UCP_MERCHANT)
+  let keep: LastUcpProof | null = null
   yield step(2, "running")
   let st = await bpost("/buy/start", { variantId: item.variantId, qty: 1, claim, nextCommitment: next.commitment })
   if (st.error) return yield step(2, "failed", { error: st.error, detail: String(st.error) })
@@ -1005,7 +1009,7 @@ async function* ucpRun(reuse: boolean, noClaim = false): AsyncGenerator<any> {
     const holder = shopStay ?? next
     const ident = sdk.stays.identity(holder)
     // the identity must already be one of the store's customers; a new visitor has nothing to prove (or replay) yet
-    if (!leaves.includes(ident.commitment)) {
+    if (!(reuse && lastProof) && !leaves.includes(ident.commitment)) {
       const why = "you need a past purchase from this store first"
       yield step(4, "failed", { error: "NotInTree", headline: `${why}. buy once, then the discount (and the replay demo) work.`, reason: why, detail: `${why}. this purchase can continue at full price.` })
       yield { type: "headline", text: `${why}. buy once, then the discount works.`, reason: why, error: "NotInTree" }
@@ -1013,17 +1017,25 @@ async function* ucpRun(reuse: boolean, noClaim = false): AsyncGenerator<any> {
     }
     const t0 = performance.now()
     let mp
-    try {
+    const replay = reuse && lastProof && lastProof.season === st.action.scope.season ? lastProof : null
+    if (replay) {
+      // the very proof that was spent: no new proving, the same nullifier goes back to Stellar
+      const msg = d.discountMessage(payer), scope = d.discountScope(UCP_MERCHANT, st.action.scope.season)
+      const h = beginProof({ label: "returning customer", scopeText: `discount · ${placeName(UCP_MERCHANT)} · season ${st.action.scope.season}`, treeName: `${placeName(UCP_MERCHANT)} customers`, leaves, commitment: BigInt(replay.commitment), message: msg, scope, onChainRoot: state?.places.find((x) => x.mid === UCP_MERCHANT)?.m.root ?? null, payment: true })
+      mp = { root: BigInt(replay.root), nullifier: BigInt(replay.nullifier), proof: replay.proof }
+      finishProof(h, mp.root, mp.nullifier)
+    } else try {
       const msg = d.discountMessage(payer), scope = d.discountScope(UCP_MERCHANT, st.action.scope.season)
       const h = beginProof({ label: "returning customer", scopeText: `discount · ${placeName(UCP_MERCHANT)} · season ${st.action.scope.season}`, treeName: `${placeName(UCP_MERCHANT)} customers`, leaves, commitment: ident.commitment, message: msg, scope, onChainRoot: state?.places.find((x) => x.mid === UCP_MERCHANT)?.m.root ?? null, payment: true })
       mp = await proveMembership(ident, leaves, msg, scope, artifacts)
+      keep = { commitment: ident.commitment.toString(), root: mp.root.toString(), nullifier: mp.nullifier.toString(), proof: mp.proof, payer, season: st.action.scope.season }
       finishProof(h, mp.root, mp.nullifier)
     } catch (e) {
       const why = "the proof could not be made on this device"
       yield step(4, "failed", { error: "ProveFailed", headline: `${why}. you can still pay full price.`, reason: why, detail: why })
       return
     }
-    yield step(4, "done", { detail: `made on this device in ${Math.round(performance.now() - t0)} ms. your secret never leaves it.` })
+    yield step(4, "done", { detail: replay ? "the stored proof from your last purchase, sent again unchanged. nothing new was proven." : `made on this device in ${Math.round(performance.now() - t0)} ms. your secret never leaves it.` })
     yield step(5, "running")
     const pr = await bpost("/buy/prove", { checkoutId: st.checkoutId, payer, root: mp.root.toString(), nullifier: mp.nullifier.toString(), proof: mp.proof })
     if (pr.error || !pr.verified) {
@@ -1083,6 +1095,7 @@ async function* ucpRun(reuse: boolean, noClaim = false): AsyncGenerator<any> {
       h.tx = sent.txHash
       rememberSpent(h.nullifier, sent.txHash)
     }
+    if (keep) writeLastUcpProof(keep)
     yield step(5, "done", { tx: sent.txHash, detail: "stellar checked the proof in the same transaction as the payment. it works once, so it cannot be reused." })
     yield step(6, "done", { tx: sent.txHash, detail: `−${cart.discounts[0].amount.toFixed(2)} usdc, confirmed in the same transaction as the payment.` })
   }
@@ -1098,6 +1111,23 @@ async function* ucpRun(reuse: boolean, noClaim = false): AsyncGenerator<any> {
   if (joinTx) rememberTx({ kind: "merchant", id: UCP_MERCHANT }, next.commitment, joinTx)
   yield step(9, "done", joinTx ? { tx: joinTx, detail: "you joined the store's proven customers. this purchase can be reviewed once, and it earns returning customer next time." } : {})
   if (orderId) yield { type: "store", storeView: { orderId, amount: cart.total, badges: cart.discounts.length ? ["verified returning customer"] : [], tx: sent.txHash } }
+}
+
+// The last proven purchase's proof, kept so "try a reused proof" resends exactly it (same nullifier, refused on chain).
+type LastUcpProof = { commitment: string; root: string; nullifier: string; proof: any; payer: string; season: number }
+const LAST_UCP_PROOF = "pol.ucpLastProof"
+function readLastUcpProof(payer: string): LastUcpProof | null {
+  try {
+    const x = JSON.parse((nsStorage(nsNow) ?? LS)?.getItem(LAST_UCP_PROOF) ?? "null")
+    return x && x.payer === payer ? x : null
+  } catch {
+    return null
+  }
+}
+function writeLastUcpProof(x: LastUcpProof) {
+  try {
+    ;(nsStorage(nsNow) ?? LS)?.setItem(LAST_UCP_PROOF, JSON.stringify(x))
+  } catch {}
 }
 
 /** Wraps the agent run so it never rejects: an unexpected error ends the run with a plain headline. */
