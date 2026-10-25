@@ -10,11 +10,11 @@ export function AskHero() {
     <div className="hero-copy">
       <span className="label hero-eb">proof of loyalty · everywhere you go</span>
       <h1 className="statement">
-        prove you stayed. <em>keep who you are private.</em>
+        BookerBob. <em>Google for agentic commerce.</em>
       </h1>
-      <p className="hero-sub">Ask Bob ranks places by proven reviews only. Connect a passkey to rate your wallet on-chain for loyalty discounts.</p>
+      <p className="hero-sub">Proof of loyalty, everywhere you go. Bob ranks places by reviews nobody can buy, and your proven stays unlock perks wherever you book.</p>
       <p className="hero-proof">
-        <span>stellar testnet</span>
+        <span>live on Stellar testnet.</span>
         <a className="u" href="#pass-connect">
           connect with passkey →
         </a>
@@ -36,15 +36,16 @@ export interface AskBoxProps {
 export function AskBox({ value, onChange, onAsk, onExample, examples, sources, busy }: AskBoxProps) {
   return (
     <form
-      className="card section"
+      className="card ask-bob"
       role="search"
       onSubmit={(e) => {
         e.preventDefault()
         onAsk()
       }}
     >
-      <label htmlFor="ask-bob">
-        <strong>ask bob</strong>
+      <span className="label">ask bob</span>
+      <label htmlFor="ask-bob" className="sr">
+        ask bob
       </label>
       <div className="row" style={{ marginTop: 8 }}>
         <input id="ask-bob" type="search" value={value} onChange={(e) => onChange(e.target.value)} placeholder="hotel in lisbon under 120" style={{ flex: 1, minWidth: 200 }} />

@@ -50,9 +50,13 @@ export function AskBobScreen({ initial }: { initial: string }) {
               href={r.merchantId !== null ? `#/place/${r.merchantId}` : null}
               perks={r.merchantId === null ? undefined : perks.loading || !perks.data ? "loading" : (perks.data.get(r.merchantId) ?? null)}
               buy={
-                // Buy with Bob runs on-chain for places; UCP hits buy in their store (bridge checkout not wired yet)
+                // places: on-chain booking with perks; UCP hits: checkout through the UCP bridge
                 r.source === "places" && r.merchantId !== null ? (
                   <button type="button" onClick={() => go(`#/buy/${r.merchantId}/${encodeURIComponent(asked)}`)}>
+                    buy with bob
+                  </button>
+                ) : r.source === "ucp" && typeof r.extra?.variantId === "string" ? (
+                  <button type="button" onClick={() => go(`#/buy-ucp/${encodeURIComponent(r.extra!.variantId as string)}/${encodeURIComponent(asked)}`)}>
                     buy with bob
                   </button>
                 ) : null

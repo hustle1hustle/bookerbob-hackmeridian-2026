@@ -1,6 +1,6 @@
 // The one seam between the app and the SDK.
 // Swap mock for testnet with VITE_SDK_MODE=testnet; nothing else changes.
-import { createSdk, kindLabel, type ErrorName, type Merchant } from "@bookerbob/pos-sdk"
+import { createSdk, isErr, kindLabel, type ErrorName, type Merchant, type WriteResult } from "@bookerbob/pos-sdk"
 import { demo } from "./demo"
 
 const mode = import.meta.env.VITE_SDK_MODE === "testnet" ? "testnet" : "mock"
@@ -19,6 +19,18 @@ export const sdk = createSdk({
     },
   },
 })
+
+/**
+ * Test USDC (and the trustline) for the connected wallet. Right after a new demo key is funded by friendbot the
+ * first attempt can fail while the account settles, so try once more after a short pause.
+ */
+export async function faucet(): Promise<WriteResult> {
+  const once = () => sdk.chain.faucet().catch((): WriteResult => ({ error: "Unknown" }))
+  const r = await once()
+  if (!isErr(r) || r.error === "WalletNotConnected") return r
+  await new Promise((ok) => setTimeout(ok, 4000))
+  return once()
+}
 
 export type Place = Merchant
 export const listPlaces = () => sdk.chain.listMerchants()
