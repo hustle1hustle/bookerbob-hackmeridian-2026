@@ -464,6 +464,28 @@ export function createTestnetSdk(opts: TestnetOptions = {}): Sdk {
 
   // restore a remembered demo key silently
   if (store.getItem("pos.wallet") === "local") wallet.connect("local").catch(() => null)
+  // restore a remembered passkey wallet without a prompt: the address comes back now; the signer is wired lazily
+  // (one passkey prompt on the first signature; bookings use fresh payers and need no wallet signature at all)
+  if (store.getItem("pos.wallet") === "passkey") {
+    import("../../pass_connect/src/index.ts")
+      .then(({ restorePasskey }) => {
+        const r = restorePasskey({ storage: store })
+        if (!r) return
+        let real: Signer | null = null
+        const lazy: Signer = {
+          publicKey: r.address,
+          signTransaction: async (xdr, o) => {
+            if (!real) {
+              await wallet.connect("passkey")
+              real = signer
+            }
+            return real!.signTransaction(xdr, o)
+          },
+        }
+        setWallet(r.address, "passkey", lazy)
+      })
+      .catch(() => null)
+  }
 
   const search = {
     async query(q: string) {
