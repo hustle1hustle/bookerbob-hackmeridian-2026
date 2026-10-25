@@ -33,6 +33,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
 @keyframes bb-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 @keyframes bb-fade{from{opacity:0}to{opacity:1}}
 @keyframes bb-pulse{0%,100%{opacity:.55}50%{opacity:1}}
+@media (max-width:600px){.bb-src{position:fixed!important;inset:0!important;width:auto!important;max-height:none!important;border:0!important;box-shadow:none!important}}
 @media (prefers-reduced-motion: reduce){[data-theme] *{animation:none!important;transition:none!important}}
 </style>
 </helmet>
@@ -68,7 +69,8 @@ html,body{margin:0;padding:0;background:#EDEBE5}
       </button>
       <sc-if value="{{ srcOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ srcToggle }}" style="position:fixed;inset:0;z-index:39"></div>
-        <div role="dialog" aria-label="connections" style="position:absolute;right:0;top:calc(100% + 8px);width:min(420px,92vw);max-height:calc(100vh - 96px);overflow:auto;background:var(--surface);color:var(--ink);border:1px solid var(--ink);box-shadow:var(--shadow-hard);z-index:40">
+        <div role="dialog" aria-modal="true" aria-label="connections" class="bb-src" style="position:absolute;right:0;top:calc(100% + 8px);width:min(420px,92vw);max-height:calc(100vh - 96px);overflow:auto;background:var(--surface);color:var(--ink);border:1px solid var(--ink);box-shadow:var(--shadow-hard);z-index:40">
+          <div style="position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 10px 10px 18px;background:var(--surface);border-bottom:1px solid var(--rule)"><span style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)">connections</span><button onClick="{{ srcClose }}" aria-label="close connections" style="appearance:none;border:1px solid var(--ink);background:transparent;color:var(--ink);width:36px;height:36px;display:grid;place-items:center;cursor:pointer;font-size:18px;line-height:1" style-hover="background:var(--ink);color:var(--bg)">×</button></div>
           <sc-if value="{{ srcHasReason }}" hint-placeholder-val="{{ false }}"><div style="padding:16px 18px 4px;font-size:20px;font-weight:500;letter-spacing:-.03em">{{ srcReason }}</div></sc-if>
           <sc-for list="{{ srcRows }}" as="r" hint-placeholder-count="4">
             <sc-if value="{{ r.hasHead }}" hint-placeholder-val="{{ false }}"><div style="padding:14px 18px 2px;border-top:1px solid var(--rule);font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)">{{ r.head }}</div></sc-if>
@@ -372,7 +374,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
                 <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;align-items:center">
                   <sc-if value="{{ r.hasTx }}" hint-placeholder-val="{{ true }}"><a href="{{ r.txUrl }}" target="_blank" rel="noopener" title="the proof, on stellar.expert" style="display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 9px;border:1px solid var(--rule-soft);font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;color:var(--ink)" style-hover="border-color:var(--ink)"><span style="width:6px;height:6px;background:var(--ink)"></span>{{ r.proofLabel }}</a></sc-if>
                   <sc-if value="{{ r.noTx }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 9px;border:1px solid var(--rule-soft);font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink)"><span style="width:6px;height:6px;background:var(--ink)"></span>{{ r.proofPlain }}</span></sc-if>
-                  <sc-if value="{{ r.verified }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;height:26px;padding:0 9px;background:var(--accent);color:var(--accent-ink);font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase">{{ r.verifiedLabel }}</span></sc-if>
+                  <sc-if value="{{ r.verified }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;height:26px;padding:0 9px;background:var(--accent);color:var(--accent-ink);font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase">{{ r.verifiedLabel }}</span></sc-if><sc-if value="{{ r.demo }}" hint-placeholder-val="{{ false }}"><span title="posted by the BookerBob demo script on testnet, not by an organic guest" style="display:inline-flex;align-items:center;height:26px;padding:0 9px;border:1px dashed var(--ink-3);color:var(--ink-2);font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase">testnet demo activity</span></sc-if>
                 </div>
               </div>
             </article>
@@ -720,6 +722,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
             <sc-if value="{{ r.noText }}" hint-placeholder-val="{{ false }}"><p style="margin:0;font-size:17px;color:var(--ink-3)">text unavailable</p></sc-if>
             <div style="display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:8px;font-size:13px;color:var(--ink-3)">
               <sc-if value="{{ r.verified }}" hint-placeholder-val="{{ false }}"><span style="color:var(--accent)">✓ verified stay</span></sc-if>
+              <sc-if value="{{ r.demo }}" hint-placeholder-val="{{ false }}"><span style="color:var(--ink-2)">testnet demo activity</span></sc-if>
               <sc-if value="{{ r.hasDState }}" hint-placeholder-val="{{ false }}"><span style="color:var(--ink)">{{ r.dState }}</span></sc-if>
             </div>
           </div>
@@ -954,6 +957,7 @@ class Component extends DCLogic {
     this.raf = requestAnimationFrame(this.loop);
     this.onKey = e => {
       if (e.key !== 'Escape') return;
+      if (this.state.src && this.state.src.open) { this.pending = null; this.setState(st => ({ src: { ...st.src, open: false, focus: null, reason: null } })); return; }
       if (this.state.connect) this.closeConnect();
       else if (this.state.flow && this.state.flow.phase !== 'running') this.closeFlow();
     };
@@ -979,6 +983,8 @@ class Component extends DCLogic {
     window.addEventListener('pol:data', () => this.reload());
     await this.reload();
     this.setState({ ready: true, ag: this.agBlank() });
+    // links from /how: ?view=agent|passes opens that view, ?connect=1 opens Connect
+    { const q = new URLSearchParams(location.search); const v = q.get('view'); if (v === 'agent') this.goAgent(); else if (v === 'passes') this.goPasses(); if (q.get('connect') === '1') this.openSources(); }
     this.selectFirstDispute();
     if (this.props.startView && this.props.startView !== 'none') this.jump(this.props.startView);
   }
@@ -1127,7 +1133,7 @@ class Component extends DCLogic {
   stars(n) { return [1, 2, 3, 4, 5].map(i => ({ bg: i <= n ? 'var(--ink)' : 'transparent' })); }
   rv(r, P) {
     const t = this.state.texts[r.content_hash], x = this.tx(r.txHash), hotel = this.isHotel(P);
-    return { id: r.id, stars: this.stars(r.rating), aria: r.rating + ' of 5', hasText: !!t, noText: !t, text: t || '', txUrl: x.url, txShort: x.short, verified: r.verified, age: this.age(r.ledger), proofLabel: hotel ? 'proven stay ↗' : 'proven customer ↗', hasTx: !!r.txHash, noTx: !r.txHash, proofPlain: hotel ? 'proven stay' : 'proven customer', verifiedLabel: hotel ? '✓ verified stay' : '✓ verified purchase' };
+    return { id: r.id, stars: this.stars(r.rating), aria: r.rating + ' of 5', hasText: !!t, noText: !t, text: t || '', txUrl: x.url, txShort: x.short, verified: r.verified, demo: !!r.demoActivity, age: this.age(r.ledger), proofLabel: hotel ? 'proven stay ↗' : 'proven customer ↗', hasTx: !!r.txHash, noTx: !r.txHash, proofPlain: hotel ? 'proven stay' : 'proven customer', verifiedLabel: hotel ? '✓ verified stay' : '✓ verified purchase' };
   }
   byId(id) { return this.state.places.find(p => p.id === id); }
 
@@ -1181,7 +1187,7 @@ class Component extends DCLogic {
 
   vShell() {
     const s = this.state, p = this.props, theme = s.theme || p.theme || 'light', role = s.role, connected = !!s.wallet;
-    const tabDefs = [['explore', ['home', 'place'], this.goHome, ''], ['bob shops', ['agent'], this.goAgent, ''], ['my passes', ['passes', 'review'], this.goPasses, s.ready ? String(s.memberships.length + (s.memberships.length ? 1 : 0) + (s.credentials.some(c => c.group === 'traveler' && c.held) ? 1 : 0)) : '']];
+    const tabDefs = [['explore', ['home', 'place'], this.goHome, ''], ['bob shops', ['agent'], this.goAgent, ''], ['my passes', ['passes', 'review'], this.goPasses, s.ready ? String(s.memberships.length + (s.memberships.length ? 1 : 0) + (s.credentials.some(c => c.group === 'traveler' && c.held) ? 1 : 0)) : ''], ['how it works', ['how'], () => { location.href = '/how'; }, '']];
     return {
       theme, themeAria: theme === 'dark' ? 'switch to light' : 'switch to dark', toggleTheme: () => this.setState({ theme: theme === 'dark' ? 'light' : 'dark' }),
       roles: [['guest', 'guest'], ['merchant', 'merchant'], ['arbiter', 'arbiter']].map(([k, label]) => ({ label, active: role === k, bg: role === k ? 'var(--ink)' : 'transparent', fg: role === k ? 'var(--bg)' : 'var(--ink)', onClick: () => this.setRole(k) })),
@@ -1750,6 +1756,7 @@ class Component extends DCLogic {
     return {
       opShow: !!s.operator, opActive: !!ns, opNs: ns, opResetLabel: ns ? 'reset' : 'fresh demo · reset',
       opReset: () => { if (this.m && this.m.demo) this.m.demo.reset(); }, opExit: () => { if (this.m && this.m.demo) this.m.demo.exit(); },
+      srcClose: () => { this.pending = null; this.setState(st => ({ src: { ...st.src, open: false, focus: null, reason: null } })); },
       srcOpen: open, srcToggle: () => (open ? (this.pending = null, this.setState(st => ({ src: { ...st.src, open: false, focus: null, reason: null } }))) : this.openSources()),
       srcHasReason: !!src.reason, srcReason: src.reason ? 'connect ' + src.reason + '.' : '',
       srcBtnBg: connected ? 'transparent' : 'var(--ink)', srcBtnFg: connected ? 'var(--ink)' : 'var(--bg)',
