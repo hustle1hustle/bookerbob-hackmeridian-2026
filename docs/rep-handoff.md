@@ -72,7 +72,7 @@ verdict reaches the ledger. The attester path (`add_member` with the `rep-attest
 the fallback.
 
 - Issuer: the backend sends the verdict and holder proof to the REP tier issuer (`REP_TIER_URL`, default
-  `https://rep-attest-tier.fly.dev`, code `tier-issuer.mjs` in REP-CORE/rep-context-mcp). It runs the full check
+  `https://rep-attest-tier.fly.dev`, code `tier-issuer.mjs` in r3pb0b/rep-context-mcp, branch `choly/rep-tier-issuer`). It runs the full check
   off chain (REP's key, holder binding, nonce, revocation), spends that verdict once, and signs a 106-byte
   credential with its own P-256 key:
   `"REPTIER1" | kid u8 | sha256("<contract>:<group>") | tier u8 | commitment | iat u64 | exp u64 | jti 16B`.
