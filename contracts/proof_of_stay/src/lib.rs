@@ -4,7 +4,7 @@
 
 use soroban_sdk::{
     contract, contracterror, contractimpl, contracttype, crypto::bn254::Bn254Fr, panic_with_error,
-    token, xdr::ToXdr, Address, Bytes, BytesN, Env, String, Vec, U256,
+    token, xdr::ToXdr, Address, Symbol, Bytes, BytesN, Env, String, Vec, U256,
 };
 
 pub mod tree;
@@ -25,7 +25,7 @@ const TTL_EXTEND: u32 = 500_000;
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
 pub enum Error {
-    HotelNotFound = 1,
+    MerchantNotFound = 1,
     TreeFull = 2,
     BadLeaf = 3,
     DuplicateLeaf = 4,
@@ -40,8 +40,9 @@ pub enum Error {
 
 #[derive(Clone)]
 #[contracttype]
-pub struct Hotel {
+pub struct Merchant {
     pub admin: Address,
+    pub kind: Symbol,
     pub name: String,
     pub price: i128,
     pub discount_bps: u32,
@@ -56,7 +57,7 @@ pub struct Hotel {
 #[contracttype]
 pub struct Review {
     pub id: u32,
-    pub hotel: u32,
+    pub merchant: u32,
     pub rating: u32,
     pub content_hash: BytesN<32>,
     pub disclosure_commit: BytesN<32>,
@@ -78,13 +79,13 @@ enum Key {
     Vk,
     Arbiter,
     Usdc,
-    HotelCount,
+    MerchantCount,
     ReviewCount,
-    Hotel(u32),
+    Merchant(u32),
     Leaf(u32, U256),
     Nullifier(U256, U256),
     Review(u32),
-    HotelReviews(u32),
+    MerchantReviews(u32),
     Leaves(u32),
 }
 
@@ -118,20 +119,20 @@ pub fn semaphore_hash(env: &Env, v: &U256) -> U256 {
     keccak_u256(env, &v.to_be_bytes()).shr(8)
 }
 
-fn tagged(env: &Env, tag: &str, hotel: u32) -> Bytes {
+fn tagged(env: &Env, tag: &str, merchant: u32) -> Bytes {
     let mut b = Bytes::from_slice(env, tag.as_bytes());
-    b.extend_from_array(&hotel.to_be_bytes());
+    b.extend_from_array(&merchant.to_be_bytes());
     b
 }
 
-/// Raw (pre-hash) scope for reviews: keccak256("pos/review" || be32(hotel)).
-pub fn review_scope(env: &Env, hotel: u32) -> U256 {
-    keccak_u256(env, &tagged(env, "pos/review", hotel))
+/// Raw (pre-hash) scope for reviews: keccak256("pos/review" || be32(merchant)).
+pub fn review_scope(env: &Env, merchant: u32) -> U256 {
+    keccak_u256(env, &tagged(env, "pos/review", merchant))
 }
 
-/// Raw scope for discounts: keccak256("pos/discount" || be32(hotel) || be32(season)).
-pub fn discount_scope(env: &Env, hotel: u32, season: u32) -> U256 {
-    let mut b = tagged(env, "pos/discount", hotel);
+/// Raw scope for discounts: keccak256("pos/discount" || be32(merchant) || be32(season)).
+pub fn discount_scope(env: &Env, merchant: u32, season: u32) -> U256 {
+    let mut b = tagged(env, "pos/discount", merchant);
     b.extend_from_array(&season.to_be_bytes());
     keccak_u256(env, &b)
 }
@@ -155,23 +156,23 @@ fn bump_persistent(env: &Env, key: &Key) {
     env.storage().persistent().extend_ttl(key, TTL_THRESHOLD, TTL_EXTEND);
 }
 
-fn load_hotel(env: &Env, id: u32) -> Hotel {
+fn load_merchant(env: &Env, id: u32) -> Merchant {
     env.storage()
         .persistent()
-        .get(&Key::Hotel(id))
-        .unwrap_or_else(|| panic_with_error!(env, Error::HotelNotFound))
+        .get(&Key::Merchant(id))
+        .unwrap_or_else(|| panic_with_error!(env, Error::MerchantNotFound))
 }
 
-fn save_hotel(env: &Env, id: u32, h: &Hotel) {
-    let k = Key::Hotel(id);
+fn save_merchant(env: &Env, id: u32, h: &Merchant) {
+    let k = Key::Merchant(id);
     env.storage().persistent().set(&k, h);
     bump_persistent(env, &k);
 }
 
 /// Checks root membership, nullifier freshness and the Groth16 proof, then burns the nullifier.
-fn spend(env: &Env, hotel: &Hotel, root: &U256, nullifier: &U256, message: &U256, scope: &U256, proof: &Proof) {
+fn spend(env: &Env, merchant: &Merchant, root: &U256, nullifier: &U256, message: &U256, scope: &U256, proof: &Proof) {
     // Root 0 would accept proofs with an out-of-range merkleProofLength; only known roots count.
-    if *root == U256::from_u32(env, 0) || !hotel.roots.contains(root) {
+    if *root == U256::from_u32(env, 0) || !merchant.roots.contains(root) {
         panic_with_error!(env, Error::UnknownRoot);
     }
     require_canonical(env, nullifier);
@@ -207,19 +208,20 @@ impl ProofOfStay {
         s.set(&Key::Vk, &vk);
         s.set(&Key::Arbiter, &arbiter);
         s.set(&Key::Usdc, &usdc);
-        s.set(&Key::HotelCount, &0u32);
+        s.set(&Key::MerchantCount, &0u32);
         s.set(&Key::ReviewCount, &0u32);
         bump_instance(&env);
     }
 
-    pub fn register_hotel(env: Env, admin: Address, name: String, price: i128, discount_bps: u32) -> u32 {
+    pub fn register_merchant(env: Env, admin: Address, kind: Symbol, name: String, price: i128, discount_bps: u32) -> u32 {
         admin.require_auth();
         if price <= 0 || discount_bps > 10_000 {
             panic_with_error!(&env, Error::BadParams);
         }
-        let id: u32 = env.storage().instance().get(&Key::HotelCount).unwrap();
-        let h = Hotel {
+        let id: u32 = env.storage().instance().get(&Key::MerchantCount).unwrap();
+        let h = Merchant {
             admin,
+            kind,
             name,
             price,
             discount_bps,
@@ -229,16 +231,16 @@ impl ProofOfStay {
             rating_count: 0,
             verified_count: 0,
         };
-        save_hotel(&env, id, &h);
-        env.storage().instance().set(&Key::HotelCount, &(id + 1));
+        save_merchant(&env, id, &h);
+        env.storage().instance().set(&Key::MerchantCount, &(id + 1));
         bump_instance(&env);
-        env.events().publish((soroban_sdk::symbol_short!("hotel"), id), h.price);
+        env.events().publish((soroban_sdk::symbol_short!("merchant"), id), h.price);
         id
     }
 
-    /// Hotel admin inserts the stay-identity commitment at checkout. Returns the new root.
-    pub fn checkout(env: Env, hotel: u32, id_commitment: U256) -> U256 {
-        let mut h = load_hotel(&env, hotel);
+    /// Merchant admin inserts the stay-identity commitment at checkout. Returns the new root.
+    pub fn checkout(env: Env, merchant: u32, id_commitment: U256) -> U256 {
+        let mut h = load_merchant(&env, merchant);
         h.admin.require_auth();
         if id_commitment == U256::from_u32(&env, 0) {
             panic_with_error!(&env, Error::BadLeaf);
@@ -247,7 +249,7 @@ impl ProofOfStay {
         if h.tree.size >= MAX_LEAVES {
             panic_with_error!(&env, Error::TreeFull);
         }
-        let lk = Key::Leaf(hotel, id_commitment.clone());
+        let lk = Key::Leaf(merchant, id_commitment.clone());
         if env.storage().persistent().has(&lk) {
             panic_with_error!(&env, Error::DuplicateLeaf);
         }
@@ -257,51 +259,51 @@ impl ProofOfStay {
             h.roots.pop_front();
         }
         h.roots.push_back(root.clone());
-        save_hotel(&env, hotel, &h);
+        save_merchant(&env, merchant, &h);
         env.storage().persistent().set(&lk, &index);
         bump_persistent(&env, &lk);
         // Full leaf list (<= 1024 x 32 bytes) so clients can build Merkle paths without an indexer.
-        let lsk = Key::Leaves(hotel);
+        let lsk = Key::Leaves(merchant);
         let mut leaves: Vec<U256> = env.storage().persistent().get(&lsk).unwrap_or(Vec::new(&env));
         leaves.push_back(id_commitment.clone());
         env.storage().persistent().set(&lsk, &leaves);
         bump_persistent(&env, &lsk);
         bump_instance(&env);
-        env.events().publish((soroban_sdk::symbol_short!("checkout"), hotel), (id_commitment, index, root.clone()));
+        env.events().publish((soroban_sdk::symbol_short!("checkout"), merchant), (id_commitment, index, root.clone()));
         root
     }
 
-    /// Full-price booking: USDC from guest to hotel admin.
-    pub fn book(env: Env, hotel: u32, guest: Address) -> i128 {
+    /// Full-price booking: USDC from guest to merchant admin.
+    pub fn book(env: Env, merchant: u32, guest: Address) -> i128 {
         guest.require_auth();
-        let h = load_hotel(&env, hotel);
+        let h = load_merchant(&env, merchant);
         let usdc: Address = env.storage().instance().get(&Key::Usdc).unwrap();
         token::Client::new(&env, &usdc).transfer(&guest, &h.admin, &h.price);
         bump_instance(&env);
-        env.events().publish((soroban_sdk::symbol_short!("book"), hotel), (guest, h.price));
+        env.events().publish((soroban_sdk::symbol_short!("book"), merchant), (guest, h.price));
         h.price
     }
 
-    /// Returning-guest booking: proves a past stay at this hotel, once per season per stay.
+    /// Returning-guest booking: proves a past stay at this merchant, once per season per stay.
     /// The proof message binds the paying guest, so a proof cannot be front-run by another payer.
-    pub fn book_with_discount(env: Env, hotel: u32, guest: Address, season: u32, proof: Proof, root: U256, nullifier: U256) -> i128 {
+    pub fn book_with_discount(env: Env, merchant: u32, guest: Address, season: u32, proof: Proof, root: U256, nullifier: U256) -> i128 {
         guest.require_auth();
-        let h = load_hotel(&env, hotel);
-        let scope = discount_scope(&env, hotel, season);
+        let h = load_merchant(&env, merchant);
+        let scope = discount_scope(&env, merchant, season);
         let message = discount_message(&env, &guest);
         spend(&env, &h, &root, &nullifier, &message, &scope, &proof);
         let amount = h.price * (BPS - h.discount_bps as i128) / BPS;
         let usdc: Address = env.storage().instance().get(&Key::Usdc).unwrap();
         token::Client::new(&env, &usdc).transfer(&guest, &h.admin, &amount);
         bump_instance(&env);
-        env.events().publish((soroban_sdk::symbol_short!("discount"), hotel), (guest, amount, season));
+        env.events().publish((soroban_sdk::symbol_short!("discount"), merchant), (guest, amount, season));
         amount
     }
 
     /// Anonymous review. Any account (relayer or fresh key) may submit, no auth.
     pub fn post_review(
         env: Env,
-        hotel: u32,
+        merchant: u32,
         rating: u32,
         content_hash: BytesN<32>,
         disclosure_commit: BytesN<32>,
@@ -312,17 +314,17 @@ impl ProofOfStay {
         if !(1..=5).contains(&rating) {
             panic_with_error!(&env, Error::BadRating);
         }
-        let mut h = load_hotel(&env, hotel);
-        let scope = review_scope(&env, hotel);
+        let mut h = load_merchant(&env, merchant);
+        let scope = review_scope(&env, merchant);
         let message = review_message(&env, rating, &content_hash, &disclosure_commit);
         spend(&env, &h, &root, &nullifier, &message, &scope, &proof);
 
         let id: u32 = env.storage().instance().get(&Key::ReviewCount).unwrap();
-        let r = Review { id, hotel, rating, content_hash, disclosure_commit, nullifier, verified: false, ledger: env.ledger().sequence() };
+        let r = Review { id, merchant, rating, content_hash, disclosure_commit, nullifier, verified: false, ledger: env.ledger().sequence() };
         let rk = Key::Review(id);
         env.storage().persistent().set(&rk, &r);
         bump_persistent(&env, &rk);
-        let hk = Key::HotelReviews(hotel);
+        let hk = Key::MerchantReviews(merchant);
         let mut ids: Vec<u32> = env.storage().persistent().get(&hk).unwrap_or(Vec::new(&env));
         ids.push_back(id);
         env.storage().persistent().set(&hk, &ids);
@@ -331,9 +333,9 @@ impl ProofOfStay {
 
         h.rating_sum += rating;
         h.rating_count += 1;
-        save_hotel(&env, hotel, &h);
+        save_merchant(&env, merchant, &h);
         bump_instance(&env);
-        env.events().publish((soroban_sdk::symbol_short!("review"), hotel), (id, rating));
+        env.events().publish((soroban_sdk::symbol_short!("review"), merchant), (id, rating));
         id
     }
 
@@ -353,10 +355,10 @@ impl ProofOfStay {
         r.verified = true;
         env.storage().persistent().set(&rk, &r);
         bump_persistent(&env, &rk);
-        let mut h = load_hotel(&env, r.hotel);
+        let mut h = load_merchant(&env, r.merchant);
         h.verified_count += 1;
-        save_hotel(&env, r.hotel, &h);
-        env.events().publish((soroban_sdk::symbol_short!("attest"), r.hotel), review_id);
+        save_merchant(&env, r.merchant, &h);
+        env.events().publish((soroban_sdk::symbol_short!("attest"), r.merchant), review_id);
     }
 
     /// Stateless Groth16 check against the stored Semaphore VK: `[root, nullifier, hash(message), hash(scope)]`.
@@ -371,20 +373,20 @@ impl ProofOfStay {
         verifier::verify(&env, &vk, &proof, &pubs)
     }
 
-    pub fn hotel_count(env: Env) -> u32 {
-        env.storage().instance().get(&Key::HotelCount).unwrap()
+    pub fn merchant_count(env: Env) -> u32 {
+        env.storage().instance().get(&Key::MerchantCount).unwrap()
     }
 
-    pub fn get_hotel(env: Env, hotel: u32) -> Hotel {
-        load_hotel(&env, hotel)
+    pub fn get_merchant(env: Env, merchant: u32) -> Merchant {
+        load_merchant(&env, merchant)
     }
 
-    pub fn get_root(env: Env, hotel: u32) -> U256 {
-        load_hotel(&env, hotel).tree.root(&env)
+    pub fn get_root(env: Env, merchant: u32) -> U256 {
+        load_merchant(&env, merchant).tree.root(&env)
     }
 
-    pub fn get_rating(env: Env, hotel: u32) -> Rating {
-        let h = load_hotel(&env, hotel);
+    pub fn get_rating(env: Env, merchant: u32) -> Rating {
+        let h = load_merchant(&env, merchant);
         Rating { sum: h.rating_sum, count: h.rating_count, verified_count: h.verified_count }
     }
 
@@ -395,8 +397,8 @@ impl ProofOfStay {
             .unwrap_or_else(|| panic_with_error!(&env, Error::ReviewNotFound))
     }
 
-    pub fn get_reviews(env: Env, hotel: u32) -> Vec<Review> {
-        let ids: Vec<u32> = env.storage().persistent().get(&Key::HotelReviews(hotel)).unwrap_or(Vec::new(&env));
+    pub fn get_reviews(env: Env, merchant: u32) -> Vec<Review> {
+        let ids: Vec<u32> = env.storage().persistent().get(&Key::MerchantReviews(merchant)).unwrap_or(Vec::new(&env));
         let mut out = Vec::new(&env);
         for id in ids.iter() {
             out.push_back(env.storage().persistent().get(&Key::Review(id)).unwrap());
@@ -404,12 +406,12 @@ impl ProofOfStay {
         out
     }
 
-    pub fn get_leaves(env: Env, hotel: u32) -> Vec<U256> {
-        env.storage().persistent().get(&Key::Leaves(hotel)).unwrap_or(Vec::new(&env))
+    pub fn get_leaves(env: Env, merchant: u32) -> Vec<U256> {
+        env.storage().persistent().get(&Key::Leaves(merchant)).unwrap_or(Vec::new(&env))
     }
 
-    pub fn leaf_index(env: Env, hotel: u32, id_commitment: U256) -> Option<u32> {
-        env.storage().persistent().get(&Key::Leaf(hotel, id_commitment))
+    pub fn leaf_index(env: Env, merchant: u32, id_commitment: U256) -> Option<u32> {
+        env.storage().persistent().get(&Key::Leaf(merchant, id_commitment))
     }
 
     pub fn is_spent(env: Env, scope_hash: U256, nullifier: U256) -> bool {

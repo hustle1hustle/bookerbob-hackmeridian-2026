@@ -105,7 +105,7 @@ fn lean_imt_root_matches_js() {
 // ---- full contract cycle ----
 
 use crate::{Error, ProofOfStay, ProofOfStayClient};
-use soroban_sdk::{testutils::Address as _, token, Address, String as SString};
+use soroban_sdk::{testutils::Address as _, token, Address, String as SString, Symbol};
 
 const FIXTURES: &str = include_str!("../../../circuits/golden/depth10/fixtures.json");
 
@@ -137,7 +137,7 @@ fn setup<'a>() -> Ctx<'a> {
     let hotel_admin = Address::generate(&env);
     let fx: serde_json::Value = serde_json::from_str(FIXTURES).unwrap();
     // 100 USDC (7 decimals), 20% off for returning guests
-    let hid = client.register_hotel(&hotel_admin, &SString::from_str(&env, "Casa Alfama"), &1_000_000_000, &2000);
+    let hid = client.register_merchant(&hotel_admin, &Symbol::new(&env, "hotel"), &SString::from_str(&env, "Casa Alfama"), &1_000_000_000, &2000);
     assert_eq!(hid, 0);
     for c in fx["commitments"].as_array().unwrap() {
         client.checkout(&0, &u256_dec(&env, c.as_str().unwrap()));
@@ -205,9 +205,9 @@ fn review_with_changed_rating_fails() {
 }
 
 #[test]
-fn review_at_other_hotel_fails() {
+fn review_at_other_merchant_fails() {
     let c = setup();
-    let other = c.client.register_hotel(&c.hotel_admin, &SString::from_str(&c.env, "Other"), &10, &0);
+    let other = c.client.register_merchant(&c.hotel_admin, &Symbol::new(&c.env, "cafe"), &SString::from_str(&c.env, "Other"), &10, &0);
     for cm in c.fx["commitments"].as_array().unwrap() {
         c.client.checkout(&other, &u256_dec(&c.env, cm.as_str().unwrap()));
     }

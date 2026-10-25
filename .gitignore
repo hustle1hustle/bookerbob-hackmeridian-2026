@@ -10,3 +10,4 @@ dist/
 .vercel
 target/
 .claude/
+contracts/proof_of_stay/test_snapshots/
