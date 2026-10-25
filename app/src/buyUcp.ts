@@ -79,7 +79,8 @@ export function useUcpBuyFlow(variantId: string, query: string) {
       const returning = perks?.items.find((i) => i.group.kind === "merchant" && i.group.id === merchant)
       if (merchant !== null) await sdk.stays.sync()
       const past = merchant !== null ? sdk.stays.list().find((s) => s.merchant === merchant && s.checkedIn) : undefined
-      const claim = !!(returning?.eligible && past)
+      // a checked-in stay at the store is the claim; an on-chain policy line, when present, must agree
+      const claim = !!past && (returning ? returning.eligible : true)
       const next = merchant !== null ? sdk.stays.create(merchant).commitment : undefined
       bump()
       const checkout = await ucp.start({ variantId, qty: 1, claim, nextCommitment: next })
@@ -112,6 +113,7 @@ export function useUcpBuyFlow(variantId: string, query: string) {
       set((s) => ({ ...s, phase: "error", error: { copy: e instanceof UcpError ? e.message : errorCopy.Unknown } }))
     } finally {
       bump()
+      setTimeout(bump, 6000) // the balance view settles a ledger later
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [variantId, query])
