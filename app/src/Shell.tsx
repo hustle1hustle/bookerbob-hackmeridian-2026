@@ -141,7 +141,8 @@ export function Shell({ children }: { children: ReactNode }) {
       )}
       {role === "guest" && (
         <nav className="wrap row small" aria-label="guest" style={{ paddingTop: 12 }}>
-          <a href="#/">places</a>
+          <a href="#/">ask bob</a>
+          <a href="#/places">places</a>
           <a href="#/stays">my stays</a>
         </nav>
       )}

@@ -110,6 +110,7 @@ export function ReviewItem({ review, txHref, action }: ReviewItemProps) {
       <div className="row">
         <Stars value={review.rating} />
         {review.verified && <VerifiedStay />}
+        {review.demoActivity && <span className="tag">testnet demo activity</span>}
         <span className="small muted" style={{ marginLeft: "auto" }}>
           {ago(review.time, review.ledger)}
         </span>
