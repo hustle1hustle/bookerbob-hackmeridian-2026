@@ -6,6 +6,7 @@
 //   POST /api/faucet                       mints test USDC to an address
 //   GET  /api/disputes  POST /api/disputes  dispute packages for the arbiter
 //   POST /api/attest                       demo arbiter: checks the disclosure, then attest_review
+import { contractId } from "../../packages/sdk/src/deployment.ts"
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
 import { readFileSync, existsSync, statSync } from "node:fs"
 import { join, extname, resolve } from "node:path"
@@ -15,7 +16,7 @@ import { TESTNET, views } from "../../packages/sdk/src/contract.ts"
 import { contentHash } from "../../packages/sdk/src/derive.ts"
 import { checkDisclosure } from "../../packages/sdk/src/disclosure.ts"
 
-const CONTRACT = process.env.PROOF_OF_STAY_CONTRACT_ID ?? "CBZ7I3VOQEMK5LKDZLCUJ4VU6KQX5WT747XN4KLGM23EIUCISTDX5MTL"
+const CONTRACT = contractId()
 const net = { ...TESTNET, rpcUrl: process.env.STELLAR_RPC_URL ?? TESTNET.rpcUrl, contractId: CONTRACT }
 const ROOT = resolve(import.meta.dirname, "..")
 const STATIC = process.env.STATIC_DIR ?? join(ROOT, "../app/dist")
