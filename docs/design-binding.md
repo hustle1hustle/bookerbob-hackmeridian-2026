@@ -121,6 +121,8 @@ The wallet row in Connect offers "sign in with my passkey" (`wallet.connect('pas
 - After a refusal that is not the replay demo, "pay full price" runs `ucp.run({ noClaim: true })`.
 - Step 2's label is "add it to the cart" (it was "add the t-shirt", wrong for the cap or a hoodie).
 
+- Footer: a "how it works" link to `/how` (site/public/how.html, served by one line in server/src/index.ts), added by the UCP module session with Choly's OK. Restyled in edit 24.
+
 ## How it works page (edit 24)
 
 - `vShell()` tab list: a fourth tab "how it works" after my passes, which navigates to `/how` (the footer link was already there).
