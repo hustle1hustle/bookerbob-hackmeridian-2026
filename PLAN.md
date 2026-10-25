@@ -1,4 +1,4 @@
-# Proof of Stay: plan
+# Proof of Loyalty: plan
 
 Team BookerBob. HackMeridian 2026 (Stellar), Lisbon, ONE16. Hacking window: Sun 25 Oct 09:00 to Mon 26 Oct 12:00 (Lisbon), no late submissions.
 Path: **Genesis** (idea to MVP). Thematic track: **Stellar Unlocked**, which names this case directly: "ZK, natively: use the Poseidon and BN254 host functions to build verifiers, private voting, membership proofs".
@@ -20,9 +20,11 @@ Every technical claim below was checked against primary sources. Sources and det
 
 ## 1. Product
 
-**One line:** guests prove they stayed at a hotel without revealing who they are, and in return get honest reviews and returning-guest discounts. An agent books using only this kind of data.
+**Name:** Proof of Loyalty. **Tagline:** everywhere you go. **Brand and agent:** BookerBob. **First medium:** hotels; the hotel flow is labelled "proof of stay".
 
-**Tagline:** private by default, accountable when needed.
+**One line:** customers prove they were customers of a place without revealing who they are, and in return get honest reviews and returning-customer discounts. BookerBob, their agent, books using only this kind of data.
+
+**Security principle:** private by default, accountable when needed.
 
 **Problem:**
 1. Reviews on travel platforms are inflated, and neither a guest nor an agent can tell a real review from a bought one.
@@ -188,7 +190,7 @@ Roles: A circuits, converter, verifier. B tree, contract, USDC, deploy, seed. C 
 
 ## 7. README outline
 
-1. One line + tagline + live URL + video + contract ID.
+1. Name (Proof of Loyalty), tagline (everywhere you go), one line, live URL, video, contract ID.
 2. Problem (two facts) and users (guest, hotel, guest's agent).
 3. How it works: checkout, tree, proof, review/discount, disclosure.
 4. Stellar specifics: Poseidon (on-chain tree), BN254 pairing + G1 ops (Groth16 verifier), USDC via SAC (discounted payment in one tx), passkey wallet; versions (Protocol 29, soroban-sdk 28); verification cost; testnet contract ID and at least 3 tx hashes (checkout, review, discount payment).

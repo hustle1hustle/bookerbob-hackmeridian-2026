@@ -1,8 +1,6 @@
-# Proof of Stay
+# Proof of Loyalty
 
-**Guests prove they stayed at a place without revealing who they are. In return they get honest reviews and returning-guest discounts. An agent books using only this kind of data.**
-
-*Private by default, accountable when needed.*
+**Everywhere you go.** Customers prove they were customers of a place without revealing who they are. In return they get honest reviews and returning-customer discounts, and BookerBob, their agent, books using only this kind of data. First medium: hotels (the hotel flow is "proof of stay").
 
 - Live demo: _coming with the deploy_ (read-only without a wallet; a demo key in the browser is enough to walk the full cycle)
 - Video: _link at submission_
@@ -79,6 +77,8 @@ From [docs/bench.md](docs/bench.md):
 | Browser proving | about 0.3 to 1.5 s, after a one-time ~4.2 MB download (depth-10 artifacts) |
 
 ## Security model
+
+Principle: private by default, accountable when needed.
 
 | Party | Sees | Does not see |
 |---|---|---|

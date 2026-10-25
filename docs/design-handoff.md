@@ -1,10 +1,10 @@
-# Claude Design handoff: Proof of Stay web app (BookerBob, HackMeridian 2026)
+# Claude Design handoff: Proof of Loyalty web app (BookerBob, HackMeridian 2026)
 
 Deliver CODE, not a prototype: React + TypeScript components for a Vite app, with the craft already implemented (layout, type, color, motion, all states). The build session wires them to the chain through the 3 bind points below and does not touch the visual layer. Hard deadline: components by Mon 26 Oct 03:00 Lisbon. The integrated app must be live by 06:00, and the 2-4 min demo video is recorded from it.
 
 ## What it is
 Guests prove they stayed at a hotel without revealing who they are. In return they get honest reviews and a returning-guest discount. One zero-knowledge proof (Semaphore v4, verified on Stellar testnet) powers three things: an anonymous review (one per stay), a discount on a repeat booking (paid in USDC in the same transaction), and a dispute flow where the guest discloses only to an arbiter.
-Tagline: **private by default, accountable when needed.**
+Name: **Proof of Loyalty**. Tagline: **everywhere you go**. Brand and agent: **BookerBob**. The hotel flow may say "proof of stay". "Private by default, accountable when needed" is the security principle, used only in the "what each party sees" explainer.
 
 Audience, in order: hackathon judges (they open the live URL on a laptop, often WITHOUT a wallet, and must understand it in 30 seconds), then the demo video, then guests, hotels and an agent.
 
