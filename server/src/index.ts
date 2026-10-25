@@ -29,6 +29,7 @@ import { opsApi, opsClient } from "./ops.ts" // importing installs the error hoo
 import { jmprAdapter } from "./search/jmpr.ts"
 import { PayerService } from "./payer.ts"
 import { findJoinTx } from "./joins.ts"
+import { serveArtifact, warmArtifacts } from "./artifacts.ts"
 import { loadCatalog, Quotes } from "./catalog.ts"
 import type { Merchant, Review } from "../../packages/sdk/src/types.ts"
 
@@ -331,8 +332,12 @@ createServer(async (req, res) => {
     if (path.startsWith("/api/")) return await api(req, res, path)
     if (path === "/" && req.url?.includes("demo=")) return (await import("./rep.ts")).repApi(req, res, "/api/rep/demo")
     if (path === "/ops.js") return opsClient(res)
+    if (path.startsWith("/artifacts/") && (await serveArtifact(req, res, path, process.env.DATA_DIR ?? join(ROOT, ".data")))) return
     serveStatic(res, path)
   } catch (e) {
     json(res, 500, { error: "Unknown", message: String((e as any)?.message ?? e).slice(0, 200) })
   }
-}).listen(Number(process.env.PORT ?? 8080), () => console.log(`pos server on :${process.env.PORT ?? 8080}, contract ${CONTRACT}`))
+}).listen(Number(process.env.PORT ?? 8080), () => {
+  warmArtifacts(process.env.DATA_DIR ?? join(ROOT, ".data")).catch((e) => console.error("artifacts warm failed", String(e)))
+  console.log(`pos server on :${process.env.PORT ?? 8080}, contract ${CONTRACT}`)
+})
