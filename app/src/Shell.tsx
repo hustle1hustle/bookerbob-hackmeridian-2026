@@ -37,9 +37,9 @@ export function FaucetButton() {
   return (
     <span className="row">
       <button type="button" className="secondary" onClick={run} disabled={flow.state.status === "submitting"}>
-        {flow.state.status === "submitting" ? "minting test USDC" : "get test USDC"}
+        {flow.state.status === "submitting" ? "minting" : "get test USDC"}
       </button>
-      {flow.state.status === "success" && <span className="small">test USDC added</span>}
+      {flow.state.status === "success" && <span className="small" role="status">added</span>}
       {flow.state.status === "error" && <span className="small">{flow.state.copy}</span>}
       {flow.state.status === "needsWallet" && <span className="small">connect first</span>}
     </span>

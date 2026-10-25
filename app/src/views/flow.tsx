@@ -77,7 +77,7 @@ export function ProofMoment({ state, cached, connect, success, alreadyDone, onRe
   const at = order[state.status]
   const step = (i: number): StepState => (i === 0 && cached ? "skipped" : i < at ? "done" : i === at ? "active" : "todo")
   const dl =
-    state.status === "downloading" && state.total > 0 ? `${mb(state.loaded)} of ${mb(state.total)} MB` : cached ? "already in this browser" : "one-time download, kept for next time"
+    state.status === "downloading" && state.total > 0 ? `${mb(state.loaded)} of ${mb(state.total)} MB` : cached ? "already loaded" : "about 4 MB, fetched when needed"
 
   return (
     <section className="card" aria-live="polite">
