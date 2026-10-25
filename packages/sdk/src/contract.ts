@@ -36,6 +36,17 @@ const CONTRACT_ERRORS: Record<number, ContractError> = {
   9: "BadRating",
   10: "ReviewNotFound",
   11: "BadParams",
+  12: "NotInPolicy",
+  13: "GroupNotFound",
+  14: "DuplicateClaim",
+  15: "RepNotConfigured",
+  16: "RepMalformed",
+  17: "RepIssuer",
+  18: "RepExpired",
+  19: "RepNoTier",
+  20: "RepHolder",
+  21: "RepNonce",
+  22: "RepReplay",
 }
 
 export const parseContractError = (e: unknown): ContractError | null => {

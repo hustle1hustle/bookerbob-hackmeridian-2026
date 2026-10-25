@@ -30,6 +30,8 @@ interface Session { sid: string; commitment: string; nonce: string; exp: number;
 export interface RepDeps {
   /** Adds a commitment to the verified-traveler group; returns the tx hash. */
   addMember: (commitment: bigint) => Promise<string>
+  /** On-chain path (REP_ONCHAIN=1): the contract checks the verdict itself (`add_member_with_rep`), no attester key. */
+  addMemberWithRep?: (commitment: bigint, jws: string, kbJwt: string) => Promise<string>
   /** Test hook: a fixed JWKS instead of fetching the issuer's. */
   jwks?: { keys: unknown[] } | null
   now?: () => number
@@ -80,7 +82,10 @@ export function createRep(deps: RepDeps) {
     if (typeof r.verdict?.lodging_spend_tier !== "string" || !r.verdict.lodging_spend_tier) return fail(s, "no lodging tier")
     if (typeof r.payload.server_name !== "string" || !PLATFORMS.test(r.payload.server_name)) return fail(s, "not a lodging platform")
     try {
-      s.txHash = await deps.addMember(BigInt(s.commitment))
+      // The off-chain checks above still run first (they also cover revocation, which the contract cannot read).
+      s.txHash = deps.addMemberWithRep
+        ? await deps.addMemberWithRep(BigInt(s.commitment), a.jws, a.kbJwt)
+        : await deps.addMember(BigInt(s.commitment))
       s.status = "passed"
       return { code: 200, body: { ok: true } }
     } catch (e) {
@@ -144,28 +149,48 @@ export function createRep(deps: RepDeps) {
 let live: ReturnType<typeof createRep> | null = null
 let groupId: Promise<number> | null = null
 
-/** The deployed handler: REP attester key from REP_ATTESTER_SECRET, group "REP verified traveler". */
+async function client(secretEnv: string) {
+  const secret = process.env[secretEnv]
+  if (!secret) throw new Error(`${secretEnv} not set`)
+  const kp = Keypair.fromSecret(secret)
+  const net = { ...TESTNET, rpcUrl: process.env.STELLAR_RPC_URL ?? TESTNET.rpcUrl, contractId: contractId() }
+  const c = await getClient(net, signerOf(kp, net.networkPassphrase))
+  groupId ??= (async () => {
+    if (process.env.REP_GROUP_ID) return Number(process.env.REP_GROUP_ID)
+    const gs = ((await (c as any).list_groups()).result ?? []) as any[]
+    const g = gs.find((x) => String(x.name) === "REP verified traveler")
+    if (!g) throw new Error("group not found")
+    return Number(g.id)
+  })()
+  return { c, group: await groupId }
+}
+
+const done = (r: Awaited<ReturnType<typeof write>>) => {
+  if (r.ok) return r.txHash
+  // Already verified earlier with the same identity: still a member, nothing to add.
+  if (r.error === "DuplicateLeaf") return ""
+  throw new Error(r.error === "Unknown" ? (r.message ?? r.error) : r.error)
+}
+
+/** The deployed handler, group "REP verified traveler". Default: the REP attester key (REP_ATTESTER_SECRET) calls
+ *  add_member. REP_ONCHAIN=1: any funded relayer (REP_RELAYER_SECRET, holds no group rights) submits the verdict
+ *  to add_member_with_rep and the contract checks it. OFF by default: the verdict and the holder proof become
+ *  public tx arguments, which publishes its bands (tier, approximate spend, city band, source) and the device key. */
 export function repApi(req: IncomingMessage, res: ServerResponse, path: string) {
+  const onchain = process.env.REP_ONCHAIN === "1"
   live ??= createRep({
     async addMember(commitment) {
-      const secret = process.env.REP_ATTESTER_SECRET
-      if (!secret) throw new Error("REP_ATTESTER_SECRET not set")
-      const kp = Keypair.fromSecret(secret)
-      const net = { ...TESTNET, rpcUrl: process.env.STELLAR_RPC_URL ?? TESTNET.rpcUrl, contractId: contractId() }
-      const c = await getClient(net, signerOf(kp, net.networkPassphrase))
-      groupId ??= (async () => {
-        if (process.env.REP_GROUP_ID) return Number(process.env.REP_GROUP_ID)
-        const gs = ((await (c as any).list_groups()).result ?? []) as any[]
-        const g = gs.find((x) => String(x.name) === "REP verified traveler")
-        if (!g) throw new Error("group not found")
-        return Number(g.id)
-      })()
-      const r = await write(c, "add_member", { group: await groupId, id_commitment: commitment })
-      if (r.ok) return r.txHash
-      // Already verified earlier with the same identity: still a member, nothing to add.
-      if (r.error === "DuplicateLeaf") return ""
-      throw new Error(r.error)
+      const { c, group } = await client("REP_ATTESTER_SECRET")
+      return done(await write(c, "add_member", { group, id_commitment: commitment }))
     },
+    ...(onchain
+      ? {
+          async addMemberWithRep(commitment: bigint, jws: string, kbJwt: string) {
+            const { c, group } = await client("REP_RELAYER_SECRET")
+            return done(await write(c, "add_member_with_rep", { group, id_commitment: commitment, verdict: Buffer.from(jws), kb: Buffer.from(kbJwt) }))
+          },
+        }
+      : {}),
   })
   return live.handle(req, res, path)
 }

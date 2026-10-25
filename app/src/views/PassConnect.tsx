@@ -17,11 +17,50 @@ type ClaimView = {
   explorerUrl: string | null
   binding?: string
   kind?: string
-  /** Stellar Passport builder bonus from inspect.passport (null when passport is off). */
   passport: { score: number; matched: boolean; rankName?: string; scfTier?: string; profileUrl?: string } | null
 }
 
 const seasonNow = () => new Date().getUTCFullYear() * 100 + (new Date().getUTCMonth() + 1)
+const cacheKey = (addr: string, season: number) => `bookerbob.loyalty.v1.${season}.${addr}`
+
+function loadCache(addr: string, season: number): ClaimView | null {
+  try {
+    const raw = localStorage.getItem(cacheKey(addr, season))
+    return raw ? (JSON.parse(raw) as ClaimView) : null
+  } catch {
+    return null
+  }
+}
+
+function saveCache(addr: string, season: number, claim: ClaimView) {
+  try {
+    localStorage.setItem(cacheKey(addr, season), JSON.stringify(claim))
+  } catch {
+    /* quota */
+  }
+}
+
+/** Big verified-score ladder: 5 · 4 · 3 · 2 · 1 (current lit). */
+function VerifiedScore({ tier, rating, pending }: { tier: number; rating?: number; pending?: boolean }) {
+  return (
+    <div className="verified-score" aria-label={pending ? "computing verified score" : `verified score tier ${tier} of 5`}>
+      <p className="claim">{pending ? "computing verified score…" : "verified score"}</p>
+      <ol className="tier-ladder" aria-hidden="true">
+        {[5, 4, 3, 2, 1].map((n) => (
+          <li key={n} className={n === tier && !pending ? "on" : n < tier && !pending ? "reached" : undefined}>
+            <b>{n}</b>
+          </li>
+        ))}
+      </ol>
+      {!pending && rating != null && (
+        <p className="band">
+          tier {tier} <span className="muted">· {rating} / 100</span>
+        </p>
+      )}
+      {pending && <p className="band muted">5 · 4 · 3 · 2 · 1</p>}
+    </div>
+  )
+}
 
 export function PassConnectPanel({ merchantId = 0, season }: { merchantId?: number; season?: number }) {
   const address = useWallet()
@@ -31,27 +70,40 @@ export function PassConnectPanel({ merchantId = 0, season }: { merchantId?: numb
   const lastVerified = useRef<string | null>(null)
   const seasonVal = season ?? seasonNow()
 
-  const runVerify = async (addr: string) => {
-    if (lastVerified.current === addr && claim) return
+  const runVerify = async (addr: string, opts: { force?: boolean } = {}) => {
+    const cached = loadCache(addr, seasonVal)
+    // Same address + season: keep stable claim; only force re-reads Horizon (no new attest).
+    if (!opts.force && lastVerified.current === addr && claim) return
+    if (!opts.force && cached && lastVerified.current !== addr) {
+      setClaim(cached)
+      lastVerified.current = addr
+      setPhase("ready")
+      // Soft refresh in background without posting another attest tx (that was inflating the score).
+      void refreshQuiet(addr, cached)
+      return
+    }
+
     setPhase("inspecting")
     setCopy(null)
     try {
       const { verifyOnConnect } = await import("@bookerbob/verify_onchain_zk")
+      const alreadyAttested = Boolean(cached?.txHash)
       const r = await verifyOnConnect(addr, {
         merchantId,
         season: seasonVal,
-        attest: true,
-        passportProxyBase: "", // same-origin /api/passport/lookup (optional PASSPORT_API_KEY on server)
+        // Re-attest only the first time this season — each attest is a 1-stroop payment that used to bump the score.
+        attest: !alreadyAttested,
+        passportProxyBase: "",
       })
       lastVerified.current = addr
-      setClaim({
+      const next: ClaimView = {
         rating: r.claim.rating,
         tier: r.claim.tier,
         discountHintBps: r.claim.discountHintBps,
         txCount: r.inspect.txCount,
         digest: r.digest,
-        txHash: r.attest?.txHash ?? null,
-        explorerUrl: r.attest?.explorerUrl ?? null,
+        txHash: r.attest?.txHash ?? cached?.txHash ?? null,
+        explorerUrl: r.attest?.explorerUrl ?? cached?.explorerUrl ?? (cached?.txHash ? sdk.chain.explorerTx(cached.txHash) : null),
         binding: typeof localStorage !== "undefined" ? localStorage.getItem("pos.pass_binding") ?? undefined : undefined,
         kind: sdk.wallet.kind ?? undefined,
         passport: r.inspect.passport
@@ -63,7 +115,9 @@ export function PassConnectPanel({ merchantId = 0, season }: { merchantId?: numb
               profileUrl: r.inspect.passport.signals.profileUrl,
             }
           : null,
-      })
+      }
+      setClaim(next)
+      saveCache(addr, seasonVal, next)
       setPhase("ready")
     } catch (e) {
       setPhase("error")
@@ -71,14 +125,47 @@ export function PassConnectPanel({ merchantId = 0, season }: { merchantId?: numb
     }
   }
 
-  // Auto score + attest whenever a wallet is connected (Freighter, passkey, or demo key).
+  const refreshQuiet = async (addr: string, prev: ClaimView) => {
+    try {
+      const { verifyOnConnect } = await import("@bookerbob/verify_onchain_zk")
+      const r = await verifyOnConnect(addr, {
+        merchantId,
+        season: seasonVal,
+        attest: false,
+        passportProxyBase: "",
+      })
+      const next: ClaimView = {
+        ...prev,
+        rating: r.claim.rating,
+        tier: r.claim.tier,
+        discountHintBps: r.claim.discountHintBps,
+        txCount: r.inspect.txCount,
+        digest: r.digest,
+        passport: r.inspect.passport
+          ? {
+              score: r.inspect.passport.score,
+              matched: r.inspect.passport.matched,
+              rankName: r.inspect.passport.signals.rankName,
+              scfTier: r.inspect.passport.signals.scfTier,
+              profileUrl: r.inspect.passport.signals.profileUrl,
+            }
+          : null,
+      }
+      setClaim(next)
+      saveCache(addr, seasonVal, next)
+    } catch {
+      /* keep cached claim */
+    }
+  }
+
   useEffect(() => {
     if (!address) {
       lastVerified.current = null
+      setClaim(null)
       return
     }
     void runVerify(address)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run on address change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address])
 
   const connect = async (kind: Extract<WalletKind, "passkey" | "freighter">) => {
@@ -86,7 +173,6 @@ export function PassConnectPanel({ merchantId = 0, season }: { merchantId?: numb
     setCopy(null)
     try {
       await sdk.wallet.connect(kind)
-      // address effect triggers verifyOnConnect
       setPhase("idle")
     } catch (e) {
       const msg = e instanceof Error ? e.message : ""
@@ -106,7 +192,7 @@ export function PassConnectPanel({ merchantId = 0, season }: { merchantId?: numb
       <span className="label">passkey · wallet check</span>
       <h2>connect · score · attest</h2>
       <p className="muted">
-        Freighter or platform passkey. on connect we read Horizon, score a basic rating, build a loyalty claim, and post a testnet attestation tx you can open on stellar.expert.
+        Freighter or platform passkey. on connect we score a verified tier (5→1), build a loyalty claim, and post one testnet attestation tx for the season.
       </p>
       <div className="row" style={{ marginTop: 14 }}>
         {!address ? (
@@ -126,10 +212,10 @@ export function PassConnectPanel({ merchantId = 0, season }: { merchantId?: numb
         <button
           type="button"
           className="secondary"
-          onClick={() => address && (lastVerified.current = null, runVerify(address))}
+          onClick={() => address && void runVerify(address, { force: true })}
           disabled={phase === "inspecting" || !address}
         >
-          {phase === "inspecting" ? "scoring + attesting…" : "verify again"}
+          {phase === "inspecting" ? "scoring…" : "re-check score"}
         </button>
       </div>
       {copy && (
@@ -137,21 +223,21 @@ export function PassConnectPanel({ merchantId = 0, season }: { merchantId?: numb
           {copy}
         </p>
       )}
+      {phase === "inspecting" && !claim && (
+        <div className="verdict" style={{ marginTop: 18 }} aria-live="polite">
+          <VerifiedScore tier={0} pending />
+          <p className="cap">reading Horizon · optional Passport · then one attest tx if this season has none yet</p>
+        </div>
+      )}
       {claim && (phase === "ready" || phase === "inspecting") && (
         <div className="verdict" style={{ marginTop: 18 }} aria-live="polite">
           <div className="top">
             <span className="seal">loyalty claim</span>
-            <span className="label">tier {claim.tier} of 5</span>
+            <span className="label">season {seasonVal}</span>
           </div>
-          <p className="claim">wallet activity rating</p>
-          <p className="band">{claim.rating} / 100</p>
-          <div className="bars" aria-hidden="true">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <i key={i} className={i <= claim.tier ? "on" : undefined} />
-            ))}
-          </div>
+          <VerifiedScore tier={claim.tier} rating={claim.rating} pending={phase === "inspecting"} />
           <dl className="kv">
-            <dt>ops sampled</dt>
+            <dt>ops scored</dt>
             <dd>{claim.txCount}</dd>
             {claim.passport && (
               <>
@@ -166,21 +252,19 @@ export function PassConnectPanel({ merchantId = 0, season }: { merchantId?: numb
                         <>
                           {" · "}
                           <a href={claim.passport.profileUrl} target="_blank" rel="noreferrer">
-                            github
+                            profile
                           </a>
                         </>
                       ) : null}
                     </>
                   ) : (
-                    <span className="muted">no linked builder profile (bonus 0)</span>
+                    <span className="muted">no linked builder (bonus 0)</span>
                   )}
                 </dd>
               </>
             )}
             <dt>discount hint</dt>
             <dd>{(claim.discountHintBps / 100).toFixed(0)}% (bps {claim.discountHintBps})</dd>
-            <dt>season</dt>
-            <dd className="mono">{seasonVal}</dd>
             <dt>claim digest</dt>
             <dd className="mono">{claim.digest.slice(0, 10)}…</dd>
             {claim.binding && (
@@ -198,11 +282,13 @@ export function PassConnectPanel({ merchantId = 0, season }: { merchantId?: numb
               ) : phase === "inspecting" ? (
                 <span className="muted">posting…</span>
               ) : (
-                <span className="muted">no write tx (attest skipped or failed)</span>
+                <span className="muted">no write tx yet</span>
               )}
             </dd>
           </dl>
-          <p className="cap">inspect is Horizon-only; the clickable tx is /api/loyalty/attest · proveLoyaltyClaim when the identity is in the tree</p>
+          <p className="cap">
+            tier ladder 5→1 · same address keeps one attest per season (re-check does not mint another dust payment)
+          </p>
         </div>
       )}
     </section>

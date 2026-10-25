@@ -1,6 +1,6 @@
 // REP handoff tests: a fixture issuer (its own ES256 key and a signed status list on loopback) stands in for
 // rep-attest.fly.dev; the holder signs a key-binding JWT the way REP Bob does. Run: node --test server/src/rep.test.ts
-import { test } from "node:test"
+import { test, after } from "node:test"
 import assert from "node:assert/strict"
 import { createServer, type Server } from "node:http"
 import { createHash, generateKeyPairSync, sign } from "node:crypto"
@@ -152,5 +152,28 @@ test("/receive and /issue are 404 and never read", async () => {
   assert.equal((await h.call("/receive", { presentations: ["x"] })).status, 404)
   assert.equal((await h.call("/issue", { anything: 1 })).status, 404)
   h.close()
-  statusServer.close()
+})
+
+after(() => statusServer.close())
+
+test("REP_ONCHAIN path hands the exact verdict and holder proof to the contract, not the attester key", async () => {
+  await ready
+  const added: bigint[] = [], onchain: [bigint, string, string][] = []
+  const rep = createRep({
+    jwks: { keys: [JWK] }, now: () => NOW * 1000,
+    addMember: async (c) => (added.push(c), "attester"),
+    addMemberWithRep: async (c, j, k) => (onchain.push([c, j, k]), "onchain"),
+  })
+  const s = await rep.present({ sid: "x" })
+  assert.equal(s.code, 404)
+  // open a session directly through the handler state
+  const sid = "s1", nonce = `pos:777:${"ab".repeat(16)}`
+  rep.sessions.set(sid, { sid, commitment: "777", nonce, exp: NOW * 1000 + 60_000, status: "pending" })
+  const v = verdict()
+  const k = kb(v, nonce)
+  const r = await rep.present({ sid, attestations: [{ jws: v, kbJwt: k }] })
+  assert.equal(r.code, 200)
+  assert.deepEqual(added, [])
+  assert.deepEqual(onchain, [[777n, v, k]])
+  assert.equal(rep.sessions.get(sid)!.txHash, "onchain")
 })

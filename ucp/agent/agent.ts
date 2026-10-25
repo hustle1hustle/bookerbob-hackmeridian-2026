@@ -24,7 +24,8 @@ const t0 = Date.now()
 const say = (s: string) => console.log(`[${((Date.now() - t0) / 1000).toFixed(1).padStart(5)}s] ${s}`)
 
 // ---- buyer's local wallet: a master secret and how many purchases it made per merchant ----
-interface Wallet { master: string; purchases: Record<string, number> }
+/** extra: identities held outside purchases, e.g. one seeded into a context group for tests. */
+interface Wallet { master: string; purchases: Record<string, number>; extra?: { label: string; merchant: number; index: number }[] }
 function wallet(): Wallet {
   if (existsSync(WALLET) && !process.argv.includes("--fresh")) return JSON.parse(readFileSync(WALLET, "utf8"))
   const w = { master: randomBytes(32).toString("hex"), purchases: {} }
@@ -107,7 +108,10 @@ async function main() {
   // 3. which context does the buyer carry? Every identity it holds (one per past purchase or stay,
   //    anywhere), checked against the chain. Claimed only if it has any.
   const made = w.purchases[key] ?? 0
-  const mine = Object.entries(w.purchases).flatMap(([m, n]) => [...Array(n).keys()].map((i) => stayIdentity(w.master, Number(m), i)))
+  const mine = [
+    ...Object.entries(w.purchases).flatMap(([m, n]) => [...Array(n).keys()].map((i) => stayIdentity(w.master, Number(m), i))),
+    ...(w.extra ?? []).map((x) => stayIdentity(w.master, x.merchant, x.index)),
+  ]
   const returning = mine.length > 0
   const next = stayIdentity(w.master, MERCHANT, made)
   const where = Object.entries(w.purchases).map(([m, n]) => `${n} at merchant ${m}`).join(", ")

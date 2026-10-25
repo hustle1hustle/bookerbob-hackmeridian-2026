@@ -90,6 +90,15 @@ describe("rateWalletSignals", () => {
   })
 })
 
+describe("isLoyaltyAttestDust", () => {
+  it("flags 1-stroop native payments used by /api/loyalty/attest", async () => {
+    const { isLoyaltyAttestDust } = await import("./index.ts")
+    assert.equal(isLoyaltyAttestDust({ type: "payment", asset_type: "native", amount: "0.0000001" }), true)
+    assert.equal(isLoyaltyAttestDust({ type: "payment", asset_type: "native", amount: "1.0" }), false)
+    assert.equal(isLoyaltyAttestDust({ type: "create_account" }), false)
+  })
+})
+
 describe("inspectWallet (Horizon READ — no write tx)", () => {
   it("scores from stubbed Horizon without posting any write", async () => {
     let writes = 0
@@ -97,12 +106,35 @@ describe("inspectWallet (Horizon READ — no write tx)", () => {
       if (init?.method && init.method !== "GET") writes++
       return horizonFetch()(input, init)
     }
-    const insp = await inspectWallet(ADDR, { fetch: f })
+    const insp = await inspectWallet(ADDR, { fetch: f, passport: false })
     assert.equal(insp.exists, true)
     assert.equal(insp.paymentCount, 2)
     assert.equal(insp.txCount, 3)
     assert.ok(insp.rating > 0)
     assert.equal(writes, 0)
+  })
+  it("ignores loyalty-attest dust so re-verify after attest does not inflate score", async () => {
+    const withDust: typeof fetch = async (input) => {
+      const url = String(input)
+      if (url.includes("/operations")) {
+        return new Response(
+          JSON.stringify({
+            _embedded: {
+              records: [
+                { type: "payment", asset_type: "native", amount: "0.0000001", created_at: "2025-06-02T00:00:00Z" },
+                { type: "payment", asset_type: "native", amount: "1.0", created_at: "2025-01-01T00:00:00Z" },
+                { type: "create_account", created_at: "2024-01-01T00:00:00Z" },
+              ],
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        )
+      }
+      return horizonFetch()(input)
+    }
+    const insp = await inspectWallet(ADDR, { fetch: withDust, passport: false })
+    assert.equal(insp.paymentCount, 1)
+    assert.equal(insp.txCount, 2)
   })
   it("missing account → rating 0", async () => {
     const f: typeof fetch = async () => new Response("{}", { status: 404 })
