@@ -1,0 +1,22 @@
+# AI usage
+
+HackMeridian allows AI tools and asks for attribution. This file lists where AI substantially generated code or assets. It is updated as the project moves.
+
+Tool: Claude Code (Anthropic, model Claude Opus 5.5), directed and reviewed by the team. Commits with substantial AI-written content carry a `Co-Authored-By: Claude` trailer.
+
+## Written with Claude Code so far
+
+| Area | Files | What the AI did | What the team did |
+|---|---|---|---|
+| Plan and docs | `PLAN.md`, `PRIOR_WORK.md`, `docs/verify.md`, this file | translated and structured the team's plan into English; compiled the verification log from primary sources | wrote the product brief, made every product and scope decision, reviewed |
+| Source verification | `docs/verify.md` | read Semaphore v4, soroban-sdk, rs-soroban-poseidon and Stellar docs; ran RPC queries | chose what to verify, reviewed findings |
+| Golden test vectors | `scripts/golden_proof.mjs`, `scripts/fixtures.ts`, `circuits/golden/` | wrote the generators; vectors come from the unmodified Semaphore artifacts | reviewed |
+| Proof converter | `scripts/proof_to_soroban.ts` | wrote it | reviewed |
+| Shared derivation | `scripts/lib/pos.ts` | wrote scope, message and stay-identity derivation | reviewed |
+| Soroban contract | `contracts/proof_of_stay/src/*.rs` | wrote the BN254 Groth16 verifier, incremental LeanIMT, reviews, discount with USDC, attestation, and all tests | specified the design and the mandatory checks, reviewed |
+
+## Not AI-generated
+- Product idea, problem framing, scope and cut decisions.
+- Semaphore circuits and trusted setup (third party, see `PRIOR_WORK.md`).
+
+Prompt logs are not committed.

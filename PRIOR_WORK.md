@@ -1,23 +1,30 @@
 # Prior work disclosure
 
-This repository was created on Sun 25 Oct 2026, after hacking started (09:00 Lisbon). The first commit contains only the skeleton, `PLAN.md`, this file, `LICENSE` and `.env.example`.
+This repository was created on Sun 25 Oct 2026, after hacking started (09:00 Lisbon). Every commit in its history was made during the hackathon.
 
-## Existed before the hackathon
-- The BookerBob brand and the idea of an agentic hotel desk (ETHGlobal Lisbon 2026, different stack). No code from that project is reused here.
-- Team experience with Groth16, Poseidon and BN254 off-chain.
+## Starting point
+- The BookerBob brand and the idea of an agentic hotel desk (ETHGlobal Lisbon 2026, different stack). No code from that project is used here.
+- Nothing else. No code existed for Proof of Stay before the hackathon.
 
-## Taken from open source (with attribution)
-- Semaphore v4 circuits and their trusted setup artifacts (semaphore-protocol, MIT). Vendored under `circuits/` / `vendor/` with source links.
-- zk-kit libraries (LeanIMT, Poseidon), as npm dependencies.
-- circomlib Poseidon parameters, as used by Semaphore.
-- Existing Soroban Groth16 verifiers used as references only; any adapted code is marked in place with its source and license.
+## Open source we build on
 
-The exact list of vendored files is kept up to date below as they are added.
+| Component | Source | License | How it is used |
+|---|---|---|---|
+| Semaphore v4 circuits and trusted setup artifacts (4.13.0, depth 10) | https://github.com/semaphore-protocol/semaphore, https://snark-artifacts.pse.dev | MIT | downloaded unmodified at proving time; golden test vectors in `circuits/golden/` were generated from them |
+| `@semaphore-protocol/core` (identity, group, proof) | https://github.com/semaphore-protocol/semaphore | MIT | npm dependency |
+| zk-kit (`@zk-kit/artifacts`, LeanIMT) | https://github.com/privacy-scaling-explorations/zk-kit | MIT | npm dependency; the contract's incremental tree follows the LeanIMT insert rule |
+| `soroban-poseidon` (circomlib-compatible Poseidon) | https://github.com/stellar/rs-soroban-poseidon | Apache-2.0 | Cargo dependency |
+| `soroban-sdk` | https://github.com/stellar/rs-soroban-sdk | Apache-2.0 | Cargo dependency |
+| Groth16 verifier structure | https://github.com/stellar/soroban-examples/tree/main/groth16_verifier | Apache-2.0 | reference; `contracts/proof_of_stay/src/verifier.rs` follows the same structure on `crypto::bn254` |
+| circomlib (Poseidon parameters, used by Semaphore) | https://github.com/iden3/circomlib | GPL-3.0 | unmodified, through Semaphore's artifacts |
+| snarkjs | https://github.com/iden3/snarkjs | GPL-3.0 | unmodified npm dependency for proving and off-chain verification |
+| `@stellar/stellar-sdk`, `poseidon-lite`, `ethers` | npm | Apache-2.0 / MIT / MIT | npm dependencies |
 
-| Path | Source | License |
-|---|---|---|
+External services, if used in later stages: JMPR (hotel search and sandbox bookings) via its API; an external zkTLS prover and notary. Their code is not in this repository.
 
 ## Written during the hackathon
-- The whole Soroban contract: Poseidon tree, Groth16 verifier, reviews, discounts, disclosure.
-- Proof converter (`scripts/proof_to_soroban.ts`), deploy and seed scripts, benchmark.
+- The whole Soroban contract: incremental Poseidon LeanIMT, Groth16 verifier on BN254, reviews, discounts with USDC, disclosure attestation, and its tests.
+- Proof converter (`scripts/proof_to_soroban.ts`), golden proof and fixture generators, shared scope/message derivation, deploy and seed scripts, benchmark.
 - Frontend and agent.
+
+AI assistance is disclosed in [`docs/ai-usage.md`](docs/ai-usage.md).
