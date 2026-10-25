@@ -98,6 +98,17 @@
   <aside class="notes">Agents rank on facts nobody can fake or buy; people reveal only the verdict. Semaphore v4 proofs, REP zkTLS over the user's own Airbnb/Booking account, Groth16 and P-256 checks inside the Soroban contract.</aside>
 </section>
 
+<!-- flywheel -->
+<section class="s">
+  <div class="lbl">The core loop</div><div class="no">06</div>
+  <svg viewBox="0 0 1680 760" width="1680" height="760" style="margin-top:10px">
+    <defs><marker id="fw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#121211"/></marker></defs>
+    <path d="M958 135 A290 290 0 0 1 1105 282" fill="none" stroke="#121211" stroke-width="5" marker-end="url(#fw)"/><path d="M1105 518 A290 290 0 0 1 958 665" fill="none" stroke="#121211" stroke-width="5" marker-end="url(#fw)"/><path d="M722 665 A290 290 0 0 1 575 518" fill="none" stroke="#121211" stroke-width="5" marker-end="url(#fw)"/><path d="M575 282 A290 290 0 0 1 722 135" fill="none" stroke="#121211" stroke-width="5" marker-end="url(#fw)"/><rect x="650" y="40" width="380" height="140" fill="#121211" stroke="#121211"/><text x="840" y="104" font-size="42" text-anchor="middle" fill="#ECEAE3">agent ranks</text><text x="840" y="150" font-size="30" text-anchor="middle" fill="#B4B1A8">on proofs</text><rect x="940" y="330" width="380" height="140" fill="#F6F5F1" stroke="#121211"/><text x="1130" y="394" font-size="42" text-anchor="middle" fill="#121211">agent buys</text><text x="1130" y="440" font-size="30" text-anchor="middle" fill="#4A4842">stays, shops</text><rect x="650" y="620" width="380" height="140" fill="#F4C430" stroke="#121211"/><text x="840" y="684" font-size="42" text-anchor="middle" fill="#121211">a new proof</text><text x="840" y="730" font-size="30" text-anchor="middle" fill="#4A4842">joins the groups</text><rect x="360" y="330" width="380" height="140" fill="#F6F5F1" stroke="#121211"/><text x="550" y="394" font-size="42" text-anchor="middle" fill="#121211">better ranking</text><text x="550" y="440" font-size="30" text-anchor="middle" fill="#4A4842">for everyone</text>
+  </svg>
+  <p class="cap" style="position:absolute;left:120px;right:120px;bottom:80px;color:var(--ink);font-size:44px">Agents rank on proofs, and add new ones every time they buy.</p>
+  <aside class="notes">Every stay or purchase adds the buyer to the place's customer group and the network group, and opens one review. The proof base grows with use, for every agent.</aside>
+</section>
+
 <!-- 6 how bob discovers -->
 <section class="s" style="padding:0">
   <div style="display:grid;grid-template-columns:1.25fr .75fr;height:900px">
@@ -105,7 +116,7 @@
     <div style="background:var(--surface);border-left:1px solid var(--ink);display:flex;align-items:center;justify-content:center"><img class="shot" src="img/proofs.jpg" style="height:760px" alt="your proofs"></div>
   </div>
   <div style="position:absolute;left:0;right:0;bottom:0;height:180px;background:var(--ink);display:flex;align-items:center;padding:0 120px">
-    <p class="cap" style="color:var(--bg);font-size:52px">Ranked by proven signal. Priced by your proofs.</p>
+    <p class="cap" style="color:var(--bg);font-size:52px">Agents rank on proofs, and add new ones every time they buy.</p>
   </div>
   <aside class="notes">Ask Bob federates our places, UCP stores and JMPR hotels; ranks by proven reviews only; perks per user from the proofs this browser holds.</aside>
 </section>
@@ -139,7 +150,7 @@
     <div>code applied by the store · <span style="color:#F4C430">-22.50 AED</span></div>
     <div>paid <span style="color:#F4C430">34.68 USDC</span> on Stellar · order #1012</div>
   </div>
-  <p class="cap" style="margin-top:72px">The store never learns who bought.</p>
+  <p class="cap" style="margin-top:72px">Agents rank on proofs, and add new ones every time they buy. The store never learns who bought.</p>
   <aside class="notes">UCP context.eligibility + a verification action; the contract checks the claims; the store mints a single-use code; book_with_context pays in test USDC; order #1012 PAID in Shopify with the tx in its note.</aside>
 </section>
 
