@@ -229,6 +229,42 @@ export interface Disclosure {
   checkDispute(reviewId: number): Promise<DisclosureCheck>
 }
 
+/** One federated search hit (docs/search-sources.md). */
+export interface SearchResult {
+  /** Adapter id: "places" (our contract), "ucp" (merchants over UCP), later "jmpr". */
+  source: string
+  /** On-chain merchant id when the hit is tied to a merchant in the contract (perks and proven reviews live there). */
+  merchantId: number | null
+  title: string
+  kind: MerchantKind
+  /** In `currency`, as a display number (USDC, 2 decimals). */
+  price: number
+  currency: "USDC"
+  url: string | null
+  imageUrl: string | null
+  /** Average of proven (on-chain) ratings, null when there are none. */
+  provenRating: number | null
+  reviewCount: number
+  verifiedCount: number
+  /** Bob's score and one-line reason ("4.3 from 7 proven stays, 2 verified"). Never paid placement. */
+  score: number
+  reason: string
+  /** Adapter-specific fields needed to buy (e.g. UCP productId, variantId). */
+  extra?: Record<string, unknown>
+}
+
+export interface SearchResponse {
+  query: string
+  parsed: { kind: MerchantKind | null; maxPrice: number | null; terms: string[] }
+  results: SearchResult[]
+  /** Adapters that answered, failed or are disabled, for transparency. */
+  sources: { id: string; status: "ok" | "error" | "disabled"; count: number }[]
+}
+
+export interface Search {
+  query(q: string): Promise<SearchResponse>
+}
+
 export interface Sdk {
   mode: "mock" | "testnet"
   chain: Chain
@@ -236,6 +272,7 @@ export interface Sdk {
   wallet: Wallet
   stays: Stays
   disclosure: Disclosure
+  search: Search
 }
 
 /** Human copy for each error, per the design handoff. */

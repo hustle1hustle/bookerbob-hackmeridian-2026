@@ -373,5 +373,11 @@ export function createTestnetSdk(opts: TestnetOptions = {}): Sdk {
   // restore a remembered demo key silently
   if (store.getItem("pos.wallet") === "local") wallet.connect("local").catch(() => null)
 
-  return { mode: "testnet", chain, prover, wallet, stays, disclosure }
+  const search = {
+    async query(q: string) {
+      return fetch(`${api}/api/search?q=${encodeURIComponent(q)}`).then((r) => r.json())
+    },
+  }
+
+  return { mode: "testnet", chain, prover, wallet, stays, disclosure, search }
 }

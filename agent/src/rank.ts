@@ -38,7 +38,7 @@ const kindWords: [RegExp, Kind][] = [
   [/\b(hotels?|stays?|rooms?|hostels?|nights?)\b/i, "hotel"],
   [/\b(caf[eé]s?|coffee|espresso|brunch)\b/i, "cafe"],
   [/\b(restaurants?|dinner|lunch|food|eat)\b/i, "restaurant"],
-  [/\b(shops?|stores?|boutiques?|buy|gifts?)\b/i, "shop"],
+  [/\b(shops?|stores?|boutiques?|buy|gifts?|t-?shirts?|tees?|shirts?|hoodies?|merch|clothes|linen)\b/i, "shop"],
 ]
 
 /** Simple query parsing: a kind word and a max price ("under 120", "below 90 usdc", "max 50", "< 40", "120 usdc"). */
