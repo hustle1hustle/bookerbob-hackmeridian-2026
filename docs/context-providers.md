@@ -56,6 +56,9 @@ In the app, "your perks here" (`sdk.chain.perks(merchant)`) shows which groups t
 
 `POST /api/context/attest { group, commitment, evidence }` is the backend endpoint a provider service plugs into. It is a stub today (returns `501`): a provider that verifies its own evidence (for example a REP attestation signature) calls `add_member` with its own key, either from its own service or by giving this backend its operator key for that group only.
 
+A provider can also skip the trusted operator: for group 1 the contract checks a REP verdict itself
+(`add_member_with_rep`, see [rep-handoff.md](rep-handoff.md#on-chain-check-branch-cholyrep-onchain-flag-off-by-default)).
+
 ## Limitations
 
 - In this demo the same per-stay commitment is a leaf in the place tree, the chain group and possibly attested groups. Proofs stay unlinkable (different scopes give different nullifiers), but a production deployment would give each group a separately derived identity so trees cannot be cross-referenced by leaf value.

@@ -7,9 +7,11 @@ use soroban_sdk::{
     token, xdr::ToXdr, Address, Symbol, Bytes, BytesN, Env, String, Vec, U256,
 };
 
+pub mod rep;
 pub mod tree;
 pub mod verifier;
 
+use rep::RepIssuer;
 use tree::LeanImt;
 use verifier::{Proof, VerificationKey};
 
@@ -39,6 +41,14 @@ pub enum Error {
     NotInPolicy = 12,
     GroupNotFound = 13,
     DuplicateClaim = 14,
+    RepNotConfigured = 15,
+    RepMalformed = 16,
+    RepIssuer = 17,
+    RepExpired = 18,
+    RepNoTier = 19,
+    RepHolder = 20,
+    RepNonce = 21,
+    RepReplay = 22,
 }
 
 #[derive(Clone)]
@@ -97,6 +107,8 @@ enum Key {
     GroupLeaves(u32),
     Policy(u32),
     MerchantChain(u32),
+    RepIssuer(u32),
+    RepUsed(BytesN<32>),
 }
 
 /// A context group: a tree of commitments that a merchant's discount policy can reward.
@@ -512,6 +524,54 @@ impl ProofOfStay {
         load_group(&env, group).tree.root(&env)
     }
 
+    /// Contract admin pins the REP issuer for an attested group: its P-256 key (from the JWKS), iss, aud,
+    /// max verdict age and accepted sources. Rotating the REP key is another call here.
+    pub fn set_rep_issuer(env: Env, group: u32, issuer: RepIssuer) {
+        let cadmin: Address = env.storage().instance().get(&Key::Admin).unwrap();
+        cadmin.require_auth();
+        if load_group(&env, group).kind != Symbol::new(&env, "attested") || issuer.hosts.is_empty() || issuer.max_age == 0 {
+            panic_with_error!(&env, Error::BadParams);
+        }
+        let k = Key::RepIssuer(group);
+        env.storage().persistent().set(&k, &issuer);
+        bump_persistent(&env, &k);
+    }
+
+    pub fn get_rep_issuer(env: Env, group: u32) -> Option<RepIssuer> {
+        env.storage().persistent().get(&Key::RepIssuer(group))
+    }
+
+    /// Anyone may submit: joins an attested group on a REP verdict checked here, not by an attester server.
+    /// `verdict` is the compact JWS from REP, `kb` the phone's compact KB-JWT whose nonce is
+    /// `pos:<id_commitment>:<rand>`. One verdict adds one member (its signing-input hash is spent).
+    /// The operator's `add_member` stays as the fallback path.
+    pub fn add_member_with_rep(env: Env, group: u32, id_commitment: U256, verdict: Bytes, kb: Bytes) -> U256 {
+        let issuer: RepIssuer = env
+            .storage()
+            .persistent()
+            .get(&Key::RepIssuer(group))
+            .unwrap_or_else(|| panic_with_error!(&env, Error::RepNotConfigured));
+        if id_commitment == U256::from_u32(&env, 0) {
+            panic_with_error!(&env, Error::BadLeaf);
+        }
+        require_canonical(&env, &id_commitment);
+        let checked = rep::check(&env, &issuer, &id_commitment, &verdict, &kb);
+        let uk = Key::RepUsed(checked.verdict_id.clone());
+        if env.storage().persistent().has(&uk) {
+            panic_with_error!(&env, Error::RepReplay);
+        }
+        env.storage().persistent().set(&uk, &true);
+        bump_persistent(&env, &uk);
+        insert_group_leaf(&env, group, &id_commitment);
+        bump_instance(&env);
+        env.events().publish((soroban_sdk::symbol_short!("rep"), group), checked.verdict_id);
+        load_group(&env, group).tree.root(&env)
+    }
+
+    pub fn is_rep_used(env: Env, verdict_id: BytesN<32>) -> bool {
+        env.storage().persistent().has(&Key::RepUsed(verdict_id))
+    }
+
     /// A merchant joins a chain group; its future checkouts are enrolled there too. Both admins sign.
     pub fn join_chain(env: Env, group: u32, merchant: u32) {
         let g = load_group(&env, group);
@@ -774,3 +834,5 @@ impl ProofOfStay {
 
 #[cfg(test)]
 mod test;
+#[cfg(test)]
+mod test_rep;
