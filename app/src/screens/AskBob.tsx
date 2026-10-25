@@ -17,7 +17,9 @@ export function AskBobScreen({ initial }: { initial: string }) {
   const [asked, setAsked] = useState(start)
   const address = useWallet()
   const res = useAsync(() => (asked.trim() ? sdk.search.query(asked) : Promise.resolve(null)), [asked])
-  const ids = [...new Set((res.data?.results ?? []).map((r) => r.merchantId).filter((x): x is number => x !== null))]
+  // never show the previous query's results while a new one loads
+  const current = res.data && res.data.query === asked ? res.data : null
+  const ids = [...new Set((current?.results ?? []).map((r) => r.merchantId).filter((x): x is number => x !== null))]
   // perks depend on this browser's stays; re-read when the wallet changes too
   const perks = useAsync(async () => new Map<number, Perks | null>(await Promise.all(ids.map(async (id) => [id, await sdk.chain.perks(id)] as const))), [ids.join(","), address])
 
@@ -28,14 +30,14 @@ export function AskBobScreen({ initial }: { initial: string }) {
   }
   useEffect(() => setInput(start), [start])
 
-  const results = res.data?.results ?? []
+  const results = current?.results ?? []
   return (
     <>
       <AskHero />
-      <AskBox value={input} onChange={setInput} onAsk={() => ask(input)} onExample={ask} examples={examples} sources={res.data?.sources ?? null} busy={res.loading && !!asked} />
-      {asked && res.loading && !res.data && <Loading what="places and stores" />}
+      <AskBox value={input} onChange={setInput} onAsk={() => ask(input)} onExample={ask} examples={examples} sources={current?.sources ?? null} busy={!!asked && !current && !res.error} />
+      {asked && !current && !res.error && <Loading what="places and stores" />}
       {res.error && <Empty title="bob could not search right now">refresh to retry.</Empty>}
-      {res.data && results.length === 0 && <Empty title="nothing matches yet">try a higher price or another kind.</Empty>}
+      {current && results.length === 0 && <Empty title="nothing matches yet">try a higher price or another kind.</Empty>}
       {results.length > 0 && (
         <div className="grid section">
           {results.map((r, i) => (
@@ -44,9 +46,10 @@ export function AskBobScreen({ initial }: { initial: string }) {
               r={r}
               pick={i === 0}
               href={r.merchantId !== null ? `#/place/${r.merchantId}` : null}
-              perks={r.merchantId === null ? undefined : perks.loading && !perks.data ? "loading" : (perks.data?.get(r.merchantId) ?? null)}
+              perks={r.merchantId === null ? undefined : perks.loading || !perks.data ? "loading" : (perks.data.get(r.merchantId) ?? null)}
               buy={
-                r.merchantId !== null ? (
+                // Buy with Bob runs on-chain for places; UCP hits buy in their store (bridge checkout not wired yet)
+                r.source === "places" && r.merchantId !== null ? (
                   <button type="button" onClick={() => go(`#/buy/${r.merchantId}/${encodeURIComponent(asked)}`)}>
                     buy with bob
                   </button>
