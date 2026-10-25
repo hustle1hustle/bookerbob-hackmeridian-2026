@@ -369,6 +369,8 @@ async function search(q: string, maxPrice: number | null) {
   }
   const found = hit.found
   const m = await merchant()
+  const pol = await perks()
+  const policyCap = pol ? Math.min(pol.maxBps, pol.items.reduce((a, it) => a + it.bps, 0)) : m.discountBps
   // Store-level ratings from proven buyers only (on chain); no scripted reviews on this real store.
   const proven = { provenRating: m.ratingCount ? Math.round((m.ratingSum / m.ratingCount) * 10) / 10 : null, reviewCount: m.ratingCount, verifiedCount: m.verifiedCount, provenCustomers: m.provenStays }
   const out = []
@@ -392,6 +394,7 @@ async function search(q: string, maxPrice: number | null) {
       url: p.url ?? null,
       ucp: `${PUBLIC_URL}/.well-known/ucp`,
       returningDiscountBps: m.discountBps,
+      maxDiscountBps: policyCap,
       ...proven,
     })
   }
@@ -415,7 +418,19 @@ const buy: Record<string, (b: any) => Promise<any>> = {
         ...(b.nextCommitment ? { [NS]: { next_commitment: String(b.nextCommitment) } } : {}),
       },
     })
-    return { checkoutId: co.id, currency: co.currency, subtotal: total(co, "subtotal"), provisionalDiscount: co.discounts?.applied?.find((d: any) => d.provisional)?.amount ?? 0, action: co[NS]?.action ?? null }
+    const prov = co.discounts?.applied?.find((d: any) => d.provisional)
+    const sub = total(co, "subtotal")
+    return {
+      checkoutId: co.id,
+      currency: co.currency,
+      subtotal: sub,
+      // the chain's unit: the same items in test USDC at the store's fixed demo rate
+      subtotalUsdc: sub === null ? null : Number(BigInt(sub) * RAW_PER_STORE_MINOR) / 1e7,
+      provisionalDiscount: prov?.amount ?? 0,
+      provisionalBps: prov ? Math.round((prov.amount * 10_000) / Math.max(1, sub ?? 1)) : 0,
+      upToBps: prov?.up_to_bps ?? 0,
+      action: co[NS]?.action ?? null,
+    }
   },
   async prove(b) {
     const ext = Array.isArray(b.proofs) ? { payer: b.payer, proofs: b.proofs } : { proof: { payer: b.payer, root: b.root, nullifier: b.nullifier, proof: b.proof } }
