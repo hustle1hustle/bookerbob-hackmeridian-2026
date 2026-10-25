@@ -2,11 +2,10 @@
 import { useEffect, useState } from "react"
 import { shortHex } from "@bookerbob/pos-sdk"
 import { autoOnce } from "../demo"
-import { disputeFor, openDispute } from "../disputes"
 import { useWriteFlow } from "../flows"
 import { getPlaceReviews, listPlaces, sdk } from "../sdk"
 import { ConnectButton } from "../Shell"
-import { go, useAsync, useRevision, useWallet } from "../store"
+import { go, useAsync, useRevision } from "../store"
 import { Empty, Loading, TxLink, plural } from "../ui"
 import { FlowStatus } from "../views/flow"
 import { CheckoutForm, DisputeControl, PlacePicker } from "../views/hotel"
@@ -56,6 +55,7 @@ export function DeskScreen({ id }: { id: number }) {
       <div className="cols section" style={{ marginTop: 12 }}>
         <CheckoutForm
           placeName={place.name}
+          demoDesk={place.demo}
           commitment={commitment}
           onCommitment={(v) => {
             setCommitment(v)
@@ -96,9 +96,10 @@ export function DeskScreen({ id }: { id: number }) {
 
 export function FeedScreen({ id }: { id: number }) {
   useRevision()
-  const address = useWallet()
   const { places, place } = usePlaces(id)
   const reviews = useAsync(() => getPlaceReviews(id), [id])
+  const queue = useAsync(() => sdk.disclosure.queue(), [])
+  const [flagged, setFlagged] = useState<Set<number>>(new Set())
   if (places.loading && !places.data) return <Loading what="places" />
   if (!place) return <Empty title="this place does not exist"><a href="#/feed/0">reviews</a></Empty>
   return (
@@ -109,14 +110,20 @@ export function FeedScreen({ id }: { id: number }) {
       <p className="muted small">
         you see the stars and the text, never the author. if a review looks wrong, dispute it: the guest can then prove the stay to the arbiter, privately.
       </p>
-      {!address && <p className="small">connect to dispute a review.</p>}
       {reviews.loading && !reviews.data ? (
         <Loading what="reviews" />
       ) : (
         <ReviewFeed
           reviews={reviews.data ?? []}
           txHrefFor={(r) => (r.txHash ? sdk.chain.explorerTx(r.txHash) : null)}
-          actionFor={(r) => <DisputeControl dispute={disputeFor(r.id)} verified={r.verified} canAct={!!address} onDispute={() => openDispute(r.id, id)} />}
+          actionFor={(r) => (
+            <DisputeControl
+              dispute={queue.data?.find((d) => d.id === r.id)}
+              verified={r.verified}
+              flagged={flagged.has(r.id)}
+              onDispute={() => setFlagged((f) => new Set(f).add(r.id))}
+            />
+          )}
         />
       )}
     </>

@@ -4,7 +4,7 @@ import { averageRating, errorCopy, formatUsdc } from "@bookerbob/pos-sdk"
 import { autoOnce } from "../demo"
 import { useWriteFlow } from "../flows"
 import { getPlace, getPlaceReviews, sdk, stayWord } from "../sdk"
-import { ConnectButton } from "../Shell"
+import { ConnectButton, FaucetButton } from "../Shell"
 import { useAsync } from "../store"
 import { Empty, Loading, TxLink } from "../ui"
 import { FlowStatus } from "../views/flow"
@@ -66,6 +66,7 @@ export function PlaceScreen({ id }: { id: number }) {
           <FlowStatus
             state={book.state}
             connect={<ConnectButton />}
+            faucet={<FaucetButton />}
             onRetry={() => book.run(() => sdk.chain.book(id))}
             success={
               book.state.status === "success" && (

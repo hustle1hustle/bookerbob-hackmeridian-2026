@@ -1,12 +1,11 @@
 // One explicit state machine per action. Views render a FlowState and call the hook's run/reset;
 // they never touch the SDK. The proof flows advance only on real prover events.
 import { useCallback, useEffect, useReducer, useRef, useState } from "react"
-import { errorCopy, nullifierCopy, isErr, type ErrorName, type ProofEvent, type ProofRequest, type Stay, type DisclosureCheck, type DisclosurePackage, type WriteOk, type WriteResult } from "@bookerbob/pos-sdk"
+import { errorCopy, nullifierCopy, isErr, type ErrorName, type ProofEvent, type ProofRequest, type Stay, type DisclosureCheck, type WriteOk, type WriteResult } from "@bookerbob/pos-sdk"
 import { sdk } from "./sdk"
 import { bump } from "./store"
-import { attachDisclosure } from "./disputes"
 
-export type Action = "review" | "discount" | "book" | "checkout" | "attest"
+export type Action = "review" | "discount" | "book" | "checkout" | "attest" | "faucet"
 
 export type FlowState<R = {}> =
   | { status: "idle" }
@@ -98,7 +97,8 @@ export function useProofFlow<R>(action: "review" | "discount") {
   const cachedAtStart = useRef(sdk.prover.ready())
   const run = useCallback(
     async (req: ProofRequest) => {
-      if (!sdk.wallet.address) return send({ type: "noWallet" })
+      // no client-side wallet gate: the SDK answers WalletNotConnected when the action needs a signer
+      // (testnet reviews go through the relayer and need none)
       cachedAtStart.current = sdk.prover.ready()
       send({ type: "start", cached: cachedAtStart.current })
       try {
@@ -113,12 +113,11 @@ export function useProofFlow<R>(action: "review" | "discount") {
   return { state, run, cached: cachedAtStart.current, reset: () => send({ type: "reset" }) }
 }
 
-/** Book, checkout, attest: one write call, no proof. */
-export function useWriteFlow<R>(action: "book" | "checkout" | "attest") {
+/** Book, checkout, attest, faucet: one write call, no proof. WalletNotConnected from the SDK lands in needsWallet. */
+export function useWriteFlow<R>(action: "book" | "checkout" | "attest" | "faucet") {
   const { state, send } = useMachine<R>(action)
   const run = useCallback(
     async (call: () => Promise<WriteResult<R>>) => {
-      if (!sdk.wallet.address) return send({ type: "noWallet" })
       send({ type: "start" })
       try {
         send({ type: "result", result: await call() })
@@ -132,30 +131,31 @@ export function useWriteFlow<R>(action: "book" | "checkout" | "attest") {
   return { state, run, reset: () => send({ type: "reset" }) }
 }
 
-/** Guest: build the private disclosure package in this browser and hand it to the arbiter. Off chain, no wallet. */
+/** Guest: build the private disclosure package in this browser and submit it to the arbiter. No wallet. */
 export type DiscloseState = { status: "idle" } | { status: "building" } | { status: "sent" } | { status: "error"; copy: string }
 export function useDiscloseFlow() {
   const [state, set] = useState<DiscloseState>({ status: "idle" })
   const send = useCallback(async (stay: Stay) => {
     set({ status: "building" })
     try {
-      attachDisclosure(await sdk.disclosure.build(stay))
-      set({ status: "sent" })
+      const r = await sdk.disclosure.submit(await sdk.disclosure.build(stay))
+      set(isErr(r) ? { status: "error", copy: copyFor(r.error) } : { status: "sent" })
     } catch {
       set({ status: "error", copy: errorCopy.Unknown })
     }
+    bump()
   }, [])
   return { state, send }
 }
 
-/** Arbiter: the 3-step check of a disclosure package before attest. */
+/** Arbiter: the 3-step check, run where the package is held (the arbiter UI never needs the package). */
 export type CheckState = { status: "idle" } | { status: "checking" } | { status: "checked"; result: DisclosureCheck; allOk: boolean } | { status: "error"; copy: string }
 export function useCheckFlow() {
   const [state, set] = useState<CheckState>({ status: "idle" })
-  const check = useCallback(async (pkg: DisclosurePackage) => {
+  const check = useCallback(async (reviewId: number) => {
     set({ status: "checking" })
     try {
-      const result = await sdk.disclosure.check(pkg)
+      const result = await sdk.disclosure.checkDispute(reviewId)
       set({ status: "checked", result, allOk: result.commitmentMatches && result.signatureValid && result.leafInTree })
     } catch {
       set({ status: "error", copy: errorCopy.Unknown })

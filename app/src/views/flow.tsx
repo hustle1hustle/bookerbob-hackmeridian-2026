@@ -13,10 +13,12 @@ export interface FlowStatusProps {
   success?: ReactNode
   submittingText?: string
   onRetry?: () => void
+  /** Offered when the error is InsufficientFunds (e.g. the "get test USDC" control). */
+  faucet?: ReactNode
 }
 
 /** Plain writes (book, checkout, attest): idle renders nothing. */
-export function FlowStatus({ state, connect, success, submittingText = "sending to Stellar testnet", onRetry }: FlowStatusProps) {
+export function FlowStatus({ state, connect, success, submittingText = "sending to Stellar testnet", onRetry, faucet }: FlowStatusProps) {
   switch (state.status) {
     case "idle":
       return null
@@ -39,6 +41,7 @@ export function FlowStatus({ state, connect, success, submittingText = "sending 
       return (
         <Note tone="warn">
           {state.copy}{" "}
+          {state.error === "InsufficientFunds" && faucet}
           {onRetry && (
             <button type="button" className="secondary" onClick={onRetry}>
               retry
@@ -61,10 +64,12 @@ export interface ProofMomentProps {
   /** Final frame for the calm "already used" refusal. */
   alreadyDone: (copy: string) => ReactNode
   onRetry: () => void
+  /** Offered when the error is InsufficientFunds. */
+  faucet?: ReactNode
 }
 
 /** The proof moment: preparing, proving, verifying on Stellar, done. Advances only on real prover events. */
-export function ProofMoment({ state, cached, connect, success, alreadyDone, onRetry }: ProofMomentProps) {
+export function ProofMoment({ state, cached, connect, success, alreadyDone, onRetry, faucet }: ProofMomentProps) {
   if (state.status === "idle") return null
   if (state.status === "needsWallet") return <Note>connect to continue. {connect}</Note>
 
@@ -87,6 +92,7 @@ export function ProofMoment({ state, cached, connect, success, alreadyDone, onRe
       {state.status === "error" && (
         <Note tone="warn">
           {state.copy}{" "}
+          {state.error === "InsufficientFunds" && faucet}
           <button type="button" className="secondary" onClick={onRetry}>
             retry
           </button>

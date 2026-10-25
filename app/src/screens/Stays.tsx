@@ -4,8 +4,8 @@ import QRCode from "qrcode"
 import { formatUsdc, type DiscountDone, type ReviewDone, type Stay } from "@bookerbob/pos-sdk"
 import { autoOnce } from "../demo"
 import { useDiscloseFlow, useProofFlow } from "../flows"
-import { currentSeason, getPlace, listPlaces, sdk, seasonLabel, stayWord, type Place } from "../sdk"
-import { ConnectButton } from "../Shell"
+import { SEASON, getPlace, listPlaces, sdk, seasonLabel, stayWord, type Place } from "../sdk"
+import { ConnectButton, FaucetButton } from "../Shell"
 import { bump, go, useAsync, useRevision } from "../store"
 import { Empty, Loading, TxLink } from "../ui"
 import { ProofMoment } from "../views/flow"
@@ -194,7 +194,7 @@ export function ReviewScreen({ i }: { i: number }) {
 export function DiscountScreen({ i }: { i: number }) {
   const { stay, place } = useStayAndPlace(i)
   const flow = useProofFlow<DiscountDone>("discount")
-  const season = currentSeason()
+  const season = SEASON
   const submit = () => stay && flow.run({ kind: "discount", stay, season })
 
   const run = flow.run
@@ -226,6 +226,7 @@ export function DiscountScreen({ i }: { i: number }) {
           state={flow.state}
           cached={flow.cached}
           connect={<ConnectButton />}
+          faucet={<FaucetButton />}
           onRetry={submit}
           success={
             flow.state.status === "success" && (

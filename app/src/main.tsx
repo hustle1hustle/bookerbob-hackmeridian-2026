@@ -3,11 +3,8 @@ import { createRoot } from "react-dom/client"
 import "./tokens.css"
 import "./app.css"
 import { App } from "./App"
-import { getPlaceReviews, sdk } from "./sdk"
+import { sdk } from "./sdk"
 import { demo } from "./demo"
-import { seedDisputes } from "./disputes"
-
-if (sdk.mode === "mock") void seedDisputes(getPlaceReviews)
 
 const render = () =>
   createRoot(document.getElementById("root")!).render(

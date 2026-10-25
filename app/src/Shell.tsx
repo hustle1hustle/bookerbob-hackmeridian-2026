@@ -1,8 +1,9 @@
 // App shell: role switcher, connect, banners, footer. Plain on purpose; the designed shell drops in here.
 import { useState, type ReactNode } from "react"
-import { errorCopy, type WalletKind } from "@bookerbob/pos-sdk"
+import { errorCopy, formatUsdc, type WalletKind } from "@bookerbob/pos-sdk"
+import { useWriteFlow } from "./flows"
 import { sdk } from "./sdk"
-import { useRoute, useWallet, type Role } from "./store"
+import { useAsync, useRoute, useWallet, type Role } from "./store"
 
 const roles: { id: Role; label: string; to: string }[] = [
   { id: "guest", label: "Guest", to: "#/" },
@@ -24,7 +25,32 @@ export function RoleSwitcher({ role }: { role: Role }) {
 
 type ConnectState = { status: "idle" } | { status: "choosing" } | { status: "connecting"; kind: WalletKind } | { status: "error"; copy: string }
 
-/** Connect states: idle, choosing (passkey / Freighter), connecting, error; connected shows the address. */
+/** "get test USDC": sdk.chain.faucet() through the faucet state machine. Also offered on InsufficientFunds. */
+export function FaucetButton() {
+  const flow = useWriteFlow("faucet")
+  const run = () => flow.run(() => sdk.chain.faucet())
+  return (
+    <span className="row">
+      <button type="button" className="secondary" onClick={run} disabled={flow.state.status === "submitting"}>
+        {flow.state.status === "submitting" ? "minting test USDC" : "get test USDC"}
+      </button>
+      {flow.state.status === "success" && <span className="small">test USDC added</span>}
+      {flow.state.status === "error" && <span className="small">{flow.state.copy}</span>}
+      {flow.state.status === "needsWallet" && <span className="small">connect first</span>}
+    </span>
+  )
+}
+
+function Balance() {
+  const address = useWallet()
+  const bal = useAsync(() => sdk.chain.balance(), [address])
+  if (bal.data == null) return null
+  return <span className="small">{formatUsdc(bal.data)} USDC</span>
+}
+
+const kindName: Record<string, string> = { local: "demo key", freighter: "Freighter", passkey: "passkey" }
+
+/** Connect states: idle, choosing, connecting, error. Connected shows address, test USDC balance and the faucet. */
 export function ConnectButton() {
   const address = useWallet()
   const [st, setSt] = useState<ConnectState>({ status: "idle" })
@@ -34,8 +60,9 @@ export function ConnectButton() {
     try {
       await sdk.wallet.connect(kind)
       setSt({ status: "idle" })
-    } catch {
-      setSt({ status: "error", copy: errorCopy.UserRejected })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : ""
+      setSt({ status: "error", copy: /not installed/i.test(msg) ? "Freighter is not installed in this browser" : errorCopy.UserRejected })
     }
   }
 
@@ -43,8 +70,10 @@ export function ConnectButton() {
     return (
       <div className="row">
         <span className="small">
-          connected {address.slice(0, 4)}…{address.slice(-4)} <span className="muted">({sdk.wallet.kind})</span>
+          {address.slice(0, 4)}…{address.slice(-4)} <span className="muted">({kindName[sdk.wallet.kind ?? ""] ?? sdk.wallet.kind})</span>
         </span>
+        <Balance />
+        <FaucetButton />
         <button type="button" className="secondary" onClick={() => sdk.wallet.disconnect()}>
           disconnect
         </button>
@@ -58,15 +87,19 @@ export function ConnectButton() {
       </button>
     )
 
+  const busy = st.status === "connecting"
   return (
     <div className="row" role="group" aria-label="connect with">
-      <button type="button" onClick={() => connect("passkey")} disabled={st.status === "connecting"}>
-        {st.status === "connecting" && st.kind === "passkey" ? "waiting for passkey" : "passkey"}
+      <button type="button" onClick={() => connect("local")} disabled={busy}>
+        {busy && st.kind === "local" ? "creating your demo key" : "demo key in this browser"}
       </button>
-      <button type="button" className="secondary" onClick={() => connect("freighter")} disabled={st.status === "connecting"}>
-        {st.status === "connecting" && st.kind === "freighter" ? "waiting for Freighter" : "Freighter"}
+      <button type="button" className="secondary" onClick={() => connect("freighter")} disabled={busy}>
+        {busy && st.kind === "freighter" ? "waiting for Freighter" : "Freighter"}
       </button>
-      {st.status !== "connecting" && (
+      <button type="button" className="secondary" disabled title="coming soon">
+        passkey (coming soon)
+      </button>
+      {!busy && (
         <button type="button" className="secondary" onClick={() => setSt({ status: "idle" })}>
           cancel
         </button>
