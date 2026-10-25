@@ -4,6 +4,7 @@
 //   GET  /.well-known/ucp   business profile
 //   POST /mcp               UCP over MCP (JSON-RPC 2.0)
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
+import { opsApi } from "./ops.ts" // importing installs the error hooks
 import { createHash, randomBytes } from "node:crypto"
 import { Keypair } from "@stellar/stellar-sdk"
 import { SHOP, StoreError, createSingleUseCode, deactivateCode, recordPaidOrder, storeManifest, storeRpc, storeTool, ordersWithCode } from "./shopify.ts"
@@ -483,6 +484,7 @@ createServer(async (req, res) => {
       const max = mp !== null && mp !== "" && Number.isFinite(Number(mp)) ? Number(mp) : null
       return send(res, 200, await search((u.searchParams.get("q") ?? "").slice(0, 100), max))
     }
+    if (req.url?.startsWith("/api/ops/")) return await opsApi(req, res, req.url.split("?")[0])
     if (req.method === "GET" && req.url === "/health") return send(res, 200, { ok: true, shop: SHOP, merchant: MERCHANT })
     if (req.method === "POST" && req.url === "/mcp") {
       const out = await rpcCall(JSON.parse(await readBody(req)))
