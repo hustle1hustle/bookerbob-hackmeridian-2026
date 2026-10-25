@@ -105,6 +105,7 @@ async function checkStored(d: { pkg?: import("@bookerbob/pos-sdk").DisclosurePac
 
 async function api(req: IncomingMessage, res: ServerResponse, path: string) {
   if (path.startsWith("/api/ops/")) return opsApi(req, res, path)
+  if (path.startsWith("/api/stellar-tier/")) return (await import("./stellar-tier.ts")).stellarTierApi(req, res, path)
   if (path.startsWith("/api/rep/")) return (await import("./rep.ts")).repApi(req, res, path)
   const read = await ops.read()
   let m: RegExpMatchArray | null
