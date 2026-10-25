@@ -3,3 +3,7 @@ node_modules/
 *.log
 data/
 .core/
+agent/.buyer.json
+agent/.artifacts/
+data-bridge.log
+agent/.payers.json
