@@ -64,6 +64,8 @@ export const demo = {
       if (!f.error) break
       await new Promise((r) => setTimeout(r, 4000))
     }
+    // tell the page a wallet is ready (it connected after the first render)
+    if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("pol:wallet"))
     return addr
   },
 }

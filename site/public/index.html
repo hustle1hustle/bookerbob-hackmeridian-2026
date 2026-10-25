@@ -929,6 +929,8 @@ class Component extends DCLogic {
     this.m.reset({ sparse: !!this.props.sparseData });
     this.syncConfig();
     if (this.props.walletConnected) { const w = await this.m.wallet.connect('passkey', true); this.setState({ wallet: w }); }
+    // bb:connect-control: a wallet connected by pol-real after load (fresh demo) shows up without a reload
+    window.addEventListener('pol:wallet', () => { this.loadSources(); this.reload(); });
     await this.reload();
     this.setState({ ready: true, ag: this.agBlank() });
     this.selectFirstDispute();
