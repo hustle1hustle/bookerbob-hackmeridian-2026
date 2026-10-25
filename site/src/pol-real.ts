@@ -251,7 +251,7 @@ export function hashText(s: string): string {
 const round2 = (x: number) => Math.round(x * 100) / 100
 export function groupLabel(group: string, kind: string) {
   if (group === "returning") return kind === "hotel" ? "returning guest" : "returning customer"
-  return ({ network: "BookerBob regular", traveler: "REP verified traveler · from REP" } as Record<string, string>)[group] || group
+  return ({ network: "BookerBob regular", traveler: "REP verified traveler · from REP", tier: "Stellar wallet tier" } as Record<string, string>)[group] || group
 }
 export function breakdown(subtotal: number, policy: { group: string; label: string; bps: number }[], max_bps: number, groups: string[]) {
   let used = 0
@@ -282,6 +282,7 @@ const groupKey = (ref: d.GroupRef, merchant: number) => {
   const g = groupsMeta.find((x) => x.id === ref.id)
   if (g?.kind === "chain") return "network"
   if (g?.kind === "attested" && /verified traveler/i.test(g.name)) return "traveler"
+  if (g?.kind === "attested" && /stellar wallet tier/i.test(g.name)) return "tier"
   return `g${ref.id}`
 }
 
@@ -443,6 +444,7 @@ async function refreshEligibility(read: any) {
       if (key === "returning") reason = !holder ? (kind === "hotel" ? "no stay here in this browser" : "no purchase here in this browser") : used ? "used this season. renews next season." : kind === "hotel" ? "you stayed here before. not which time." : "you bought here before. not what, not when."
       else if (key === "network") reason = !holder ? "no proven stay or purchase in the network yet" : used ? "used here this season" : "you're a proven customer somewhere in the BookerBob network"
       else if (key === "traveler") reason = !holder ? "no attestation in this browser" : used ? "used here this season" : "an attester vouched for you. not who."
+      else if (key === "tier") reason = !holder ? stellarTier.reason() || "join with your wallet in connect" : used ? "used here this season" : "your wallet's tier counts. places never see the wallet."
       else reason = !holder ? "not a member in this browser" : used ? "used here this season" : "a provider vouched for you. not who."
       const txHash = holder ? await membershipTx(it.group, holder.commitment) : null
       const atPlaces = state.places.filter((q) => (q.policy?.items ?? []).some((x) => x.group.kind === it.group.kind && x.group.id === it.group.id)).length
@@ -457,6 +459,7 @@ export const EXPLAIN: Record<string, string> = {
   returning: "you were a customer here before. not which time.",
   network: "you're a proven customer somewhere in the BookerBob network. places never see where.",
   traveler: "REP proves from your own Airbnb or Booking account that you travel. BookerBob only learns yes. nobody sees your trips.",
+  tier: "your Stellar wallet history earns a tier. places see the tier, never the wallet.",
 }
 
 const ready = () => (loading ??= load())
@@ -1119,6 +1122,8 @@ export interface Source {
   tier?: number
   /** Attest tx on testnet (memo.hash = claim digest) — clickable proof. */
   scoreUrl?: string
+  /** Stellar wallet tier: explainer, held + join tx, or why it cannot join yet. */
+  stellarTier?: Awaited<ReturnType<typeof stellarTier.view>>
 }
 
 // Wallet loyalty score (verify_onchain_zk): Horizon rating → claim → 1-stroop attest tx.
@@ -1281,6 +1286,88 @@ export const rep = {
   },
 }
 
+// Stellar wallet tier: the wallet's tier comes from the loyalty score above (Horizon read, no public attest). At or above
+// /api/stellar-tier/info minTier, a dedicated identity of this browser (a stay at the store that is never checked in, so it
+// links to no customer tree) joins the attested group: challenge -> SEP-53 signature by the wallet -> join (add_member).
+// G accounts only: a passkey wallet is a contract account (C...) and cannot sign a SEP-53 message.
+let tierMin = 3
+let tierInfoP: Promise<{ minTier: number; explainer: string }> | null = null
+const tierInfo = () =>
+  (tierInfoP ??= fetch(`${API}/api/stellar-tier/info`)
+    .then((r) => r.json())
+    .then((x) => ((tierMin = Number(x.minTier ?? 3)), { minTier: tierMin, explainer: String(x.explainer ?? EXPLAIN.tier) }))
+    .catch(() => ((tierInfoP = null), { minTier: tierMin, explainer: EXPLAIN.tier })))
+let tierState: { status: "none" | "pending" | "failed"; why?: string } = { status: "none" }
+const TIER_KEY = (c: string) => `bookerbob.tier.${c}`
+const tierGroupId = () => groupsMeta.find((g) => g.kind === "attested" && /stellar wallet tier/i.test(g.name))?.id ?? null
+const tierHolder = () => {
+  const gid = tierGroupId()
+  if (gid === null || !state) return null
+  const leaves = state.groupLeaves.get(gid) ?? []
+  return sdk.stays.list().find((s) => leaves.includes(BigInt(s.commitment))) ?? null
+}
+
+export const stellarTier = {
+  info: tierInfo,
+  /** Why this browser cannot join right now ("" = it can). Synchronous, from the wallet and its loyalty score. */
+  reason(): string {
+    const addr = wallet.address ?? sdk.wallet.address
+    if (!addr) return `connect a Stellar wallet with tier ${tierMin}+`
+    if (!addr.startsWith("G")) return "a passkey wallet is a contract account. connect Freighter or a demo key (G…) for the tier."
+    const ly = loyaltyState.address === addr ? loyaltyState : ({ status: "none" } as LoyaltyView)
+    if (ly.status === "pending") return "scoring your wallet…"
+    if (ly.status !== "ready" || typeof ly.tier !== "number") return `connect a Stellar wallet with tier ${tierMin}+`
+    if (ly.tier < tierMin) return `your wallet scores tier ${ly.tier}, needs ${tierMin}`
+    return ""
+  },
+  async view() {
+    await ready()
+    await tierInfo()
+    const h = tierHolder()
+    const gid = tierGroupId()
+    let tx: string | null = null
+    let tier: number | null = null
+    if (h) {
+      try {
+        const saved = JSON.parse(LS?.getItem(TIER_KEY(h.commitment)) ?? "null")
+        tx = saved?.tx ?? null
+        tier = saved?.tier ?? null
+      } catch {}
+      if (!tx && gid !== null) tx = await membershipTx({ kind: "group", id: gid }, h.commitment)
+    }
+    const why = this.reason()
+    return { minTier: tierMin, explainer: EXPLAIN.tier, perk: perkFor("tier"), held: !!h, tx, tier: tier ?? (loyaltyState.tier ?? null), canJoin: !h && !why && tierState.status !== "pending", pending: tierState.status === "pending", reason: h ? "" : tierState.status === "failed" ? (tierState.why ?? why) : why }
+  },
+  async join() {
+    await tierInfo()
+    const why = this.reason()
+    if (why) return (tierState = { status: "failed", why })
+    const addr = (wallet.address ?? sdk.wallet.address)!
+    tierState = { status: "pending" }
+    try {
+      const stay = sdk.stays.create(UCP_MERCHANT)
+      const commitment = BigInt(stay.commitment).toString()
+      const ch: any = await fetch(`${API}/api/stellar-tier/challenge?address=${addr}&commitment=${commitment}`).then((r) => r.json())
+      if (!ch?.message) return (tierState = { status: "failed", why: "bookerbob could not open a request. try again." })
+      const signature = await sdk.wallet.signMessage(ch.message)
+      const r: any = await fetch(`${API}/api/stellar-tier/join`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ address: addr, commitment, nonce: ch.nonce, signature }) })
+        .then(async (x) => ({ status: x.status, ...(await x.json().catch(() => ({}))) }))
+      if (r.ok) {
+        LS?.setItem(TIER_KEY(stay.commitment), JSON.stringify({ tx: r.txHash || null, tier: r.tier ?? null }))
+        tierState = { status: "none" }
+        loading = null // the tier group changed: re-read it so perks count it
+        await ready()
+        return { ...tierState }
+      }
+      const msg =
+        r.status === 403 ? `your wallet scores tier ${r.tier}, needs ${r.minTier}` : r.status === 409 ? "this wallet already joined. one identity per wallet." : r.status === 401 ? "the wallet signature did not check out. try again." : r.status === 410 ? "the request expired. try again." : "the join did not go through. try again."
+      return (tierState = { status: "failed", why: msg })
+    } catch (e: any) {
+      return (tierState = { status: "failed", why: /reject|denied|cancel/i.test(String(e?.message ?? e)) ? "you declined in the wallet. nothing was sent." : "the wallet could not sign. try again." })
+    }
+  },
+}
+
 // Stellar Passport (verify_onchain_zk): a read-only lookup of the connected wallet's builder profile.
 let passportState: { status: SourceStatus; detail: string; address?: string } = { status: "none", detail: "" }
 export const passport = {
@@ -1339,6 +1426,7 @@ export async function sources(placeId?: number): Promise<Source[]> {
       status: addr ? "connected" : "none",
       detail: walletDetail,
       ...(addr ? { accountUrl: `https://stellar.expert/explorer/testnet/account/${addr}` } : {}),
+      stellarTier: await stellarTier.view(),
       ...(ly.status === "ready" && typeof ly.rating === "number"
         ? {
             score: ly.rating,
@@ -1365,13 +1453,6 @@ export async function sources(placeId?: number): Promise<Source[]> {
               ? (repState.why ?? "")
               : "+5% where places honor it",
       ...(held || demo ? {} : { link: REP_APP_URL }),
-    },
-    {
-      id: "passport",
-      label: "Stellar Passport",
-      proves: "your builder profile on Stellar. read only. not a perk yet: no place offers it today.",
-      status: pp.status,
-      detail: pp.detail || (addr ? "check your wallet's builder profile" : "connect a wallet first"),
     },
     {
       id: "network",
