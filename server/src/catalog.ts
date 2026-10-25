@@ -50,7 +50,7 @@ export class Quotes {
     if (!q || q.used || Date.now() - q.at > 15 * 60_000) throw new Error("UnknownQuote")
     const pre: any = xdr.HashIdPreimage.fromXDR(preimageB64, "base64")
     const plain = JSON.parse(JSON.stringify(pre, (_, v) => (typeof v === "bigint" ? v.toString() : v)))
-    const auth = plain.soroban_authorization ?? plain.sorobanAuthorization
+    const auth = plain.soroban_authorization ?? plain.sorobanAuthorization ?? plain.soroban_authorization_with_address ?? plain.sorobanAuthorizationWithAddress
     const fn = auth?.invocation?.function?.contract_fn ?? auth?.invocation?.function?.contractFn
     if (!fn) throw new Error("BadParams")
     if ((auth.network_id ?? auth.networkId) !== this.networkId) throw new Error("BadParams")

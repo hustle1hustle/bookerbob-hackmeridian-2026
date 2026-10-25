@@ -43,6 +43,7 @@ const FAUCET_AMOUNT = 1000n * 10_000_000n
 
 // Chain snapshot for search (merchants + all reviews), refreshed at most every 15 s.
 let snap: { at: number; merchants: Merchant[]; reviews: Review[] } | null = null
+let configStatic: { usdc: string; arbiter: string } | null = null
 async function snapshot() {
   if (snap && Date.now() - snap.at < 15_000) return snap
   const read = await ops.read()
@@ -106,10 +107,11 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
   const read = await ops.read()
   let m: RegExpMatchArray | null
   if (req.method === "GET" && path === "/api/config") {
-    const n = await views.merchantCount(read)
-    const demo: number[] = []
-    for (let i = 0; i < n; i++) if (ops.keys.merchantAdmins.has((await views.merchant(read, i)).admin)) demo.push(i)
-    return json(res, 200, { contractId: CONTRACT, rpcUrl: net.rpcUrl, networkPassphrase: net.networkPassphrase, demoMerchants: demo, usdc: await views.usdc(read), usdcIssuer: ops.keys.usdcIssuer?.publicKey(), arbiter: await views.arbiter(read) })
+    // merchants come from the 15 s snapshot (parallel reads), so first paint is not gated on N sequential reads
+    const sn = await snapshot()
+    const demo = sn.merchants.filter((x) => ops.keys.merchantAdmins.has(x.admin)).map((x) => x.id)
+    configStatic ??= { usdc: await views.usdc(read), arbiter: await views.arbiter(read) }
+    return json(res, 200, { contractId: CONTRACT, rpcUrl: net.rpcUrl, networkPassphrase: net.networkPassphrase, demoMerchants: demo, usdc: configStatic.usdc, usdcIssuer: ops.keys.usdcIssuer?.publicKey(), arbiter: configStatic.arbiter })
   }
   if (req.method === "GET" && (m = path.match(/^\/api\/reviews\/(\d+)$/))) {
     const rs = await views.reviews(read, Number(m[1]))
