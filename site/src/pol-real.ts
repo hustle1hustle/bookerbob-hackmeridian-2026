@@ -76,33 +76,40 @@ let state: { places: PlaceState[]; reviews: Map<number, any[]>; texts: Record<st
 let loading: Promise<void> | null = null
 const kindOut = (k: string) => (k === "cafe" ? "café" : k)
 
+// One shared /api/config read (the backend computes it per request, so do not ask twice).
+let configP: Promise<any> | null = null
+const apiConfig = () => (configP ??= fetch(`${API}/api/config`).then((r) => r.json()))
+
 async function load() {
-  const read = await getClient({ ...TESTNET, contractId: (await (await fetch(`${API}/api/config`)).json()).contractId })
-  const [n, catalog, ledger, groups] = await Promise.all([
-    views.merchantCount(read),
-    fetch(`${API}/api/catalog`).then((r) => r.json()),
-    fetch(`${API}/api/ledger`).then((r) => r.json()),
-    views.groups(read),
-  ])
+  // everything that does not need the contract id starts now, in parallel with /api/config
+  const catalogP = fetch(`${API}/api/catalog`).then((r) => r.json())
+  const ledgerP = fetch(`${API}/api/ledger`).then((r) => r.json()).catch(() => ({}))
+  const read = await getClient({ ...TESTNET, contractId: (await apiConfig()).contractId })
+  const [n, groups] = await Promise.all([views.merchantCount(read), views.groups(read)])
   groupsMeta = groups
+  const ids = Array.from({ length: n }, (_, i) => i)
+  // one wave: merchants, policies, leaves, group leaves and backend reviews all at once
+  const [ms, policies, leaves, gLeaves, rlists, catalog, ledger] = await Promise.all([
+    Promise.all(ids.map((i) => views.merchant(read, i))),
+    Promise.all(ids.map((i) => views.policy(read, i))),
+    Promise.all(ids.map((i) => views.leaves(read, i))),
+    Promise.all(groups.map((g) => views.groupLeaves(read, g.id))),
+    Promise.all(ids.map((i) => fetch(`${API}/api/reviews/${i}`).then((r) => r.json()))),
+    catalogP,
+    ledgerP,
+  ])
   LEDGER_NOW = ledger.sequence ?? LEDGER_NOW
-  const ms = await Promise.all(Array.from({ length: n }, (_, i) => views.merchant(read, i)))
   const ucp = ms.find((m) => m.kind === "shop" && !catalog[m.id] && /shopify|rep store/i.test(m.name))
   if (ucp) UCP_MERCHANT = ucp.id
-  const places: PlaceState[] = await Promise.all(
-    ms.map(async (m) => ({ mid: m.id, m, catalog: catalog[m.id] ?? null, policy: await views.policy(read, m.id), leaves: await views.leaves(read, m.id) })),
-  )
+  const places: PlaceState[] = ms.map((m, i) => ({ mid: m.id, m, catalog: catalog[m.id] ?? null, policy: policies[i], leaves: leaves[i] }))
   const reviews = new Map<number, any[]>()
   const texts: Record<string, string> = {}
-  await Promise.all(
-    ms.map(async (m) => {
-      const rs = await fetch(`${API}/api/reviews/${m.id}`).then((r) => r.json())
-      reviews.set(m.id, rs)
-      for (const r of rs) if (r.text) texts["0x" + r.contentHash] = r.text
-    }),
-  )
+  ids.forEach((i) => {
+    reviews.set(i, rlists[i])
+    for (const r of rlists[i]) if (r.text) texts["0x" + r.contentHash] = r.text
+  })
   const groupLeaves = new Map<number, bigint[]>()
-  for (const g of groups) groupLeaves.set(g.id, await views.groupLeaves(read, g.id))
+  groups.forEach((g, k) => groupLeaves.set(g.id, gLeaves[k]))
   state = { places, reviews, texts, groupLeaves, spent: new Set(), elig: {} }
   await refreshEligibility(read)
 }
@@ -174,7 +181,7 @@ const pub = (p: PlaceState) => {
 let pending: { place: number; groups: string[]; payer: Keypair; claims: any[] } | null = null
 
 async function freshPayer(kp: Keypair, amountRaw: bigint) {
-  const c = await (await fetch(`${API}/api/config`)).json()
+  const c = await apiConfig()
   const post = (path: string, body: any) => fetch(`${API}${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body, (_, v) => (typeof v === "bigint" ? v.toString() : v)) }).then((r) => r.json())
   const o = await post("/api/payer/open", { publicKey: kp.publicKey() })
   if (o.error) throw new Error(o.error)
@@ -474,7 +481,7 @@ async function* ucpRun(reuse: boolean): AsyncGenerator<any> {
     yield step(3, "done", { detail: `provisional ${off.toFixed(2)} usdc off, held until the proof checks out.` })
     yield step(4, "running")
     const artifacts = await loadArtifacts()
-    const leaves = await views.leaves(await getClient({ ...TESTNET, contractId: (await (await fetch(`${API}/api/config`)).json()).contractId }), UCP_MERCHANT)
+    const leaves = await views.leaves(await getClient({ ...TESTNET, contractId: (await apiConfig()).contractId }), UCP_MERCHANT)
     const holder = shopStay ?? next
     const mp = await proveMembership(sdk.stays.identity(holder), leaves, d.discountMessage(payer), d.discountScope(UCP_MERCHANT, st.action.scope.season), artifacts)
     yield step(4, "done")
