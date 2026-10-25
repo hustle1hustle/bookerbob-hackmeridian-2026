@@ -1,0 +1,52 @@
+/* BookerBob · Proof of Loyalty (everywhere you go) · design tokens. One file, light + dark.
+   Semantics: --accent = proof / verified / agent. --deal = money: discounts, savings, returning-guest price. */
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400..600&display=swap");
+
+:root, [data-theme="light"] {
+  --bg: #EDEBE5;          /* bone */
+  --surface: #F6F5F1;     /* cards, panels */
+  --ink: #121211;         /* text, hard rules, primary buttons */
+  --ink-2: #4A4842;       /* body secondary (8.6:1 on bg) */
+  --ink-3: #6B685F;       /* labels, meta (4.7:1 on bg) */
+  --rule: #121211;        /* 1px structural lines */
+  --rule-soft: rgba(18,18,17,.13);
+  --accent: #1D3BD1;      /* azulejo cobalt: verified, live, yours */
+  --accent-ink: #FFFFFF;
+  --accent-soft: rgba(29,59,209,.08);
+  --warn: #A6341B;        /* errors only */
+  --deal: #F4C430;        /* tram yellow: discounts and savings only */
+  --deal-ink: #121211;    /* text on --deal (11.8:1) */
+  --scrim: rgba(237,235,229,.82);
+
+  --sans: "Geist", ui-sans-serif, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --radius: 0;
+  --shadow-hard: 6px 6px 0 var(--ink);
+  --ease-out: cubic-bezier(.2,.7,0,1);
+  --container: 1360px;
+  --gutter: clamp(16px, 4vw, 48px);
+}
+
+[data-theme="dark"] {
+  --bg: #0E0E0D;
+  --surface: #161615;
+  --ink: #ECEAE3;
+  --ink-2: #B4B1A8;
+  --ink-3: #8C897F;
+  --rule: #ECEAE3;
+  --rule-soft: rgba(236,234,227,.14);
+  --accent: #8EA0FF;
+  --accent-ink: #0E0E0D;
+  --accent-soft: rgba(142,160,255,.1);
+  --warn: #FF8F70;
+  --deal: #F4C430;
+  --deal-ink: #0E0E0D;
+  --scrim: rgba(14,14,13,.82);
+}
+
+/* Type scale (px): display clamp(60,9.4vw,156) · h1 clamp(52,7.6vw,124) · h2 clamp(28,3.4vw,48)
+   score 92 / 228 · body 15-19 · mono label 10.5-11, +0.08em, uppercase. Display tracking -0.06em. */
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
