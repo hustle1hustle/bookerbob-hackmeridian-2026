@@ -39,6 +39,30 @@ const reloadClean = () => {
   u.searchParams.delete("fresh")
   location.replace(u.toString())
 }
+/** "create a new passkey": a brand-new credential (fresh user handle) in a new storage namespace, so a new
+ *  wallet, new stay identities, zero passes and zero memberships. Must run inside the click (WebAuthn gesture).
+ *  Returns { fallback: true } when the browser has no passkeys/PRF-capable authenticator, so the UI offers
+ *  Freighter or a demo key instead of an error. */
+export async function createPasskey(): Promise<{ ok: true; address: string } | { fallback: true; why: string }> {
+  const { connectPasskey, isPasskeyAvailable } = await import("../../packages/pass_connect/src/index.ts")
+  if (!isPasskeyAvailable()) return { fallback: true, why: "this browser has no passkeys. use Freighter or a demo key." }
+  const ns = `pk-${Date.now()}`
+  const st = nsStorage(ns)!
+  const label = `BookerBob demo ${new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`
+  try {
+    const { session } = await connectPasskey({ rpName: "BookerBob", friendbotUrl: "https://friendbot.stellar.org", storage: st, displayName: label })
+    st.setItem("pos.wallet", "passkey")
+    st.setItem("pos.pass_binding", session.binding)
+    LS?.setItem(NS_KEY, ns)
+    reloadClean()
+    return { ok: true, address: session.address }
+  } catch (e: any) {
+    const code = e?.code ?? ""
+    if (code === "UserCancelled") return { fallback: true, why: "cancelled. you can try again, or use Freighter or a demo key." }
+    return { fallback: true, why: "this browser could not create a passkey here. use Freighter or a demo key." }
+  }
+}
+
 export const demo = {
   /** Current fresh-demo namespace, "" for the operator's own wallet. */
   active: () => nsNow,
