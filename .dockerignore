@@ -6,3 +6,4 @@ contracts/**/target
 .claude
 server/.data
 .git
+agent/.data

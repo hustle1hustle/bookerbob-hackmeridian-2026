@@ -6,11 +6,14 @@ COPY packages/sdk/package.json packages/sdk/
 COPY server/package.json server/
 COPY scripts/package.json scripts/
 COPY app/package.json app/
+COPY agent/package.json agent/
 RUN npm ci --no-audit --no-fund
 COPY packages packages
 COPY server server
 COPY config config
 COPY app app
+# the app imports the agent's rank() (agent/src/rank.ts)
+COPY agent agent
 # the app talks to this same server (apiUrl ""), so the testnet SDK needs no URL
 ENV VITE_SDK_MODE=testnet
 RUN npm run build -w app
