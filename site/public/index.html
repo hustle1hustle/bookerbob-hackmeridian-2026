@@ -33,6 +33,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
 @keyframes bb-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 @keyframes bb-fade{from{opacity:0}to{opacity:1}}
 @keyframes bb-pulse{0%,100%{opacity:.55}50%{opacity:1}}
+@media (max-width:600px){.bb-src{position:fixed!important;inset:0!important;width:auto!important;max-height:none!important;border:0!important;box-shadow:none!important}}
 @media (prefers-reduced-motion: reduce){[data-theme] *{animation:none!important;transition:none!important}}
 </style>
 </helmet>
@@ -68,7 +69,8 @@ html,body{margin:0;padding:0;background:#EDEBE5}
       </button>
       <sc-if value="{{ srcOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ srcToggle }}" style="position:fixed;inset:0;z-index:39"></div>
-        <div role="dialog" aria-label="connections" style="position:absolute;right:0;top:calc(100% + 8px);width:min(420px,92vw);max-height:calc(100vh - 96px);overflow:auto;background:var(--surface);color:var(--ink);border:1px solid var(--ink);box-shadow:var(--shadow-hard);z-index:40">
+        <div role="dialog" aria-modal="true" aria-label="connections" class="bb-src" style="position:absolute;right:0;top:calc(100% + 8px);width:min(420px,92vw);max-height:calc(100vh - 96px);overflow:auto;background:var(--surface);color:var(--ink);border:1px solid var(--ink);box-shadow:var(--shadow-hard);z-index:40">
+          <div style="position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 10px 10px 18px;background:var(--surface);border-bottom:1px solid var(--rule)"><span style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)">connections</span><button onClick="{{ srcClose }}" aria-label="close connections" style="appearance:none;border:1px solid var(--ink);background:transparent;color:var(--ink);width:36px;height:36px;display:grid;place-items:center;cursor:pointer;font-size:18px;line-height:1" style-hover="background:var(--ink);color:var(--bg)">×</button></div>
           <sc-if value="{{ srcHasReason }}" hint-placeholder-val="{{ false }}"><div style="padding:16px 18px 4px;font-size:20px;font-weight:500;letter-spacing:-.03em">{{ srcReason }}</div></sc-if>
           <sc-for list="{{ srcRows }}" as="r" hint-placeholder-count="4">
             <sc-if value="{{ r.hasHead }}" hint-placeholder-val="{{ false }}"><div style="padding:14px 18px 2px;border-top:1px solid var(--rule);font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)">{{ r.head }}</div></sc-if>
@@ -954,6 +956,7 @@ class Component extends DCLogic {
     this.raf = requestAnimationFrame(this.loop);
     this.onKey = e => {
       if (e.key !== 'Escape') return;
+      if (this.state.src && this.state.src.open) { this.pending = null; this.setState(st => ({ src: { ...st.src, open: false, focus: null, reason: null } })); return; }
       if (this.state.connect) this.closeConnect();
       else if (this.state.flow && this.state.flow.phase !== 'running') this.closeFlow();
     };
@@ -1752,6 +1755,7 @@ class Component extends DCLogic {
     return {
       opShow: !!s.operator, opActive: !!ns, opNs: ns, opResetLabel: ns ? 'reset' : 'fresh demo · reset',
       opReset: () => { if (this.m && this.m.demo) this.m.demo.reset(); }, opExit: () => { if (this.m && this.m.demo) this.m.demo.exit(); },
+      srcClose: () => { this.pending = null; this.setState(st => ({ src: { ...st.src, open: false, focus: null, reason: null } })); },
       srcOpen: open, srcToggle: () => (open ? (this.pending = null, this.setState(st => ({ src: { ...st.src, open: false, focus: null, reason: null } }))) : this.openSources()),
       srcHasReason: !!src.reason, srcReason: src.reason ? 'connect ' + src.reason + '.' : '',
       srcBtnBg: connected ? 'transparent' : 'var(--ink)', srcBtnFg: connected ? 'var(--ink)' : 'var(--bg)',

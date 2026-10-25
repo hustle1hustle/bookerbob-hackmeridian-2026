@@ -128,3 +128,7 @@ The wallet row in Connect offers "sign in with my passkey" (`wallet.connect('pas
 - `vShell()` tab list: a fourth tab "how it works" after my passes, which navigates to `/how` (the footer link was already there).
 - After the first load, `?view=agent` / `?view=passes` opens that view and `?connect=1` opens Connect, so the `/how` header and nav land in the right place of the app.
 - `site/public/how.html` (not the design file) is restyled to the same language: the app's header (mark, testnet tag, connect →) and tab row with "how it works" current, the type scale, rule-based grids and cards, mono "tx 4d6f75…4580 ↗" links opening in a new tab, the site footer, single column at 390 px. Content, diagrams and tx hashes unchanged.
+
+## Audit fixes
+
+25. **Connect panel (audit CRIT 2)**: a sticky "connections" bar with a close (×) button at the top of the panel; Escape closes it (before any flow), as does a click outside; under 600 px the panel is a full-screen sheet (class `bb-src`, one media rule in the head style) instead of a popover anchored off the left edge.
