@@ -9,16 +9,18 @@ export { fixtureMerchants, fixtureReviews } from "./fixtures.ts"
 
 import type { Sdk } from "./types.ts"
 import { createMockSdk, type MockOptions } from "./mock.ts"
+import { createTestnetSdk, type TestnetOptions } from "./testnet.ts"
+export { createTestnetSdk } from "./testnet.ts"
+export type { TestnetOptions } from "./testnet.ts"
 
 export interface SdkConfig {
   mode: "mock" | "testnet"
   mock?: MockOptions
   /** testnet only */
-  rpcUrl?: string
-  contractId?: string
+  testnet?: TestnetOptions
 }
 
 export function createSdk(cfg: SdkConfig): Sdk {
   if (cfg.mode === "mock") return createMockSdk(cfg.mock)
-  throw new Error("testnet SDK lands at the 22:00 sync point; use mode: 'mock' until then")
+  return createTestnetSdk(cfg.testnet)
 }

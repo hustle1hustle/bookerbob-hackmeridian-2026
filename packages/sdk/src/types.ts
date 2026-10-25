@@ -15,7 +15,7 @@ export type ContractError =
   | "BadRating"
   | "ReviewNotFound"
   | "BadParams"
-export type ClientError = "WalletNotConnected" | "UserRejected" | "InsufficientFunds" | "Network" | "Unknown"
+export type ClientError = "WalletNotConnected" | "UserRejected" | "InsufficientFunds" | "NotDemoMerchant" | "NotInTree" | "DisclosureRejected" | "Network" | "Unknown"
 export type ErrorName = ContractError | ClientError
 
 export type WriteOk = { txHash: string }
@@ -111,8 +111,12 @@ export interface Chain {
   bookWithDiscount(stay: Stay, season: number): Promise<WriteResult<DiscountDone>>
   /** Guest, anonymous review. Drains prover.prove({ kind: "review" }). */
   postReview(stay: Stay, rating: 1 | 2 | 3 | 4 | 5, text: string): Promise<WriteResult<ReviewDone>>
-  /** Arbiter. */
+  /** Arbiter (demo arbiter on testnet: the backend checks the disclosure, then attests). */
   attest(reviewId: number): Promise<WriteResult>
+  /** Test USDC for the connected wallet (adds the trustline first for a G-account). */
+  faucet(): Promise<WriteResult>
+  /** Connected wallet's test USDC balance, null when not connected. */
+  balance(): Promise<Usdc | null>
 }
 
 export interface Prover {
@@ -122,7 +126,8 @@ export interface Prover {
   ready(): boolean
 }
 
-export type WalletKind = "passkey" | "freighter"
+/** "local" = a demo key generated and kept in this browser, funded on testnet. */
+export type WalletKind = "passkey" | "freighter" | "local"
 
 export interface Wallet {
   /** null = read-only mode. */
@@ -161,10 +166,27 @@ export interface DisclosureCheck {
   leafInTree: boolean
 }
 
+export interface Dispute {
+  /** Review id. */
+  id: number
+  merchant: number
+  /** Present only on the guest's own device; the public queue never carries the package. */
+  pkg?: DisclosurePackage
+  openedAt: number
+  /** Set once the arbiter attested. */
+  attestTx?: string
+}
+
 export interface Disclosure {
   build(stay: Stay): Promise<DisclosurePackage>
-  /** Arbiter: the 3-step check shown before "attest". */
+  /** Guest: hand the package to the arbiter (privately; the merchant never sees it). */
+  submit(pkg: DisclosurePackage): Promise<WriteResult>
+  /** Arbiter: open and closed disputes (packages redacted). */
+  queue(): Promise<Dispute[]>
+  /** Local check of a package (guest preview, tests). */
   check(pkg: DisclosurePackage): Promise<DisclosureCheck>
+  /** Arbiter: the 3-step check shown before "attest", run where the package is held. */
+  checkDispute(reviewId: number): Promise<DisclosureCheck>
 }
 
 export interface Sdk {
@@ -191,7 +213,10 @@ export const errorCopy: Record<ErrorName, string> = {
   BadParams: "invalid request",
   WalletNotConnected: "connect to continue",
   UserRejected: "signing was cancelled",
-  InsufficientFunds: "not enough USDC",
+  InsufficientFunds: "not enough USDC, get test USDC first",
+  NotDemoMerchant: "this place checks guests in itself",
+  NotInTree: "this stay is not checked in yet",
+  DisclosureRejected: "the disclosure did not check out",
   Network: "Stellar testnet did not respond, retry",
   Unknown: "something went wrong, retry",
 }
