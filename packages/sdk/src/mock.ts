@@ -18,6 +18,8 @@ export function createMockSdk(opts: MockOptions = {}): Sdk {
   const spent = new Set<string>()
   const leaves = new Set<string>()
   let filesCached = false
+  let balance = 250n * 10_000_000n
+  const disputes: import("./types.ts").Dispute[] = []
   let txSeed = 1000
   const tx = () => mockHex(txSeed++)
   const forced = () => opts.failNext?.() ?? null
@@ -183,17 +185,30 @@ export function createMockSdk(opts: MockOptions = {}): Sdk {
     },
     bookWithDiscount: (stay, season) => drain({ kind: "discount", stay, season }),
     postReview: (stay, rating, text) => drain({ kind: "review", stay, rating, text }),
+    async faucet() {
+      const nw = need()
+      if (nw) return nw
+      await sleep(800)
+      balance += 1000n * 10_000_000n
+      return { txHash: tx() }
+    },
+    async balance() {
+      return address ? balance : null
+    },
     async attest(reviewId) {
       const nw = need()
       if (nw) return nw
       await sleep(1200)
       const r = reviews.find((x) => x.id === reviewId)
       if (!r) return { error: "ReviewNotFound" }
+      const dsp = disputes.find((x) => x.id === reviewId)
+      const hash = tx()
+      if (dsp) dsp.attestTx = hash
       if (!r.verified) {
         r.verified = true
         merchantOr(r.merchant)!.verifiedCount += 1
       }
-      return { txHash: tx() }
+      return { txHash: hash }
     },
   }
 
@@ -210,6 +225,20 @@ export function createMockSdk(opts: MockOptions = {}): Sdk {
         signature: { r8: [mockDec(9200), mockDec(9201)], s: mockDec(9202) },
         publicKey: [mockDec(9300), mockDec(9301)],
       }
+    },
+    async submit(pkg) {
+      await sleep(400)
+      disputes.push({ id: pkg.reviewId, merchant: pkg.merchant, pkg, openedAt: Date.now() })
+      return { txHash: "" }
+    },
+    async queue() {
+      await sleep(200)
+      return structuredClone(disputes).map(({ pkg, ...d }) => d)
+    },
+    async checkDispute(id) {
+      await sleep(900)
+      const ok = disputes.some((x) => x.id === id)
+      return { commitmentMatches: ok, signatureValid: ok, leafInTree: ok }
     },
     async check(pkg) {
       await sleep(900)

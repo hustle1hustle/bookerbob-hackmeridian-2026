@@ -1,0 +1,8 @@
+node_modules
+**/node_modules
+.env
+.env.*
+contracts/**/target
+.claude
+server/.data
+.git
