@@ -4,3 +4,4 @@ Live: https://stellarbob2026.xyz (Fly app `stellarbob2026`). Protocol: deploy on
 
 | When (UTC) | Commit | Who | Note |
 |---|---|---|---|
+| 2026-10-25 ~14:10 | 93e9077 | brain session | fresh payer per booking; previous release v5 (Denis) |
