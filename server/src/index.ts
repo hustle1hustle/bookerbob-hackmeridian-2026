@@ -309,6 +309,7 @@ createServer(async (req, res) => {
       return res.end()
     }
     if (path.startsWith("/api/")) return await api(req, res, path)
+    if (path === "/" && req.url?.includes("demo=")) return (await import("./rep.ts")).repApi(req, res, "/api/rep/demo")
     if (path === "/ops.js") return opsClient(res)
     serveStatic(res, path)
   } catch (e) {

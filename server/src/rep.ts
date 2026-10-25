@@ -5,12 +5,17 @@
 //   POST /api/rep/present  {sid, attestations: [{jws, kbJwt}], ...}
 //                                           phone: a REP-signed verdict + a holder proof bound to aud and nonce
 //   GET  /api/rep/result?sid=               web: pending | passed | failed
+//   GET  /?demo=<token> (or /api/rep/demo?token=)  operator: sets the demo cookie once, then redirects to /
+//   GET  /api/rep/status                    web: {demo: bool}, whether this browser may open a session
+// Sessions open ONLY for the demo operator (REP_DEMO_TOKEN, as cookie or x-bb-demo header): the one phone
+// polling /pending is the team's, so a public visitor must never be able to put a request on it. Without
+// REP_DEMO_TOKEN no session opens at all. /session, /pending, /present and /result are rate-limited per IP.
 // A verdict that checks out (issuer rep-attest.fly.dev, aud bookerbob, this nonce, not revoked, a lodging
 // tier from Airbnb or Booking) adds the commitment to the "REP verified traveler" group with the REP attester
 // key. Only "passed" is kept: no tier, spend, source or device key is stored or logged. `vps` and
 // `presentations` are never read. Every other path, including /receive and /issue, is 404.
 import type { IncomingMessage, ServerResponse } from "node:http"
-import { randomBytes } from "node:crypto"
+import { randomBytes, createHash, timingSafeEqual } from "node:crypto"
 import { Keypair } from "@stellar/stellar-sdk"
 import { getClient, write, TESTNET } from "../../packages/sdk/src/contract.ts"
 import { contractId } from "../../packages/sdk/src/deployment.ts"
@@ -35,7 +40,14 @@ export interface RepDeps {
   /** Test hook: a fixed JWKS instead of fetching the issuer's. */
   jwks?: { keys: unknown[] } | null
   now?: () => number
+  /** Demo operator token (REP_DEMO_TOKEN). Unset or empty: no session can be opened. */
+  demoToken?: string | null
 }
+
+const sha = (x: string) => createHash("sha256").update(x).digest()
+const COOKIE = "bb_demo"
+/** Per-IP limits per minute. The phone polls /pending every 2 s (30/min). */
+const LIMITS: Record<string, number> = { "/session": 6, "/pending": 45, "/present": 10, "/result": 60, "/demo": 10, "/status": 60 }
 
 export function createRep(deps: RepDeps) {
   const sessions = new Map<string, Session>()
@@ -51,6 +63,25 @@ export function createRep(deps: RepDeps) {
       if (s.length > 256_000) throw new Error("too large")
     }
     return s ? JSON.parse(s) : {}
+  }
+  const isDemo = (req: IncomingMessage): boolean => {
+    const want = deps.demoToken
+    if (!want) return false
+    const cookie = String(req.headers.cookie ?? "").split(/;\s*/).find((c) => c.startsWith(`${COOKIE}=`))?.slice(COOKIE.length + 1)
+    const got = String(req.headers["x-bb-demo"] ?? (cookie ? decodeURIComponent(cookie) : ""))
+    return got.length > 0 && timingSafeEqual(sha(got), sha(want))
+  }
+  const hits = new Map<string, number[]>()
+  const limited = (req: IncomingMessage, sub: string): boolean => {
+    const route = Object.keys(LIMITS).find((r) => sub.startsWith(r))
+    if (!route) return false
+    const key = `${route} ${req.headers["fly-client-ip"] ?? req.socket.remoteAddress}`
+    const t = now()
+    const h = (hits.get(key) ?? []).filter((x) => t - x < 60_000)
+    h.push(t)
+    hits.set(key, h)
+    if (hits.size > 5000) hits.clear()
+    return h.length > LIMITS[route]
   }
   const expire = () => {
     for (const s of sessions.values()) if (s.status === "pending" && now() > s.exp) (s.status = "failed"), (s.reason = "expired")
@@ -105,7 +136,19 @@ export function createRep(deps: RepDeps) {
         res.writeHead(204, { "access-control-allow-origin": "*", "access-control-allow-methods": "GET, POST", "access-control-allow-headers": "content-type" })
         return void res.end()
       }
+      if (limited(req, sub)) return json(res, 429, { error: "RateLimited" })
+      if (req.method === "GET" && sub === "/status") return json(res, 200, { demo: isDemo(req) })
+      if (req.method === "GET" && sub.startsWith("/demo")) {
+        // also reached as /?demo=<token> (one line in index.ts)
+        const q = new URL(req.url ?? path, "http://x").searchParams
+        const token = q.get("token") ?? q.get("demo") ?? ""
+        if (!deps.demoToken || !token || !timingSafeEqual(sha(token), sha(deps.demoToken))) return json(res, 403, { error: "Forbidden" })
+        res.writeHead(302, { location: "/", "set-cookie": `${COOKIE}=${encodeURIComponent(token)}; Path=/api/rep; Max-Age=604800; HttpOnly; Secure; SameSite=Lax`, "cache-control": "no-store" })
+        return void res.end()
+      }
       if (req.method === "POST" && sub === "/session") {
+        // demo operator only: the polling phone is the team's
+        if (!isDemo(req)) return json(res, 403, { error: "demo operator only", message: "REP verify runs through the REP app; watch it in the demo video" })
         const b = await read(req)
         const c = typeof b.commitment === "string" && /^\d{1,78}$/.test(b.commitment) ? BigInt(b.commitment) : 0n
         if (c === 0n || c >= FR) return json(res, 400, { error: "commitment must be a nonzero field element (decimal)" })
@@ -179,6 +222,7 @@ const done = (r: Awaited<ReturnType<typeof write>>) => {
 export function repApi(req: IncomingMessage, res: ServerResponse, path: string) {
   const onchain = process.env.REP_ONCHAIN === "1"
   live ??= createRep({
+    demoToken: process.env.REP_DEMO_TOKEN || null,
     async addMember(commitment) {
       const { c, group } = await client("REP_ATTESTER_SECRET")
       return done(await write(c, "add_member", { group, id_commitment: commitment }))
