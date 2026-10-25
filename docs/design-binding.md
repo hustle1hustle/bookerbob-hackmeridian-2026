@@ -6,6 +6,18 @@ The Claude Design deliverable `Proof of Loyalty v2.dc.html` is served byte-exact
 2. the merchant view's two place labels, hardcoded as mock names ("alfama nine · hotel", "rep store · shop"), are built from the real place names;
 3. `<script src="/ops.js"></script>` as the first script in `<body>` (the backend's error tracker: errors only, scrubbed, no ids or cookies);
 4. the shop cart line appends the chosen size only when the product has sizes (the real store item has none, so it no longer shows a made-up ", m").
+5. **connect control** (marked `bb:connect-control`): the header's connect / disconnect buttons are replaced by one button showing a status chip per source (key, rep, passport, network; filled = connected, tinted = pending, red = failed, hollow = not connected) and a popover listing each source with what it proves, its status and one action. Data and actions come from new `pol-real` exports: `sources()`, `rep.start()` / `rep.poll()`, `passport.check()`, `wallet.current()`, and `wallet.connect('demo key')`. Class additions: `state.src`, `loadSources`, `openSources`, `srcAct`, `vSources` (merged into `renderVals`). `reload()` refreshes the sources. Built only with the v2 tokens; the whole block can be swapped for a Claude Design version.
+6. the place picker shows a "connect REP for +5%" link under an unearned verified-traveler perk, which opens the popover at REP.
+7. a review whose transaction hash is unknown shows a plain "proven stay" badge instead of a link to `/tx/null`.
+
+Sources and what they read:
+
+| Source | Status from | Action |
+|---|---|---|
+| wallet | SDK wallet (passkey, Freighter, or a demo key remembered in this browser) | passkey / freighter / demo key, or disconnect |
+| REP verified traveler | membership in the attested "REP verified traveler" group (connected); a REP session in progress (pending, "approve in REP Bob on your phone"); a refused or expired one (failed) | verify with REP: a fresh stay at the store that is never checked in, `POST /api/rep/session`, then `/api/rep/result` polled every 2 s |
+| Stellar Passport | `GET /api/passport/lookup?address=` (verify_onchain_zk `fetchPassport`, read only) | check (needs a wallet) |
+| network member | this browser's checked-in stays | none (comes with the first stay or purchase) |
 
 `pol-real.js` is bundled from [`site/src/pol-real.ts`](../site/src/pol-real.ts) and exports exactly the mock's interface over the SDK, the contract and the BookerBob backend. The earlier app shell stays at `/classic/`.
 

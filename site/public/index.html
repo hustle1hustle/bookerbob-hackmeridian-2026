@@ -48,12 +48,28 @@ html,body{margin:0;padding:0;background:#EDEBE5}
       </sc-for>
     </nav>
     <button onClick="{{ toggleTheme }}" aria-label="{{ themeAria }}" style="appearance:none;border:1px solid var(--rule);background:transparent;color:var(--ink);width:36px;height:36px;display:grid;place-items:center;cursor:pointer;font-size:15px;line-height:1" style-hover="background:var(--ink);color:var(--bg)">◐</button>
-    <sc-if value="{{ readOnly }}" hint-placeholder-val="{{ true }}">
-      <button onClick="{{ openConnect }}" style="appearance:none;border:1px solid var(--ink);background:var(--ink);color:var(--bg);font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;height:36px;padding:0 14px;display:inline-flex;align-items:center;gap:10px;cursor:pointer;transition:background .15s,border-color .15s,color .15s" style-hover="background:var(--accent);border-color:var(--accent);color:var(--accent-ink)">connect<span>→</span></button>
-    </sc-if>
-    <sc-if value="{{ connected }}" hint-placeholder-val="{{ false }}">
-      <button onClick="{{ disconnect }}" title="disconnect" style="appearance:none;border:1px solid var(--rule);background:transparent;color:var(--ink);font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;height:36px;padding:0 12px;display:inline-flex;align-items:center;gap:8px;cursor:pointer" style-hover="background:var(--ink);color:var(--bg)"><span style="width:7px;height:7px;background:var(--accent)"></span>{{ walletMethod }} ✓</button>
-    </sc-if>
+    <!-- bb:connect-control (pol-real sources(); swappable for a Claude Design version) -->
+    <div style="position:relative">
+      <button onClick="{{ srcToggle }}" aria-expanded="{{ srcOpen }}" aria-haspopup="dialog" aria-label="connections" style="appearance:none;border:1px solid var(--ink);background:{{ srcBtnBg }};color:{{ srcBtnFg }};height:36px;padding:0 10px 0 12px;display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;transition:background .15s,color .15s">
+        <sc-for list="{{ srcChips }}" as="c" hint-placeholder-count="4"><span title="{{ c.title }}" aria-label="{{ c.title }}" style="display:inline-flex;align-items:center;gap:5px;font-size:10px;letter-spacing:.06em"><span style="width:7px;height:7px;background:{{ c.dot }};border:1px solid {{ c.dotBd }}"></span>{{ c.short }}</span></sc-for>
+        <span>{{ srcCta }}</span>
+      </button>
+      <sc-if value="{{ srcOpen }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ srcToggle }}" style="position:fixed;inset:0;z-index:39"></div>
+        <div role="dialog" aria-label="connections" style="position:absolute;right:0;top:calc(100% + 8px);width:min(420px,92vw);background:var(--surface);color:var(--ink);border:1px solid var(--ink);box-shadow:var(--shadow-hard);z-index:40">
+          <sc-for list="{{ srcRows }}" as="r" hint-placeholder-count="4">
+            <div style="padding:14px 18px;border-top:1px solid {{ r.rule }};background:{{ r.bg }}">
+              <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px"><span style="font-size:15px">{{ r.label }}</span><span style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:{{ r.statusColor }}">{{ r.status }}</span></div>
+              <p style="margin:4px 0 0;font-size:13px;line-height:1.45;color:var(--ink-2)">{{ r.proves }}</p>
+              <p style="margin:2px 0 0;font-size:13px;line-height:1.45;color:var(--ink-3)">{{ r.detail }}</p>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+                <sc-for list="{{ r.actions }}" as="a" hint-placeholder-count="1"><button onClick="{{ a.onClick }}" disabled="{{ a.disabled }}" style="appearance:none;border:1px solid var(--ink);background:{{ a.bg }};color:{{ a.fg }};font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;height:30px;padding:0 10px;cursor:pointer;opacity:{{ a.op }}">{{ a.label }}</button></sc-for>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+    </div>
   </div>
 </header>
 
@@ -305,7 +321,8 @@ html,body{margin:0;padding:0;background:#EDEBE5}
                 <sc-if value="{{ r.hasText }}" hint-placeholder-val="{{ true }}"><p style="margin:0;font-size:18px;line-height:1.42;letter-spacing:-.012em;text-wrap:pretty;max-width:52ch">{{ r.text }}</p></sc-if>
                 <sc-if value="{{ r.noText }}" hint-placeholder-val="{{ false }}"><p style="margin:0;font-size:18px;line-height:1.42;color:var(--ink-3)">text unavailable</p></sc-if>
                 <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;align-items:center">
-                  <a href="{{ r.txUrl }}" target="_blank" rel="noopener" title="the proof, on stellar.expert" style="display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 9px;border:1px solid var(--rule-soft);font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;color:var(--ink)" style-hover="border-color:var(--ink)"><span style="width:6px;height:6px;background:var(--ink)"></span>{{ r.proofLabel }}</a>
+                  <sc-if value="{{ r.hasTx }}" hint-placeholder-val="{{ true }}"><a href="{{ r.txUrl }}" target="_blank" rel="noopener" title="the proof, on stellar.expert" style="display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 9px;border:1px solid var(--rule-soft);font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;color:var(--ink)" style-hover="border-color:var(--ink)"><span style="width:6px;height:6px;background:var(--ink)"></span>{{ r.proofLabel }}</a></sc-if>
+                  <sc-if value="{{ r.noTx }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 9px;border:1px solid var(--rule-soft);font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink)"><span style="width:6px;height:6px;background:var(--ink)"></span>{{ r.proofPlain }}</span></sc-if>
                   <sc-if value="{{ r.verified }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;height:26px;padding:0 9px;background:var(--accent);color:var(--accent-ink);font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase">{{ r.verifiedLabel }}</span></sc-if>
                 </div>
               </div>
@@ -334,6 +351,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
                 <span style="min-width:0;display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px"><span style="font-size:15px;color:{{ k.labelColor }}">{{ k.label }}</span><span style="font-size:13px;color:var(--ink-3)">{{ k.reason }}</span></span>
                 <span style="font-family:var(--mono);font-size:12px;font-weight:600;color:{{ k.labelColor }}">{{ k.pct }}</span>
               </button>
+              <sc-if value="{{ k.needsRep }}" hint-placeholder-val="{{ false }}"><button onClick="{{ k.openRep }}" style="appearance:none;border:0;background:none;padding:0 0 8px 32px;color:var(--accent);font-family:var(--mono);font-size:11px;letter-spacing:.04em;text-decoration:underline;text-underline-offset:3px;cursor:pointer">{{ k.repLink }}</button></sc-if>
             </sc-for>
           </div>
         </div>
@@ -817,7 +835,7 @@ html,body{margin:0;padding:0;background:#EDEBE5}
 <script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;,&quot;section&quot;:&quot;Display&quot;},&quot;startView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;home&quot;,&quot;place-hotel&quot;,&quot;place-shop&quot;,&quot;place-cafe&quot;,&quot;passes&quot;,&quot;review&quot;,&quot;agent&quot;,&quot;agent-done&quot;,&quot;agent-failed&quot;,&quot;flow-success&quot;,&quot;flow-rejected&quot;,&quot;flow-error&quot;,&quot;merchant-hotel&quot;,&quot;merchant-shop&quot;,&quot;arbiter&quot;,&quot;connect&quot;],&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Jump to state&quot;},&quot;walletConnected&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Demo state&quot;},&quot;sparseData&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Demo state&quot;},&quot;firstProof&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Demo state&quot;},&quot;forceError&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;UnknownRoot&quot;,&quot;InvalidProof&quot;,&quot;NonCanonical&quot;,&quot;NullifierUsed&quot;,&quot;HotelNotFound&quot;,&quot;BadRating&quot;,&quot;ReviewNotFound&quot;,&quot;DuplicateLeaf&quot;,&quot;TreeFull&quot;,&quot;BadParams&quot;],&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Demo state&quot;}}">
 class Component extends DCLogic {
   state = {
-    ready: false, theme: null, role: 'guest', view: 'home', placeId: 0, kind: 'hotel',
+    ready: false, src: { open: false, focus: null, list: [], busy: null }, theme: null, role: 'guest', view: 'home', placeId: 0, kind: 'hotel',
     wallet: null, connect: null, rank: 'idle', rankStep: 0,
     places: [], policies: {}, reviews: {}, texts: {}, elig: {}, disputes: [], memberships: [], credentials: [], orders: [],
     draft: { mId: null, rating: 0, text: '' },
@@ -912,6 +930,7 @@ class Component extends DCLogic {
     }
     const disputes = await m.chain.getDisputes(), orders = await m.store.orders(4);
     this.setState({ places, reviews, policies, elig, texts, disputes, orders, memberships: m.local.memberships(), credentials: m.local.credentials() });
+    this.loadSources();
   }
   selectFirstDispute() {
     const d = this.state.disputes.find(x => x.status === 'disclosed') || this.state.disputes[0];
@@ -1021,7 +1040,7 @@ class Component extends DCLogic {
   stars(n) { return [1, 2, 3, 4, 5].map(i => ({ bg: i <= n ? 'var(--ink)' : 'transparent' })); }
   rv(r, P) {
     const t = this.state.texts[r.content_hash], x = this.tx(r.txHash), hotel = this.isHotel(P);
-    return { id: r.id, stars: this.stars(r.rating), aria: r.rating + ' of 5', hasText: !!t, noText: !t, text: t || '', txUrl: x.url, txShort: x.short, verified: r.verified, age: this.age(r.ledger), proofLabel: hotel ? 'proven stay ↗' : 'proven customer ↗', verifiedLabel: hotel ? '✓ verified stay' : '✓ verified purchase' };
+    return { id: r.id, stars: this.stars(r.rating), aria: r.rating + ' of 5', hasText: !!t, noText: !t, text: t || '', txUrl: x.url, txShort: x.short, verified: r.verified, age: this.age(r.ledger), proofLabel: hotel ? 'proven stay ↗' : 'proven customer ↗', hasTx: !!r.txHash, noTx: !r.txHash, proofPlain: hotel ? 'proven stay' : 'proven customer', verifiedLabel: hotel ? '✓ verified stay' : '✓ verified purchase' };
   }
   byId(id) { return this.state.places.find(p => p.id === id); }
 
@@ -1154,6 +1173,7 @@ class Component extends DCLogic {
         label: e.label, pct: '−' + e.bps / 100 + '%', reason: this.shortReason(e, P, atCap), checked, notEligible: !e.eligible, mark: checked ? '✓' : '',
         boxBg: checked ? 'var(--ink)' : 'transparent', boxBd: e.eligible ? 'var(--ink)' : 'var(--rule-soft)', labelColor: e.eligible && !atCap ? 'var(--ink)' : 'var(--ink-3)', cursor: e.eligible ? 'pointer' : 'default',
         onToggle: () => { if (e.eligible) this.setState(st => ({ picks: { ...st.picks, [e.group]: st.picks[e.group] === false } })); },
+        needsRep: !e.eligible && e.group === 'traveler', repLink: 'connect REP for +' + e.bps / 100 + '%', openRep: () => this.openSources('rep'),
       };
     });
     return {
@@ -1508,6 +1528,49 @@ class Component extends DCLogic {
     this.setState({ view: 'place', placeId: 0, flow: { kind: 'pay', ctx, steps: fin(steps), phase: 'success', error: null, receipt: false, result: { txHash: this.hex(64), subtotal, discounts: bd.rows.filter(r => r.applied), total: bd.total, saved: bd.saved } } });
     this.setField('settle', 'check');
   }
+  // bb:connect-control
+  loadSources = async () => { if (!this.m || !this.m.sources) return; try { const list = await this.m.sources(); const w = !this.state.wallet && this.m.wallet.current ? this.m.wallet.current() : null; this.setState(s => ({ src: { ...s.src, list }, ...(w ? { wallet: w } : {}) })); } catch (e) { console.error(e); } };
+  openSources = (focus = null) => { this.setState(s => ({ src: { ...s.src, open: true, focus } })); this.loadSources(); };
+  srcAct = async (id, how) => {
+    const m = this.m; if (!m) return;
+    if (id === 'wallet') {
+      if (how === 'disconnect') { m.wallet.disconnect(); this.setState({ wallet: null }); }
+      else {
+        this.setState(s => ({ src: { ...s.src, busy: how } }));
+        try { const w = await m.wallet.connect(how); this.setState({ wallet: w }); } catch (e) { console.error(e); }
+        this.setState(s => ({ src: { ...s.src, busy: null } }));
+        await this.reload();
+      }
+    } else if (id === 'rep') {
+      await m.rep.start(); this.loadSources();
+      clearInterval(this.repT);
+      this.repT = setInterval(async () => { const st = await m.rep.poll(); if (st.status !== 'pending') { clearInterval(this.repT); await this.reload(); } this.loadSources(); }, 2000);
+    } else if (id === 'passport') { const p = m.passport.check(); this.loadSources(); await p; }
+    this.loadSources();
+  };
+  vSources() {
+    const s = this.state, src = s.src || { list: [] }, list = src.list || [], busy = src.busy;
+    const dots = { connected: ['var(--accent)', 'var(--accent)'], pending: ['var(--deal)', 'var(--deal-ink)'], failed: ['var(--warn)', 'var(--warn)'], soon: ['transparent', 'var(--rule-soft)'], none: ['transparent', 'currentColor'] };
+    const word = { connected: 'connected', pending: 'pending', failed: 'failed', soon: 'soon', none: 'not connected' };
+    const short = { wallet: 'key', rep: 'rep', passport: 'passport', network: 'network' };
+    const btn = (label, onClick, primary, disabled) => ({ label, onClick, disabled: !!disabled, op: disabled ? 0.45 : 1, bg: primary ? 'var(--ink)' : 'transparent', fg: primary ? 'var(--bg)' : 'var(--ink)' });
+    const actions = r => {
+      if (r.id === 'wallet') return r.status === 'connected' ? [btn('disconnect', () => this.srcAct('wallet', 'disconnect'))]
+        : [btn(busy === 'passkey' ? 'waiting for your passkey…' : 'passkey', () => this.srcAct('wallet', 'passkey'), true, busy), btn(busy === 'freighter' ? 'waiting for freighter…' : 'freighter', () => this.srcAct('wallet', 'freighter'), false, busy), btn(busy === 'demo key' ? 'creating…' : 'demo key', () => this.srcAct('wallet', 'demo key'), false, busy)];
+      if (r.id === 'rep') return r.status === 'connected' ? [] : r.status === 'pending' ? [btn('waiting for REP Bob…', () => {}, false, true)] : [btn(r.status === 'failed' ? 'try again' : 'verify with REP', () => this.srcAct('rep'), true)];
+      if (r.id === 'passport') return r.status === 'connected' || r.status === 'soon' ? [] : [btn(r.status === 'pending' ? 'checking…' : 'check', () => this.srcAct('passport'), false, r.status === 'pending' || !s.wallet)];
+      return [];
+    };
+    const open = !!src.open, connected = !!s.wallet;
+    return {
+      srcOpen: open, srcToggle: () => (open ? this.setState(st => ({ src: { ...st.src, open: false, focus: null } })) : this.openSources()),
+      srcBtnBg: connected ? 'transparent' : 'var(--ink)', srcBtnFg: connected ? 'var(--ink)' : 'var(--bg)',
+      srcChips: list.map(r => ({ short: short[r.id] || r.id, dot: (dots[r.status] || dots.none)[0], dotBd: (dots[r.status] || dots.none)[1], title: r.label + ': ' + (word[r.status] || r.status) })),
+      srcCta: connected ? '' : 'connect →',
+      srcRows: list.map((r, i) => ({ label: r.label, proves: r.proves, detail: r.detail, status: word[r.status] || r.status, statusColor: r.status === 'connected' ? 'var(--accent)' : r.status === 'failed' ? 'var(--warn)' : 'var(--ink-3)', rule: i ? 'var(--rule-soft)' : 'transparent', bg: src.focus === r.id ? 'var(--accent-soft)' : 'transparent', actions: actions(r) })),
+    };
+  }
+
   jump(name) {
     if (!this.m) return;
     clearInterval(this.tickT); clearTimeout(this.rankT);
@@ -1533,7 +1596,7 @@ class Component extends DCLogic {
   }
 
   renderVals() {
-    return { ...this.vShell(), ...this.vHome(), ...this.vPlace(), ...this.vPasses(), ...this.vAgent(), ...this.vMerchant(), ...this.vArb(), ...this.vFlow() };
+    return { ...this.vSources(), ...this.vShell(), ...this.vHome(), ...this.vPlace(), ...this.vPasses(), ...this.vAgent(), ...this.vMerchant(), ...this.vArb(), ...this.vFlow() };
   }
 }
 </script>
