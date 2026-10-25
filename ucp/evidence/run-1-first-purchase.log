@@ -1,0 +1,9 @@
+[  0.4s] store profile: 12 capabilities, patronage yes, Stellar USDC yes
+[  0.5s] found "REP ship of theseus tee" 150.00 AED
+[  1.0s] no past purchase here, full price; this purchase joins the store's customer tree
+[  1.1s] fresh payer GAJT2V… funded with test USDC
+[  1.6s] checkout hWNINauz subtotal 150.00 AED
+[  3.3s] store co-signed book_amount: 40.80 USDC before discount, pays 40.80 USDC, order ref e01d1261…
+[  9.2s] paid 40.80 USDC on Stellar, tx 3babdbf4ad9b407bf6155bdc4afa7bc5408af7b2b3fb69bdad26a64938442fa5
+[ 20.7s] order (not recorded in the store) completed. https://stellar.expert/explorer/testnet/tx/3babdbf4ad9b407bf6155bdc4afa7bc5408af7b2b3fb69bdad26a64938442fa5
+[ 20.7s] store saw: a valid proof, a fresh payer, a fresh customer code. Not who the buyer is, nor which past order.
