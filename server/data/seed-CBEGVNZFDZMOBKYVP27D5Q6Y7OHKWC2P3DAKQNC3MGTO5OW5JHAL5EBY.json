@@ -1,0 +1,175 @@
+{
+  "reviews": {
+    "0": {
+      "text": "quiet room on the courtyard, breakfast was simple and honest",
+      "txHash": "86c01995cc6e8d084ff55d17e5ac750160d295a3dc8ec83221587a16e01129b8",
+      "time": 1792933854059
+    },
+    "1": {
+      "text": "great location, the tram is loud before 8",
+      "txHash": "f77da4cafa3923e11b69583362ef76716dd587786de98a7fef214150fb5b1753",
+      "time": 1792933858909
+    },
+    "2": {
+      "text": "staff remembered how I take my coffee by day two",
+      "txHash": "f81a44f766005c69812ff90bfc1976ae21904d44fc19d5bcb10bf67ae067a5cb",
+      "time": 1792933870035
+    },
+    "3": {
+      "text": "clean, but the wifi dropped every evening",
+      "txHash": "6ac5c581878f25666997a6bd320967fd5cef72b9e2f454d5d4f76daff4554576",
+      "time": 1792933873896
+    },
+    "4": {
+      "text": "tiles everywhere, exactly what the photos promised",
+      "txHash": "0d73628001748854d58bc5d50e3fc6252ce2128af2e4029d62eac9a0b9f02652",
+      "time": 1792933877778
+    },
+    "5": {
+      "text": "good value for Alfama, small bathroom",
+      "txHash": "6c3bf4be388af046261237ee84b30c658e36625127a8e5b9e5d0909c6ff40070",
+      "time": 1792933884090
+    },
+    "6": {
+      "text": "they kept my bag for a whole day after checkout, no fuss",
+      "txHash": "36d6f73df268816516f012ec4007fd12227bd6939f28086543765c05c0bd6c56",
+      "time": 1792933887950
+    },
+    "7": {
+      "text": "rooftop at sunset is the reason to stay",
+      "txHash": "b4bd98cc2d1bb5af246edb961e5654143eab711803b694d7654ec0ca1e9c038d",
+      "time": 1792933892605
+    },
+    "8": {
+      "text": "street noise until 2am on Friday",
+      "txHash": "6f272a8f29755fb1683533d4efcf59e8ca6189fd91e183ca0736216f68de9e62",
+      "time": 1792933898838
+    },
+    "9": {
+      "text": "friendly, flexible checkout",
+      "txHash": "b9615e82b19eac037f71ca547238c3efe547df793d3b3957a6f36b9353e6c954",
+      "time": 1792933902808
+    },
+    "10": {
+      "text": "the gull wake-up call is real and somehow charming",
+      "txHash": "360fbe2f426b32fa74f870a12fe288192877f6498e64ea5e9b896f5a82f77225",
+      "time": 1792933909233
+    },
+    "11": {
+      "text": "fine for two nights, beds are firm",
+      "txHash": "7b173bfcf544c1751cee71fd56164ff5543a9162454b703b249b68ce7c64688f",
+      "time": 1792933913291
+    },
+    "12": {
+      "text": "walkable to everything, ask for a room at the back",
+      "txHash": "907a441b4c5da206e16551a2e6fc1d16a51bbb7cba5895cac7e3d24643baa8c6",
+      "time": 1792933917441
+    },
+    "13": {
+      "text": "slow is the right word, in the best way",
+      "txHash": "c71200525554f892c8948f27bc4adcbc3ef94b056e8efb2128dd074ac6c1d2cb",
+      "time": 1792933923465
+    },
+    "14": {
+      "text": "river view room is worth the extra",
+      "txHash": "f1a71af5114d13fcb3e9d711fa66dedd1c3def55e6be4b181d80ee943489bb80",
+      "time": 1792933929503
+    },
+    "15": {
+      "text": "breakfast until noon, perfect after a late dinner",
+      "txHash": "ff82d3ecc8402b71273f0ebcb4fe35a2911276dfac9fb0431d118f3167193de8",
+      "time": 1792933933306
+    },
+    "16": {
+      "text": "stairs only, heavy bags were a workout",
+      "txHash": "f0a6408261ad557bcc0a3e4706c33f11c308e5626493bff5d1dc4b8ac1efd115",
+      "time": 1792933937352
+    },
+    "17": {
+      "text": "best sleep I had in Lisbon",
+      "txHash": "4f3e4d372df53a5bc13397fbb57dcef6284f4f876a2a67742f42c8ea39bbfa93",
+      "time": 1792933943811
+    },
+    "18": {
+      "text": "the owner's map of the neighbourhood beats any app",
+      "txHash": "f4d7e49dfb5884b539a8b39cbbfff72771da96c4f7554f91254a66d890b453d3",
+      "time": 1792933947854
+    },
+    "19": {
+      "text": "the pastel de nata comes out warm at 9",
+      "txHash": "f9198fde3d1db0b50009012fec9800596e2960a9778682e26438452a87a65d66",
+      "time": 1792933954049
+    },
+    "20": {
+      "text": "good flat white, tiny tables",
+      "txHash": "c27bfb7e9b0ae02434c9aa8f937fcdb280ba10ddb075f5593a67a8525af3db4e",
+      "time": 1792933957830
+    },
+    "21": {
+      "text": "quiet enough to work for an hour",
+      "txHash": "329cb5a9476cbc2debd1138606a6150e0dd91854044f9eb99e246c0dd81b659d",
+      "time": 1792933963863
+    }
+  },
+  "disputes": [
+    {
+      "id": 0,
+      "openedAt": 1792933968839,
+      "attestTx": "6e50a72e6d869186785e0d3eb42db551b2f94f8c9e0dd6a58fc576440a957ebf",
+      "merchant": 0
+    },
+    {
+      "id": 2,
+      "openedAt": 1792933972254,
+      "attestTx": "57b256be7daa753e6ad035dae310058a3f937d9f509661bc8847a1203c4dfa29",
+      "merchant": 0
+    },
+    {
+      "id": 7,
+      "openedAt": 1792933978047,
+      "attestTx": "128516ce29ea55d65f4c4771053159afdbe9396331c3cdc120b850e925bb9db9",
+      "merchant": 1
+    },
+    {
+      "id": 8,
+      "pkg": {
+        "reviewId": 8,
+        "merchant": 1,
+        "commitment": "15605067534591311333368496814770470651208362561190115099671085882234306990830",
+        "leafIndex": 1,
+        "dk": "359436748468659382311480440826517499475888507343867382375682090197107184890",
+        "signature": {
+          "r8": [
+            "17252375806682823509844586993989518947052590970016419784416180925194059935642",
+            "5866740837087768750021106398958471678954508545429429749262143083948075066433"
+          ],
+          "s": "1456414526023590021092204759725886483665978434837034512249591029329729318481"
+        },
+        "publicKey": [
+          "15455574649265122700731858308628876710739069792493737570363162974563212751340",
+          "4875710704259490603237184230745967658920796351231657436725905140566569266393"
+        ]
+      },
+      "openedAt": 1792933978107,
+      "merchant": 1
+    },
+    {
+      "id": 13,
+      "openedAt": 1792933984088,
+      "attestTx": "24ff35e6ebd70a6225bccc42cbdbb087e35ca053eddbbd8c3b386fcff3374d32",
+      "merchant": 2
+    },
+    {
+      "id": 14,
+      "openedAt": 1792933987839,
+      "attestTx": "93b6b4b147ad716bdbd03a042589541a66a310a1b041038f9b4f6e9f717efa7b",
+      "merchant": 2
+    },
+    {
+      "id": 20,
+      "openedAt": 1792933993638,
+      "attestTx": "b5ef713acb65fb09087797dcd5cce0fd1ae161297a0cece00b08ac55d636cbb1",
+      "merchant": 3
+    }
+  ]
+}
