@@ -1,0 +1,31 @@
+BookerBob: Proof of Loyalty
+Copyright (c) 2026 team BookerBob
+
+Our own code in this repository is MIT licensed (see LICENSE).
+
+The browser bundle site/public/pol-real.js is built from our MIT code plus
+third-party packages. Some of them are licensed GPL-3.0, so that bundle as a
+whole is distributed under GPL-3.0 terms. Its full source is this repository
+(site/src/pol-real.ts, packages/, and the unmodified npm packages pinned in
+package-lock.json); rebuild with `npm run build -w site`. Per-file license
+headers kept by the bundler: site/public/pol-real.js.LEGAL.txt.
+
+GPL-3.0 components in the browser bundle (unmodified, from npm):
+  snarkjs 0.7.6             https://github.com/iden3/snarkjs
+  ffjavascript 0.2.63       https://github.com/iden3/ffjavascript
+  r1csfile 0.0.41           https://github.com/iden3/r1csfile
+  fastfile 0.0.20           https://github.com/iden3/fastfile
+  wasmcurves 0.2.2          https://github.com/iden3/wasmcurves
+  wasmbuilder 0.0.16        https://github.com/iden3/wasmbuilder
+  @iden3/binfileutils 0.0.11 https://github.com/iden3/binfileutils
+  @iden3/bigarray 0.0.2     https://github.com/iden3/bigarray
+GPL-3.0 text: https://www.gnu.org/licenses/gpl-3.0.txt
+
+Other bundled components (MIT, Apache-2.0, BSD-3-Clause): Semaphore v4
+(@semaphore-protocol/*), zk-kit (@zk-kit/*), @noble/hashes, @noble/ed25519,
+@stellar/stellar-sdk, buffer, ieee754, circom_runtime, blake2b-wasm, js-sha3,
+bfj, logplease, web-worker. Notices in site/public/pol-real.js.LEGAL.txt.
+
+The Semaphore circuit artifacts (built with circomlib, GPL-3.0) are downloaded
+unmodified at proving time and are not part of this repository. Full list of
+open source we build on: PRIOR_WORK.md.

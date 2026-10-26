@@ -1,6 +1,7 @@
 {
   "name": "proof-of-stay",
   "private": true,
+  "engines": { "node": ">=22.18" },
   "type": "module",
   "workspaces": [
     "packages/sdk",

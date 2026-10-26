@@ -4,7 +4,7 @@
   "type": "module",
   "description": "The Claude Design deliverable (Proof of Loyalty v2) served byte-exact, with its data module bundled from src/pol-real.ts.",
   "scripts": {
-    "build": "esbuild src/pol-real.ts --bundle --format=esm --platform=browser --target=es2022 --main-fields=browser,module,main --define:global=globalThis --outfile=public/pol-real.js --minify --legal-comments=none"
+    "build": "esbuild src/pol-real.ts --bundle --format=esm --platform=browser --target=es2022 --main-fields=browser,module,main --define:global=globalThis --outfile=public/pol-real.js --minify --legal-comments=linked"
   },
   "devDependencies": { "esbuild": "0.24.2" }
 }

@@ -132,7 +132,7 @@ const limited = (req: IncomingMessage) => {
   return h.length > 120
 }
 
-const MIME: Record<string, string> = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png", ".json": "application/json", ".wasm": "application/wasm", ".zkey": "application/octet-stream", ".woff2": "font/woff2", ".ico": "image/x-icon" }
+const MIME: Record<string, string> = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png", ".json": "application/json", ".wasm": "application/wasm", ".zkey": "application/octet-stream", ".woff2": "font/woff2", ".ico": "image/x-icon", ".txt": "text/plain; charset=utf-8", ".xml": "application/xml" }
 
 const OPERATOR_COOKIE = "bb_demo"
 function isOperatorReq(req: IncomingMessage): boolean {
@@ -403,7 +403,9 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string) {
 
 function serveFile(res: ServerResponse, root: string, rel: string) {
   let f = join(root, rel === "/" || rel === "" ? "index.html" : rel)
-  if (!f.startsWith(root) || !existsSync(f) || statSync(f).isDirectory()) f = join(root, "index.html")
+  const missing = !f.startsWith(root) || !existsSync(f) || statSync(f).isDirectory()
+  if (missing && extname(rel)) return json(res, 404, { error: "NotFound" }) // a missing file is a 404, only app routes fall back to the SPA
+  if (missing) f = join(root, "index.html")
   if (!existsSync(f)) return json(res, 404, { error: "app not built" })
   const ext = extname(f)
   res.writeHead(200, { "content-type": MIME[ext] ?? "application/octet-stream", "cache-control": ext === ".html" ? "no-cache" : "public, max-age=3600" })
@@ -413,6 +415,7 @@ function serveFile(res: ServerResponse, root: string, rel: string) {
 function serveStatic(res: ServerResponse, path: string) {
   if (path === "/classic" || path.startsWith("/classic/")) return serveFile(res, STATIC, path.slice("/classic".length) || "/")
   if (path === "/how" || path === "/how/") return serveFile(res, SITE, "/how.html") // "how it works" page
+  if (path === "/favicon.ico" && !existsSync(join(SITE, "favicon.ico"))) return void res.writeHead(204).end() // no icon file: answer empty instead of a 404 in the console
   if (existsSync(join(SITE, "index.html"))) return serveFile(res, SITE, path)
   return serveFile(res, STATIC, path)
 }

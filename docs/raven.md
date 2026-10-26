@@ -14,7 +14,7 @@ Sources checked 2026-10-25: [raven.stellar.org](https://raven.stellar.org/), [ra
 https://raven.stellar.org/mcp
 ```
 
-Tagline from the product: official docs, live ecosystem data, community intel, and proven playbooks — cross-referenced — with **no per-service API keys** for the agent. Paste the endpoint, sign in once in the browser, ask.
+Tagline from the product: official docs, live ecosystem data, community intel, and proven playbooks, cross-referenced, with **no per-service API keys** for the agent. Paste the endpoint, sign in once in the browser, ask.
 
 Public numbers on the landing page (as of check): **60** live operations, **282** catalog entries, **20** playbooks, **1** sign-in, **0** API keys handed to the agent.
 
@@ -25,8 +25,8 @@ Public numbers on the landing page (as of check): **60** live operations, **282*
 | Agent needs Stellar docs / SEPs / RPC / SDK answers | yes |
 | Agent needs live ecosystem intel (projects, repos, research) | yes |
 | Agent needs step-by-step playbooks (skills) mid-task | yes |
-| User signs into a dapp with Touch ID / Face ID | **no** — that is passkeys (section 3) |
-| Signing or submitting Stellar transactions | **no** — Raven is read-only |
+| User signs into a dapp with Touch ID / Face ID | **no**: that is passkeys (section 3) |
+| Signing or submitting Stellar transactions | **no**: Raven is read-only |
 
 From the Terms: Raven is a **read-only** information tool. The `execute` sandbox has no network; it only calls host-side adapters. It does **not** sign, authorize, submit transactions, custody assets or keys, or move value.
 
@@ -116,7 +116,7 @@ Working loop:
 1. `search({ query: "…", limit: 3 })` → ranked hits with signatures  
 2. `execute` composes those operations in one script  
 
-Every service call resolves to `{ ok: true, data, asOf, … }` or `{ ok: false, error }` — payloads live under `.data`. Empty/`soft-empty`/`caveat` semantics are documented on the Raven docs page; do not treat soft-empty as proof of absence.
+Every service call resolves to `{ ok: true, data, asOf, … }` or `{ ok: false, error }`: payloads live under `.data`. Empty/`soft-empty`/`caveat` semantics are documented on the Raven docs page; do not treat soft-empty as proof of absence.
 
 Artifacts: large truncated outputs may report an artifact id; read with `codemode.artifact.read` (expire ~7 days; MCP OAuth clients only).
 
@@ -157,30 +157,30 @@ Our product already plans: guest passkey first, Freighter fallback (`docs/design
 
 Flow in practice:
 
-1. **Registration** — WebAuthn create → store public key / credential id in contract state; deploy a smart account for the user.  
-2. **Signing** — WebAuthn assertion over the payload when the user approves.  
-3. **Verification** — contract `__check_auth` checks secp256r1 (+ policies: limits, allow lists, etc.).  
-4. **Submit** — relayer wraps and pays fees.
+1. **Registration**: WebAuthn create → store public key / credential id in contract state; deploy a smart account for the user.  
+2. **Signing**: WebAuthn assertion over the payload when the user approves.  
+3. **Verification**: contract `__check_auth` checks secp256r1 (+ policies: limits, allow lists, etc.).  
+4. **Submit**: relayer wraps and pays fees.
 
 ### Two client SDKs (not drop-in compatible)
 
 | Kit | Contract model | When |
 |---|---|---|
 | **[Smart Account Kit](https://github.com/stellar/smart-account-kit)** | OpenZeppelin Smart Account: context rules, signers, policies | Prefer for BookerBob: aligns with OZ policies / spending limits / Composed track story. Guestbook tutorial uses this. |
-| **[Passkey Kit](https://github.com/stellar/passkey-kit)** | Own wallet contract; flat map of passkey / Ed25519 / policy signers | Simpler map; repo says **not independently audited** — review before real value. |
+| **[Passkey Kit](https://github.com/stellar/passkey-kit)** | Own wallet contract; flat map of passkey / Ed25519 / policy signers | Simpler map; repo says **not independently audited**: review before real value. |
 
 ### OpenZeppelin pieces
 
-- **Smart Account** — modular signers + context rules + policies. Docs: [OZ stellar smart account](https://docs.openzeppelin.com/stellar-contracts/accounts/smart-account).  
-- **Relayer + Stellar Channels** — fee sponsorship, channel accounts. Hosted **testnet**: `https://channels.openzeppelin.com/testnet` (API key from `/testnet/gen`). Replaces retired **Launchtube**.
+- **Smart Account**: modular signers + context rules + policies. Docs: [OZ stellar smart account](https://docs.openzeppelin.com/stellar-contracts/accounts/smart-account).  
+- **Relayer + Stellar Channels**: fee sponsorship, channel accounts. Hosted **testnet**: `https://channels.openzeppelin.com/testnet` (API key from `/testnet/gen`). Replaces retired **Launchtube**.
 
 ### Guestbook tutorial API shape (Smart Account Kit)
 
 Browser client (`SmartAccountKit`):
 
-- `account.createWallet()` — signup  
-- `account.connectWallet()` — login  
-- `account.signAndSubmit()` — sign + submit via relayer URL  
+- `account.createWallet()`: signup  
+- `account.connectWallet()`: login  
+- `account.signAndSubmit()`: sign + submit via relayer URL  
 - `account.disconnect()`  
 - Events: `walletConnected` / `walletDisconnected`  
 - Storage: typically `IndexedDBStorage` (session survives reload; **not** a substitute for the indexer)  
@@ -209,8 +209,8 @@ Primary docs:
 | Goal | Use |
 |---|---|
 | Agent implementing passkey wallet in our SDK | Connect Raven → `search` / `stellarDocs.*` / skills for smart wallets, Smart Account Kit, Channels; then implement in `packages/sdk` |
-| End-user “Connect with passkey” in the app | Smart Account Kit (or Passkey Kit) + server `/api/send` + Channels key — **not** Raven |
-| MCP OAuth “sign in” when adding Raven to Cursor | WorkOS in the **developer’s** browser — unrelated to guest passkeys |
+| End-user “Connect with passkey” in the app | Smart Account Kit (or Passkey Kit) + server `/api/send` + Channels key: **not** Raven |
+| MCP OAuth “sign in” when adding Raven to Cursor | WorkOS in the **developer’s** browser: unrelated to guest passkeys |
 
 Suggested BookerBob wiring when we implement passkey:
 

@@ -1,41 +1,41 @@
 # Wallet score → verify → attest → ZK proof
 
-После connect (Freighter / passkey) в BookerBob.
+Runs in BookerBob after connect (Freighter or passkey).
 
 ## Pipeline
 
 ```
 wallet address
-  → inspect (Horizon READ, опционально Stellar Passport)
+  → inspect (Horizon READ, optionally Stellar Passport)
   → rating 0–100 + tier 1–5
   → loyalty claim + digest (SHA-256)
-  → attest tx на testnet (1 stroop + memo.hash = digest)   ← «ончейн пруф» скора
-  → ZK score proof (Groth16 / Semaphore stack PoS)         ← биндинг, не анонимность
+  → attest tx on testnet (1 stroop + memo.hash = digest)   ← the "on-chain proof" of the score
+  → ZK score proof (Groth16 / Semaphore stack PoS)         ← binding, not anonymity
 ```
 
-Пакет: `packages/verify_onchain_zk` · UI: connect panel → **score ↗** / `#pass-connect`.  
-Детали API: [verify_onchain_zk.md](./verify_onchain_zk.md).
+Package: `packages/verify_onchain_zk` · UI: connect panel → **score ↗** / `#pass-connect`.  
+API details: [verify_onchain_zk.md](./verify_onchain_zk.md).
 
 ---
 
-## 1. Score (как считаем)
+## 1. Score (how it is computed)
 
-**Не** контрактный storage score. Читаем кошелёк и считаем локально / на клиенте.
+**Not** a score kept in contract storage. We read the wallet and compute the score locally, on the client.
 
-### Horizon (до 100)
+### Horizon (up to 100)
 
-| Сигнал | Cap |
+| Signal | Cap |
 |---|---|
-| Возраст аккаунта (~1 год → full) | 40 |
+| Account age (~1 year → full) | 40 |
 | `log10(1 + ops)` | 35 |
 | `log10(1 + payment ops)` | 25 |
 
-1-stroop attest-платежи **исключены**, чтобы повторный verify не накручивал скор.
+1-stroop attest payments are **excluded**, so a repeated verify does not inflate the score.
 
-### Passport (опционально, + до 20)
+### Passport (optional, + up to 20)
 
-Builder profile / points / rank / scf_tier / 30d → бонус, потом **clamp 0–100**.  
-Без `PASSPORT_API_KEY` — keyless/graceful (0 бонуса, скор не падает).
+Builder profile / points / rank / scf_tier / 30d → bonus, then **clamp 0–100**.  
+Without `PASSPORT_API_KEY`: keyless and graceful (0 bonus, the score does not drop).
 
 ### Tier
 
@@ -45,63 +45,63 @@ Builder profile / points / rank / scf_tier / 30d → бонус, потом **cl
 | 4 | ≥ 70 |
 | 3 | ≥ 50 |
 | 2 | ≥ 30 |
-| 1 | ниже |
+| 1 | below |
 
-Hint скидки: `ratingToDiscountBps` (UX; stay-proof discount отдельно).
+Discount hint: `ratingToDiscountBps` (UX only; the stay-proof discount is separate).
 
 ---
 
-## 2. Verify / attest (что «ончейн»)
+## 2. Verify / attest (what is "on chain")
 
-| Шаг | Пишет в сеть? |
+| Step | Writes to the network? |
 |---|---|
-| `inspectWallet` / score | **Нет** — только Horizon (+ Passport) |
-| `verifyOnConnect` (default) | **Да** — attest |
+| `inspectWallet` / score | **No**, only Horizon (+ Passport) |
+| `verifyOnConnect` (default) | **Yes**, attest |
 
-**Attest:** relayer → гостю **1 stroop**, `memo.hash = claimDigest`.  
+**Attest:** the relayer sends the guest **1 stroop** with `memo.hash = claimDigest`.  
 Explorer: `https://stellar.expert/explorer/testnet/tx/<hash>`.
 
-В UI: **score ↗** / **proof tx** = эта транзакция + числа score/tier в панели.
+In the UI: **score ↗** / **proof tx** = this transaction plus the score and tier numbers in the panel.
 
-Кэш сезона: `bookerbob.loyalty.v2.{YYYYMM}.{address}` (localStorage).
+Season cache: `bookerbob.loyalty.v2.{YYYYMM}.{address}` (localStorage).
 
-API: `POST /api/loyalty/attest`.
+API: `POST /api/loyalty/attest`. Off on the live demo: it returns 404 unless the server runs with `LOYALTY_ATTEST=1`, because it links a wallet to its tier in public.
 
 ---
 
 ## 3. ZK proof
 
-`issueScoreProof` / `verifyOnConnect({ proveScore: true })` (в app; site panel сейчас `proveScore: false` — нужен attest tx).
+`issueScoreProof` / `verifyOnConnect({ proveScore: true })` (in the app; the site panel currently uses `proveScore: false`, it needs the attest tx).
 
-- Identity: `loyaltyIdentity(address, season)` — детерминированно на кошелёк·сезон
-- Default: **self-membership** (один leaf) — настоящий Groth16 на том же Semaphore stack, что Proof of Stay
-- Message биндит `address | rating | tier`, scope ≈ `loyalty,{merchant},{season}`
-- Nullifier — один loyalty-proof на сезон на identity
+- Identity: `loyaltyIdentity(address, season)`, deterministic per wallet and season
+- Default: **self-membership** (one leaf), a real Groth16 proof on the same Semaphore stack as Proof of Stay
+- The message binds `address | rating | tier`, scope ≈ `loyalty,{merchant},{season}`
+- Nullifier: one loyalty proof per season per identity
 
-**Честный лимит:** self-proof = «знаю identity + биндинг скора», **не** «анонимен среди N», пока нет enroll в группу (`leaves`).
+**Honest limit:** a self-proof means "knows the identity + binds the score", **not** "anonymous among N", until the wallet is enrolled in a group (`leaves`).
 
-Артефакты/snark fail **не** ломают connect: claim + attest остаются.
+Artifact or snark failures do **not** break connect: the claim and the attest remain.
 
 ---
 
-## 4. Что не путать
+## 4. Do not confuse
 
-| Это | Не это |
+| This | Not this |
 |---|---|
 | Wallet loyalty score | REP verified traveler / group 1 |
 | Attest 1 stroop | `book_with_discount` / stay proof |
-| ZK score (self) | Anonymity set checkout proof |
-| Tier 5–1 по Horizon | REP lodging_spend_tier credential |
+| ZK score (self) | Anonymity-set checkout proof |
+| Tier 5–1 from Horizon | REP lodging_spend_tier credential |
 
-REP on-chain (`add_member_with_tier`) — **отдельный** путь, флаг `REP_ONCHAIN=1` только после upgrade контракта. См. [rep-handoff.md](../rep-handoff.md).
+REP on chain (`add_member_with_tier`) is a **separate** path, enabled with `REP_ONCHAIN=1`; the live contract supports it since the upgrade to wasm `d66cd00f`. See [rep-handoff.md](../rep-handoff.md).
 
 ---
 
 ## 5. Deploy checklist (score)
 
-- [ ] Backend с `POST /api/loyalty/attest` + relayer funded
-- [ ] Site/app с свежим `pol-real` / PassConnect
-- [ ] (Опц.) `PASSPORT_API_KEY` для Passport-бонуса
-- [ ] Не включать `REP_ONCHAIN=1` без wasm upgrade
+- [ ] Backend with `POST /api/loyalty/attest` (`LOYALTY_ATTEST=1`) + relayer funded
+- [ ] Site/app with a fresh `pol-real` / PassConnect
+- [ ] (Optional) `PASSPORT_API_KEY` for the Passport bonus
+- [ ] `REP_ONCHAIN=1` only against a contract with the tier check (wasm `d66cd00f` or later)
 
-Ручной чек: connect Freighter → панель → score N · tier T · proof tx ↗ открывается на testnet.
+Manual check: connect Freighter → panel → score N · tier T · proof tx ↗ opens on testnet.

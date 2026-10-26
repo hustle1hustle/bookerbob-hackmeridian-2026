@@ -1,0 +1,231 @@
+Bundled license information:
+
+ieee754/index.js:
+  /*! ieee754. BSD-3-Clause License. Feross Aboukhadijeh <https://feross.org/opensource> */
+
+buffer/index.js:
+  /*!
+   * The buffer module from node.js, for the browser.
+   *
+   * @author   Feross Aboukhadijeh <https://feross.org>
+   * @license  MIT
+   */
+
+@noble/ed25519/index.js:
+  /*! noble-ed25519 - MIT License (c) 2019 Paul Miller (paulmillr.com) */
+
+@noble/hashes/esm/utils.js:
+  /*! noble-hashes - MIT License (c) 2022 Paul Miller (paulmillr.com) */
+
+@zk-kit/utils/dist/lib.esm/type-checks.js:
+  /**
+   * @module @zk-kit/utils
+   * @version 1.2.1
+   * @file Essential zero-knowledge utility library for JavaScript developers.
+   * @copyright Ethereum Foundation 2024
+   * @license MIT
+   * @see [Github]{@link https://github.com/privacy-scaling-explorations/zk-kit/tree/main/packages/utils}
+  */
+
+@zk-kit/utils/dist/lib.esm/error-handlers.js:
+  /**
+   * @module @zk-kit/utils
+   * @version 1.2.1
+   * @file Essential zero-knowledge utility library for JavaScript developers.
+   * @copyright Ethereum Foundation 2024
+   * @license MIT
+   * @see [Github]{@link https://github.com/privacy-scaling-explorations/zk-kit/tree/main/packages/utils}
+  */
+
+@zk-kit/utils/dist/lib.esm/conversions.js:
+  /**
+   * @module @zk-kit/utils
+   * @version 1.2.1
+   * @file Essential zero-knowledge utility library for JavaScript developers.
+   * @copyright Ethereum Foundation 2024
+   * @license MIT
+   * @see [Github]{@link https://github.com/privacy-scaling-explorations/zk-kit/tree/main/packages/utils}
+  */
+
+@zk-kit/utils/dist/lib.esm/scalar.js:
+  /**
+   * @module @zk-kit/utils
+   * @version 1.2.1
+   * @file Essential zero-knowledge utility library for JavaScript developers.
+   * @copyright Ethereum Foundation 2024
+   * @license MIT
+   * @see [Github]{@link https://github.com/privacy-scaling-explorations/zk-kit/tree/main/packages/utils}
+  */
+
+@zk-kit/utils/dist/lib.esm/f1-field.js:
+  /**
+   * @module @zk-kit/utils
+   * @version 1.2.1
+   * @file Essential zero-knowledge utility library for JavaScript developers.
+   * @copyright Ethereum Foundation 2024
+   * @license MIT
+   * @see [Github]{@link https://github.com/privacy-scaling-explorations/zk-kit/tree/main/packages/utils}
+  */
+
+@zk-kit/baby-jubjub/dist/index.js:
+  /**
+   * @module @zk-kit/baby-jubjub
+   * @version 1.0.3
+   * @file A JavaScript library for adding points to the curve.
+   * @copyright Ethereum Foundation 2024
+   * @license MIT
+   * @see [Github]{@link https://github.com/privacy-scaling-explorations/zk-kit/tree/main/packages/baby-jubjub}
+  */
+
+@zk-kit/utils/dist/index.browser.js:
+  /**
+   * @module @zk-kit/utils
+   * @version 1.2.1
+   * @file Essential zero-knowledge utility library for JavaScript developers.
+   * @copyright Ethereum Foundation 2024
+   * @license MIT
+   * @see [Github]{@link https://github.com/privacy-scaling-explorations/zk-kit/tree/main/packages/utils}
+  */
+
+@zk-kit/utils/dist/lib.esm/type-checks.js:
+  /**
+   * @module @zk-kit/utils
+   * @version 1.2.1
+   * @file Essential zero-knowledge utility library for JavaScript developers.
+   * @copyright Ethereum Foundation 2024
+   * @license MIT
+   * @see [Github]{@link https://github.com/privacy-scaling-explorations/zk-kit/tree/main/packages/utils}
+  */
+
+@zk-kit/utils/dist/lib.esm/error-handlers.js:
+  /**
+   * @module @zk-kit/utils
+   * @version 1.2.1
+   * @file Essential zero-knowledge utility library for JavaScript developers.
+   * @copyright Ethereum Foundation 2024
+   * @license MIT
+   * @see [Github]{@link https://github.com/privacy-scaling-explorations/zk-kit/tree/main/packages/utils}
+  */
+
+@zk-kit/utils/dist/lib.esm/conversions.js:
+  /**
+   * @module @zk-kit/utils
+   * @version 1.2.1
+   * @file Essential zero-knowledge utility library for JavaScript developers.
+   * @copyright Ethereum Foundation 2024
+   * @license MIT
+   * @see [Github]{@link https://github.com/privacy-scaling-explorations/zk-kit/tree/main/packages/utils}
+  */
+
+@zk-kit/utils/dist/lib.esm/scalar.js:
+  /**
+   * @module @zk-kit/utils
+   * @version 1.2.1
+   * @file Essential zero-knowledge utility library for JavaScript developers.
+   * @copyright Ethereum Foundation 2024
+   * @license MIT
+   * @see [Github]{@link https://github.com/privacy-scaling-explorations/zk-kit/tree/main/packages/utils}
+  */
+
+@zk-kit/utils/dist/lib.esm/f1-field.js:
+  /**
+   * @module @zk-kit/utils
+   * @version 1.2.1
+   * @file Essential zero-knowledge utility library for JavaScript developers.
+   * @copyright Ethereum Foundation 2024
+   * @license MIT
+   * @see [Github]{@link https://github.com/privacy-scaling-explorations/zk-kit/tree/main/packages/utils}
+  */
+
+@zk-kit/eddsa-poseidon/dist/index.js:
+  /**
+   * @module @zk-kit/eddsa-poseidon
+   * @version 1.0.4
+   * @file A JavaScript EdDSA library for secure signing and verification using Poseidon the Baby Jubjub elliptic curve.
+   * @copyright Ethereum Foundation 2024
+   * @license MIT
+   * @see [Github]{@link https://github.com/privacy-scaling-explorations/zk-kit/tree/main/packages/eddsa-poseidon}
+  */
+
+@zk-kit/utils/dist/lib.esm/type-checks.js:
+  /**
+   * @module @zk-kit/utils
+   * @version 1.3.0
+   * @file Essential zero-knowledge utility library for JavaScript developers.
+   * @copyright Ethereum Foundation 2025
+   * @license MIT
+   * @see [Github]{@link https://github.com/privacy-scaling-explorations/zk-kit/tree/main/packages/utils}
+  */
+
+@zk-kit/utils/dist/lib.esm/error-handlers.js:
+  /**
+   * @module @zk-kit/utils
+   * @version 1.3.0
+   * @file Essential zero-knowledge utility library for JavaScript developers.
+   * @copyright Ethereum Foundation 2025
+   * @license MIT
+   * @see [Github]{@link https://github.com/privacy-scaling-explorations/zk-kit/tree/main/packages/utils}
+  */
+
+@zk-kit/utils/dist/lib.esm/conversions.js:
+  /**
+   * @module @zk-kit/utils
+   * @version 1.3.0
+   * @file Essential zero-knowledge utility library for JavaScript developers.
+   * @copyright Ethereum Foundation 2025
+   * @license MIT
+   * @see [Github]{@link https://github.com/privacy-scaling-explorations/zk-kit/tree/main/packages/utils}
+  */
+
+@semaphore-protocol/identity/dist/index.js:
+  /**
+   * @module @semaphore-protocol/identity
+   * @version 4.14.5
+   * @file A library to create Semaphore identities.
+   * @copyright Ethereum Foundation 2026
+   * @license MIT
+   * @see [Github]{@link https://github.com/semaphore-protocol/semaphore/tree/main/packages/identity}
+  */
+
+@zk-kit/utils/dist/lib.esm/type-checks.js:
+  /**
+   * @module @zk-kit/utils
+   * @version 1.4.1
+   * @file Essential zero-knowledge utility library for JavaScript developers.
+   * @copyright Ethereum Foundation 2025
+   * @license MIT
+   * @see [Github]{@link https://github.com/privacy-scaling-explorations/zk-kit/tree/main/packages/utils}
+  */
+
+@zk-kit/utils/dist/lib.esm/error-handlers.js:
+  /**
+   * @module @zk-kit/utils
+   * @version 1.4.1
+   * @file Essential zero-knowledge utility library for JavaScript developers.
+   * @copyright Ethereum Foundation 2025
+   * @license MIT
+   * @see [Github]{@link https://github.com/privacy-scaling-explorations/zk-kit/tree/main/packages/utils}
+  */
+
+@zk-kit/lean-imt/dist/index.js:
+  /**
+   * @module @zk-kit/lean-imt
+   * @version 2.2.5
+   * @file Lean Incremental Merkle tree implementation in TypeScript.
+   * @copyright Ethereum Foundation 2026
+   * @license MIT
+   * @see [Github]{@link https://github.com/zk-kit/zk-kit/tree/main/packages/lean-imt}
+  */
+
+@semaphore-protocol/group/dist/index.js:
+  /**
+   * @module @semaphore-protocol/group
+   * @version 4.14.5
+   * @file A library to create and manage Semaphore groups.
+   * @copyright Ethereum Foundation 2026
+   * @license MIT
+   * @see [Github]{@link https://github.com/semaphore-protocol/semaphore/tree/main/packages/group}
+  */
+
+snarkjs/build/browser.esm.js:
+  /*! noble-hashes - MIT License (c) 2022 Paul Miller (paulmillr.com) */

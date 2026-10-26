@@ -1,13 +1,12 @@
-# BookerBob. Google for agentic commerce.
-## Proof of loyalty, everywhere you go. UCP module.
+# BookerBob UCP module: proof of loyalty at agentic checkout
 
 A buyer's AI agent shops a real Shopify store over UCP (Universal Commerce Protocol). It claims the
 returning-customer discount with a zero-knowledge proof that it bought there before. The store checks
 the proof against the BookerBob contract on Stellar, mints a single-use code, and the agent pays in
-test USDC on Stellar. The store never learns who the buyer is, or which of its past orders the proof
-stands for. The purchase then makes the buyer a proven customer again, under a fresh identity.
+test USDC on Stellar. The store never learns which of its past orders the proof stands for, or that
+two purchases come from the same buyer. The purchase then makes the buyer a proven customer again, under a fresh identity.
 
-Live bridge: https://bookerbob-ucp-bridge.fly.dev (`/.well-known/ucp`, `/mcp`, `/search`). Try it: `npm run agent -- --bridge https://bookerbob-ucp-bridge.fly.dev`.
+Live bridge: [bookerbob-ucp-bridge.fly.dev/.well-known/ucp](https://bookerbob-ucp-bridge.fly.dev/.well-known/ucp) (also `/mcp`, `/search`; the root returns 404). Try it: `npm run agent -- --bridge https://bookerbob-ucp-bridge.fly.dev`.
 
 The store is `jwq0dd-rp.myshopify.com`, a Shopify test store (external service, see PRIOR_WORK.md).
 The core (contract, SDK, Semaphore circuit) is the BookerBob core, used unmodified as merchant 5,
@@ -115,4 +114,4 @@ The contract id comes from `config/testnet.json`.
 - Delivery details identify a buyer to the store for shipping, as they must; the proof keeps purchase
   history unlinkable, not the parcel.
 - The bridge names Shopify's example agent profile when calling the store.
-- Testnet only, unaudited verifier (see the core README).
+- Testnet only, unaudited verifier (see the [core README](../README.md)).

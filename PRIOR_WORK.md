@@ -4,7 +4,8 @@ This repository was created on Sun 25 Oct 2026, after hacking started (09:00 Lis
 
 ## Starting point
 - The BookerBob brand and the idea of an agentic hotel desk (ETHGlobal Lisbon 2026, different stack). No code from that project is used here.
-- Nothing else. No code existed for Proof of Stay before the hackathon.
+- REP (the founders' company): its zkTLS prover, the REP Bob iOS app and the REP attester pre-date the event. They are external services from this repo's point of view and their code is not here, except `server/src/verify-rep.mjs`, copied unmodified from REP's verifier kit (listed below).
+- No code existed for Proof of Stay before the hackathon.
 
 ## Open source we build on
 
@@ -19,8 +20,10 @@ This repository was created on Sun 25 Oct 2026, after hacking started (09:00 Lis
 | circomlib (Poseidon parameters, used by Semaphore) | https://github.com/iden3/circomlib | GPL-3.0 | unmodified, through Semaphore's artifacts |
 | snarkjs | https://github.com/iden3/snarkjs | GPL-3.0 | unmodified npm dependency for proving and off-chain verification |
 | `@stellar/stellar-sdk`, `poseidon-lite`, `ethers` | npm | Apache-2.0 / MIT / MIT | npm dependencies |
+| `server/src/verify-rep.mjs` | REP verifier kit (`r3pb0b/commerce`, `src/verify-rep.mjs`), made to be copied | REP Labs, used with permission (the team are REP's founders) | copied unmodified; checks a REP attestation against REP's published key |
+| `app/public/design/myc.js` | REP Labs design asset ("mycelium" background) | REP Labs, used with permission | visual background of the first web app (`/classic`) |
 
-External services, if used in later stages: JMPR (hotel search and sandbox bookings) via its API; an external zkTLS prover and notary. Their code is not in this repository.
+External services that shipped: JMPR, read once into `server/data/jmpr-lisbon.json` for Ask Bob's partner hotel snapshot (no live calls at runtime, no bookings); the REP attester and the REP tier issuer (`rep-attest-tier`); the Shopify test store `jwq0dd-rp.myshopify.com`; Stellar testnet RPC and Friendbot. Their code is not in this repository.
 
 ## Written during the hackathon
 - The whole Soroban contract: incremental Poseidon LeanIMT, Groth16 verifier on BN254, reviews, discounts with USDC, disclosure attestation, and its tests.

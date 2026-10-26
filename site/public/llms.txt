@@ -1,0 +1,53 @@
+# BookerBob: Proof of Loyalty
+
+> Google for agentic commerce. Proof of loyalty, everywhere you go. Customers prove they were customers of a place without revealing who they are; in return they get honest reviews and returning-customer discounts, and BookerBob, their agent, ranks and books places using only reviews nobody can buy. Built at HackMeridian 2026 (Stellar), Genesis path, track Stellar Unlocked. Stellar testnet.
+
+## Problem
+- Reviews on travel and commerce platforms are inflated; neither a customer nor the customer's agent can tell a real review from a bought one.
+- Returning-customer discounts cost personal data and history. The customer pays for the discount with their data.
+
+## The ZK primitive and its uses
+One Semaphore v4 Groth16 proof (BN254), made in the browser: "I hold one of the leaves in this place's customer tree", without saying which. Only the nullifier scope changes:
+- anonymous review: one review per stay, author unknown
+- returning-customer discount: once per past stay per season, USDC paid in the same transaction
+- context perks: network and attested groups (REP verified traveler), stacked and capped, one transaction
+- dispute disclosure: the author privately proves a review is theirs to an arbiter
+- agentic checkout over UCP: a buyer's agent claims the discount at a Shopify test store and pays in test USDC on Stellar
+
+## Stellar host functions used
+- BN254 g1_add, g1_mul, pairing_check (Groth16 verifier): https://github.com/hustle1hustle/bookerbob-hackmeridian-2026/blob/main/contracts/proof_of_stay/src/verifier.rs
+- Poseidon (soroban-poseidon, circomlib parameters), on-chain LeanIMT customer trees: https://github.com/hustle1hustle/bookerbob-hackmeridian-2026/blob/main/contracts/proof_of_stay/src/tree.rs
+- secp256r1_verify (REP tier credential, P-256): https://github.com/hustle1hustle/bookerbob-hackmeridian-2026/blob/main/contracts/proof_of_stay/src/tier.rs
+- keccak256 (Semaphore message and scope hashing) and USDC via the Stellar Asset Contract: https://github.com/hustle1hustle/bookerbob-hackmeridian-2026/blob/main/contracts/proof_of_stay/src/lib.rs
+- fee-bump transactions sponsor a fresh payer per booking: https://github.com/hustle1hustle/bookerbob-hackmeridian-2026/blob/main/server/src/payer.ts
+
+## Contract
+CBEGVNZFDZMOBKYVP27D5Q6Y7OHKWC2P3DAKQNC3MGTO5OW5JHAL5EBY (Stellar testnet): https://stellar.expert/explorer/testnet/contract/CBEGVNZFDZMOBKYVP27D5Q6Y7OHKWC2P3DAKQNC3MGTO5OW5JHAL5EBY
+
+## Transactions (testnet, live contract)
+- anonymous review, Groth16 verified on chain: https://stellar.expert/explorer/testnet/tx/86c01995cc6e8d084ff55d17e5ac750160d295a3dc8ec83221587a16e01129b8
+- returning-guest booking, proof and USDC in one tx (110 to 93.5 USDC): https://stellar.expert/explorer/testnet/tx/bacf4990eb6ed224e82dd54f55c02787fc63bc9cd80a3fd7342e31753e6376dd
+- stacked context perks, 95 to 85.5 USDC: https://stellar.expert/explorer/testnet/tx/f9c5b2019acd616db39074a5e4442fe7b3d253cdbeb1e676d1349427a4fadb9d
+- REP verified traveler joined, P-256 checked on chain: https://stellar.expert/explorer/testnet/tx/b1d540463dfff82ea998f12a80162915549af1cbe5b1e874de2e3d0292bca81f
+- agent at the UCP store, 40.80 to 36.72 USDC (returning customer, 10%): https://stellar.expert/explorer/testnet/tx/d61a94c0d65637e2996eb2adb09c5159dcf69088e5eaba68f5ddee4bd5ae2623
+- agent at the UCP store, 40.80 to 34.68 USDC (stacked perks, order #1028): https://stellar.expert/explorer/testnet/tx/fa5b8795b006a947cd7e36428aeacb95d1b10ee1ece137ffb76f06015d764236
+
+## Links
+- Live demo: https://stellarbob2026.xyz
+- How it works: https://stellarbob2026.xyz/how
+- Repository: https://github.com/hustle1hustle/bookerbob-hackmeridian-2026
+- Video: https://youtu.be/2z7azyU-_Rw
+- Deck: https://github.com/hustle1hustle/bookerbob-hackmeridian-2026/blob/main/docs/deck/bookerbob-deck.pdf
+- Benchmarks: https://github.com/hustle1hustle/bookerbob-hackmeridian-2026/blob/main/docs/bench.md
+
+## Honest limitations
+- Testnet only. The verifier follows the official soroban-examples structure, which is unaudited.
+- Demo places are checked in by the BookerBob backend, and the arbiter is our backend; production needs places signing their own checkouts and a blind arbiter (TEE or MPC).
+- Anonymity set = that place's checked-in customers (public leaf list, max 1024); small places give a small set.
+- The REP tier issuer is still trusted to sign the credential the contract checks with P-256; for live rehearsals the operator can fall back to add_member when the issuer refuses.
+- One admin key controls upgrade, groups, the season clock and issuer keys; production moves these to a multisig with a timelock.
+- One-time payers are funded by a test-USDC faucet; production needs a private balance so the payer is not linked to the guest.
+
+## Team
+- Max Choly, co-founder of REP: distribution and applied cryptography (Dogs, Notcoin).
+- Dan Surfer, co-founder of REP: crypto and fintech exits, intent-matching solver team.

@@ -5,7 +5,9 @@ Path: `packages/verify_onchain_zk/`
 
 Inspect a Stellar wallet on Horizon, compute a **basic on-chain rating**, build a portable **loyalty claim**, **attest it on testnet** (clickable tx), and optionally issue a **Semaphore / Groth16 membership proof** on the same ZK stack as Proof of Stay.
 
-Downstream modules (discount, context perks) consume the claim — this module does **not** call `book_with_discount` itself.
+Off on the live demo: the public wallet and tier attest (`POST /api/loyalty/attest`) is disabled unless the server runs with `LOYALTY_ATTEST=1` (`server/src/index.ts`), because it links a wallet to its tier in public.
+
+Downstream modules (discount, context perks) consume the claim; this module does **not** call `book_with_discount` itself.
 
 ## Pipeline
 
@@ -51,7 +53,7 @@ Final rating = clamp(horizon + passport, 0, 100).
 `issueScoreProof` / `verifyOnConnect({ proveScore: true })` (default):
 
 - Identity: `loyaltyIdentity(address, season)` (deterministic per wallet·season).
-- Default tree: **self-membership** (one leaf) — real Groth16 on the Proof of Stay Semaphore stack; message binds `address|rating|tier`, scope = `loyalty,{merchantId},{season}`.
+- Default tree: **self-membership** (one leaf): real Groth16 on the Proof of Stay Semaphore stack; message binds `address|rating|tier`, scope = `loyalty,{merchantId},{season}`.
 - Group tree: pass `leaves` from checkout / context enroll for a real anonymity set (`proofMode: "group"`).
 
 Honest limit: self-membership proves binding + knowledge of the loyalty identity, not “anonymous among N guests” until enrolled.
@@ -137,7 +139,7 @@ Live shapes verified against the demo instance on 2026-10-25 (`leaderboard`, `bu
 
 **Graceful degrade (hard rule):** no key / no match / API down → Passport score 0, `inspectWallet`
 never throws, and the rating is exactly the Horizon-only score. With `passport: false` the field is
-`null` and no Passport endpoint is called. Only top-10 leaderboard builders can match keyless —
+`null` and no Passport endpoint is called. Only top-10 leaderboard builders can match keyless;
 pass `passportApiKey` to cover the full builder set.
 
 `discountHintBps = round(rating/100 * 2500)` (max 25%). Always clamp to the merchant’s `discount_bps`.
@@ -152,16 +154,16 @@ Server (`Ops.attestLoyalty`): classic payment **1 stroop** from relayer → gues
 - Scope label: `loyalty,{merchantId},{season}` (hashed into circuit scope).
 - Message binds `address|rating|tier` so the claim cannot be swapped after proving.
 
-Nullifier is unique per (identity, scope) — one loyalty proof per season per stay identity, same pattern as reviews/discounts.
+Nullifier is unique per (identity, scope): one loyalty proof per season per stay identity, same pattern as reviews/discounts.
 
 ## Design / where in UX
 
 | Surface | What to show |
 |---|---|
 | **`#pass-connect` (primary)** | Tier ladder 5→1, score rubric `<details>`, attest tx link, ZK nullifier |
-| Ask Bob header (after connect) | `LoyaltyTierChip` — **tier N** (+ zk) → `#pass-connect` |
-| Place / Buy | `WalletScoreHint` — `discountHintBps` clamped to place; stay-proof discount stays separate |
-| Agent handoff | Pass `claim` + `proved.publicSignals` JSON — do not put secrets on chain |
+| Ask Bob header (after connect) | `LoyaltyTierChip`: **tier N** (+ zk) → `#pass-connect` |
+| Place / Buy | `WalletScoreHint`: `discountHintBps` clamped to place; stay-proof discount stays separate |
+| Agent handoff | Pass `claim` + `proved.publicSignals` JSON; do not put secrets on chain |
 
 Home card auto-runs `verifyOnConnect` on Freighter/passkey connect. Cache key: `bookerbob.loyalty.v2.{season}.{addr}` (`app/src/loyaltyClaim.ts`).
 
@@ -182,7 +184,7 @@ Covers: rubric, Horizon-stub inspect (asserts **zero** write POSTs), claim diges
 
 ## Honest limits
 
-- Horizon sample is capped (`opLimit`, default 100) — rating is a demo signal, not credit scoring.
+- Horizon sample is capped (`opLimit`, default 100); rating is a demo signal, not credit scoring.
 - Attest is a classic payment + memo, not a Soroban loyalty contract call.
 - ZK prove requires prior tree membership (checkout). Rating alone does not mint a leaf.
 - Passport data comes from the public demo instance (unstable internal API); keyless matching sees only the top-10 leaderboard, and a missing wallet on Horizon returns `passport: null`.

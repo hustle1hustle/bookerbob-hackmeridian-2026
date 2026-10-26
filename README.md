@@ -5,21 +5,22 @@
 **For judges, 60 seconds**
 
 1. Open [stellarbob2026.xyz](https://stellarbob2026.xyz) and ask Bob: "a quiet room in lisbon under 120, best proven rating".
-2. Connect a demo key, order at Café Lento, then book Belém Garden Inn and watch the inline ZK steps.
+2. Connect a demo key and order at Café Lento (enrolls you in the BookerBob Lisbon network), then book Belém Garden Inn and watch the inline ZK steps apply the network perk in one transaction.
 3. On-chain, Stellar testnet:
    - anonymous review: [86c01995…](https://stellar.expert/explorer/testnet/tx/86c01995cc6e8d084ff55d17e5ac750160d295a3dc8ec83221587a16e01129b8)
    - proof and USDC payment in one tx: [bacf4990…](https://stellar.expert/explorer/testnet/tx/bacf4990eb6ed224e82dd54f55c02787fc63bc9cd80a3fd7342e31753e6376dd)
    - stacked perks: [f9c5b201…](https://stellar.expert/explorer/testnet/tx/f9c5b2019acd616db39074a5e4442fe7b3d253cdbeb1e676d1349427a4fadb9d)
    - REP verified traveler joined, P-256 checked on-chain: [b1d54046…](https://stellar.expert/explorer/testnet/tx/b1d540463dfff82ea998f12a80162915549af1cbe5b1e874de2e3d0292bca81f)
 4. Video: [youtu.be/2z7azyU-_Rw](https://youtu.be/2z7azyU-_Rw)
-5. How it works: [stellarbob2026.xyz/how](https://stellarbob2026.xyz/how)
+5. How it works: [stellarbob2026.xyz/how](https://stellarbob2026.xyz/how). Deck: [docs/deck](docs/deck/index.html) ([PDF](docs/deck/bookerbob-deck.pdf)).
+6. Stack: Soroban contract in Rust (Groth16 on BN254, Poseidon LeanIMT, native P-256), Semaphore v4 proofs in the browser, TypeScript SDK and Node backend, USDC through the Stellar Asset Contract, a UCP bridge to a Shopify test store.
 
 Customers prove they were customers of a place without revealing who they are. In return they get honest reviews and returning-customer discounts, and BookerBob, their agent, ranks and books places using only reviews nobody can buy. First medium: hotels (the hotel flow is "proof of stay").
 
 - Live demo: [https://stellarbob2026.xyz](https://stellarbob2026.xyz) (read-only without a wallet; a demo key in the browser is enough to walk the full cycle). API: `https://stellarbob2026.xyz/api/config`
 - Video: [https://youtu.be/2z7azyU-_Rw](https://youtu.be/2z7azyU-_Rw)
 - Contract (Stellar testnet): [`CBEGVNZFDZMOBKYVP27D5Q6Y7OHKWC2P3DAKQNC3MGTO5OW5JHAL5EBY`](https://stellar.expert/explorer/testnet/contract/CBEGVNZFDZMOBKYVP27D5Q6Y7OHKWC2P3DAKQNC3MGTO5OW5JHAL5EBY)
-- Built at HackMeridian 2026 (Stellar), Genesis path, track Stellar Unlocked, by team BookerBob. Plan: [PLAN.md](PLAN.md). Prior work: [PRIOR_WORK.md](PRIOR_WORK.md). AI usage: [docs/ai-usage.md](docs/ai-usage.md). Raven MCP + passkeys on Stellar: [docs/raven.md](docs/raven.md).
+- Built at HackMeridian 2026 (Stellar), Genesis path, track Stellar Unlocked, by team BookerBob. Plan: [PLAN.md](PLAN.md). Prior work: [PRIOR_WORK.md](PRIOR_WORK.md). AI usage: [docs/ai-usage.md](docs/ai-usage.md).
 
 ## Problem
 
@@ -63,9 +64,28 @@ Each stay gets its own identity derived from a master secret in the browser, so 
 - **Poseidon permutation (CAP-0075)** through SDF's [`soroban-poseidon`](https://github.com/stellar/rs-soroban-poseidon) with circomlib parameters: the contract maintains the LeanIMT customer tree itself ([`tree.rs`](contracts/proof_of_stay/src/tree.rs)), and its root matches the Semaphore JS library byte for byte (test `lean_imt_root_matches_js`).
 - **USDC through a Stellar Asset Contract**: the discounted payment is a SAC `transfer` inside `book_with_discount`, so the proof check and the payment are one transaction. On testnet we use our own USDC issuer so seed guests can be funded without a faucet; the token address is a constructor argument, so Circle's testnet USDC is a drop-in.
 - **keccak256 host function** reproduces Semaphore's `hash(x) = keccak256(x) >> 8` for message and scope.
+- **REP check on chain (native P-256)**, with the REP tier issuer still trusted to sign: the issuer checks the REP verdict off chain and signs a 106-byte credential; the contract verifies it with `secp256r1_verify` in `add_member_with_tier`, so no verdict, spend or device key reaches the ledger. Live on the contract: [`b1d54046…`](https://stellar.expert/explorer/testnet/tx/b1d540463dfff82ea998f12a80162915549af1cbe5b1e874de2e3d0292bca81f) (25 Oct 20:37 UTC). Details: [docs/rep-handoff.md](docs/rep-handoff.md).
+- **P-256 and passkeys are two things here.** P-256: the contract natively verifies attester credentials (`secp256r1_verify`). Passkeys: WebAuthn PRF derives the guest's Stellar key, no seed phrase. A passkey smart account is next. More: [docs/raven.md](docs/raven.md).
 - Versions: Protocol 29 testnet, `soroban-sdk` 28, `stellar-cli` 28.1.0.
 
-Example testnet transactions (seed run, all real proofs):
+| Stellar feature | Line of code |
+|---|---|
+| BN254 `pairing_check` (Groth16) | [verifier.rs:46](https://github.com/hustle1hustle/bookerbob-hackmeridian-2026/blob/95ddf165bfdc073144259abfbd8b40d4eb506052/contracts/proof_of_stay/src/verifier.rs#L46) |
+| BN254 `g1_mul` / `g1_add` (public inputs) | [verifier.rs:38](https://github.com/hustle1hustle/bookerbob-hackmeridian-2026/blob/95ddf165bfdc073144259abfbd8b40d4eb506052/contracts/proof_of_stay/src/verifier.rs#L38) |
+| Poseidon (CAP-0075) tree hash | [tree.rs:8](https://github.com/hustle1hustle/bookerbob-hackmeridian-2026/blob/95ddf165bfdc073144259abfbd8b40d4eb506052/contracts/proof_of_stay/src/tree.rs#L8) |
+| `secp256r1_verify` (REP tier credential) | [tier.rs:112](https://github.com/hustle1hustle/bookerbob-hackmeridian-2026/blob/95ddf165bfdc073144259abfbd8b40d4eb506052/contracts/proof_of_stay/src/tier.rs#L112) |
+| proof check + USDC SAC `transfer` in one call | [lib.rs:507 `book_with_discount`](https://github.com/hustle1hustle/bookerbob-hackmeridian-2026/blob/95ddf165bfdc073144259abfbd8b40d4eb506052/contracts/proof_of_stay/src/lib.rs#L507) |
+
+Track fit (Stellar Unlocked: "ZK, natively: use the Poseidon and BN254 host functions to build verifiers, private voting, membership proofs"):
+
+| Track ask | Here |
+|---|---|
+| verifiers on the BN254 host functions | Groth16 verifier in the contract, about 31M CPU per proof |
+| Poseidon host function | the contract keeps each place's customer tree itself, root equal to Semaphore JS |
+| membership proofs | "I was a customer here" (and network, REP verified traveler) without saying which one |
+| private voting shape | one anonymous review per stay, one discount per stay per season, nullifiers on chain |
+
+Example testnet transactions (all real proofs, all on the live contract):
 
 | Step | Tx |
 |---|---|
@@ -74,6 +94,12 @@ Example testnet transactions (seed run, all real proofs):
 | anonymous review (Groth16 verified on chain) | [`86c01995…`](https://stellar.expert/explorer/testnet/tx/86c01995cc6e8d084ff55d17e5ac750160d295a3dc8ec83221587a16e01129b8) |
 | full-price booking (USDC) | [`c078b6fa…`](https://stellar.expert/explorer/testnet/tx/c078b6fa9261998bd998d918c06aa9246f92899a2a0fd4908186952cd5911eab) |
 | returning-guest booking (proof + USDC in one tx, 110 to 93.5 USDC) | [`bacf4990…`](https://stellar.expert/explorer/testnet/tx/bacf4990eb6ed224e82dd54f55c02787fc63bc9cd80a3fd7342e31753e6376dd) |
+| returning customer at the UCP store, 40.80 to 36.72 USDC (returning customer, 10%) | [`d61a94c0…`](https://stellar.expert/explorer/testnet/tx/d61a94c0d65637e2996eb2adb09c5159dcf69088e5eaba68f5ddee4bd5ae2623) |
+| UCP store, 40.80 to 34.68 USDC (stacked perks, order #1028) | [`fa5b8795…`](https://stellar.expert/explorer/testnet/tx/fa5b8795b006a947cd7e36428aeacb95d1b10ee1ece137ffb76f06015d764236) |
+| stacked context perks, network + verified traveler, 95 to 85.5 USDC | [`f9c5b201…`](https://stellar.expert/explorer/testnet/tx/f9c5b2019acd616db39074a5e4442fe7b3d253cdbeb1e676d1349427a4fadb9d) |
+| REP verified traveler joined, P-256 checked on chain (`add_member_with_tier`) | [`b1d54046…`](https://stellar.expert/explorer/testnet/tx/b1d540463dfff82ea998f12a80162915549af1cbe5b1e874de2e3d0292bca81f) |
+| attester adds a member to a context group (`add_member`) | [`38bd6a7f…`](https://stellar.expert/explorer/testnet/tx/38bd6a7f38987c745624d363124c27f7a0e2bd8764b2051e3afdbe5474c34106) |
+| guest pays nothing in fees: fresh payer, fee-bumped | [`2cad0d43…`](https://stellar.expert/explorer/testnet/tx/2cad0d43d72c15623be6c383175885a0ceb69e3749872d68cc238c297230d3d5) |
 | arbiter attestation | [`6e50a72e…`](https://stellar.expert/explorer/testnet/tx/6e50a72e6d869186785e0d3eb42db551b2f94f8c9e0dd6a58fc576440a957ebf) |
 | golden proof gate: valid proof `true` / tampered input `false` | [`0637fea7…`](https://stellar.expert/explorer/testnet/tx/0637fea7161f51651e9d6323e22f936cf807f17cbd36dba159c174065366e6ad) / [`b97d19f0…`](https://stellar.expert/explorer/testnet/tx/b97d19f03aa2fa3509cddfafc30c468da752342d74e5ca8a12223c1a2d424b97) |
 
@@ -85,7 +111,7 @@ Loyalty does not have to stop at one place. A place's discount policy can reward
 
 ## Agentic checkout over UCP
 
-The same proof works at a real store. [`ucp/`](ucp/README.md) is a bridge for a Shopify test store that speaks the Universal Commerce Protocol: the buyer's agent searches the store (it shows up in Ask Bob as a UCP source), proves it is a returning customer of merchant 5 in our contract, gets the discount applied at checkout, and pays in test USDC on Stellar through `book_with_context` (one proof per perk it holds, capped at the store's maximum), with the store's admin co-signing the order amount ([`5f4ff99f…`](https://stellar.expert/explorer/testnet/tx/5f4ff99fcd8b2724d233a51d50ead3e8992c99c518a5dea9399538ea822c3fb7), 40.80 to 34.68 USDC). The Shopify code the agent applies always equals the discount the contract applies for those proofs. A card payment can still spend the discount on chain through `redeem`. Details, evidence logs and its own prior-work notes: [ucp/README.md](ucp/README.md).
+The same proof works at a real store. [`ucp/`](ucp/README.md) is a bridge for a Shopify test store that speaks the Universal Commerce Protocol: the buyer's agent searches the store (it shows up in Ask Bob as a UCP source), proves it is a returning customer of merchant 5 in our contract, gets the discount applied at checkout, and pays in test USDC on Stellar through `book_with_context` (one proof per perk it holds, capped at the store's maximum), with the store's admin co-signing the order amount (40.80 to 36.72 USDC (returning customer, 10%), [`d61a94c0…`](https://stellar.expert/explorer/testnet/tx/d61a94c0d65637e2996eb2adb09c5159dcf69088e5eaba68f5ddee4bd5ae2623); 40.80 to 34.68 USDC (stacked perks, order #1028), [`fa5b8795…`](https://stellar.expert/explorer/testnet/tx/fa5b8795b006a947cd7e36428aeacb95d1b10ee1ece137ffb76f06015d764236)). The Shopify code the agent applies always equals the discount the contract applies for those proofs. A card payment can still spend the discount on chain through `redeem`. Details, evidence logs and its own prior-work notes: [ucp/README.md](ucp/README.md).
 
 ## Numbers
 
@@ -95,7 +121,7 @@ From [docs/bench.md](docs/bench.md):
 |---|---|
 | Groth16 verification on Soroban | about 31M CPU instructions, 7.8% of the per-transaction limit |
 | Poseidon tree insert | about 1.1M CPU instructions |
-| Booking with 3 stacked context proofs | about 88M CPU instructions (22% of the limit, measured in the host test budget) |
+| Booking with 2 stacked context proofs | about 59M CPU instructions (14.7% of the limit, host test `stacked_claims_are_capped`, see docs/bench.md) |
 | Proof on chain | 256 bytes + root + nullifier |
 | Browser proving | about 0.3 to 1.5 s, after a one-time ~4.2 MB download (depth-10 artifacts) |
 
@@ -118,12 +144,12 @@ Honest limitations of the demo:
 - Reviews are submitted by a shared relayer account, so the sender address does not link the author. Since 25 Oct 14:06 UTC every booking is paid from a **fresh one-time address** (the example bookings above are from the earlier seed run and all come from one account): the guest's browser makes a key per booking, BookerBob sponsors its account reserve and USDC trustline and fee-bumps the booking (`server/src/payer.ts`), so the guest never holds XLM and two discounted bookings by one guest come from unrelated addresses (`scripts/privacy-test.ts`: [`13a7527f…`](https://stellar.expert/explorer/testnet/tx/13a7527f69da0b1012db223f4d0299e2cf58dcaa21d058aa4dc7f08ec6a48d97) and [`ae6ebd58…`](https://stellar.expert/explorer/testnet/tx/ae6ebd58c377b90d23ed5046153c28360ac8e51b26e4edf0847fc44a70a3a046), same guest, two payers). On testnet the one-time payer is funded by our test-USDC faucet; in production it would be funded from a private balance (for example a confidential token or a privacy pool), since a direct transfer from the guest's main account would link the two again.
 - On testnet, demo places are checked in by the BookerBob backend (it holds those demo admin keys) and the arbiter is our backend. In production a place signs its own checkouts, and the arbiter should be a blind node (TEE or MPC), because it learns which checkout a disputed review came from.
 - The verifier follows the official example, which its README describes as unaudited.
-- Demo reset: the demo operator can reset their own REP joins for live demos (`POST /api/rep/demo-reset`, operator cookie only); the earlier leaf stays in the group on Stellar as a dead identity. Production keeps one presentation, one membership (and account nullifiers from REP).
+- Anonymity set = that place's checked-in customers (public leaf list, max 1024); small places give a small set.
+- For live rehearsals the operator can fall back to `add_member` when the tier issuer refuses (stale evidence, or a presentation that already minted a credential); the REP verified-traveler join in the video used the P-256 path ([`b1d54046…`](https://stellar.expert/explorer/testnet/tx/b1d540463dfff82ea998f12a80162915549af1cbe5b1e874de2e3d0292bca81f), `add_member_with_tier`). Non-operator joins never fall back.
 - One person, several verified-traveler memberships: one REP presentation mints one tier credential, but a person can make several presentations, so the attested group is bounded today by the demo flow, not by the contract. The fix is a pairwise subject from REP per verifier, so a second join by the same person is refused.
 - A merchant can check out stays that never happened and then review itself or, in a chain, add network members other places pay for. Merchants are trusted for their own checkouts; the roadmap has merchant reputation (ratings weighted by arbiter-verified stays) and removal from a chain.
 - One admin key controls `upgrade`, groups, the season clock and the REP issuer keys, and group operators can still add members directly with `add_member`. Fine for a testnet demo; production moves these to a multisig with a timelock and events.
 - Scopes do not include the contract id. Adding it would reset every nullifier already spent on the live contract (every past review could be written again), so it is kept for the next fresh deployment, where it costs nothing.
-- Trustless REP verification on Stellar (native P-256): the REP tier issuer checks the verdict off chain and signs a 106-byte credential; the contract verifies it with `secp256r1_verify` (`add_member_with_tier`, `scripts/rep-onchain.sh`), so no verdict, spend or device key reaches the ledger. Live on the contract since the admin upgrade (the backend uses it with `REP_ONCHAIN=1`); see [docs/rep-handoff.md](docs/rep-handoff.md).
 
 ## Post-quantum
 
@@ -141,15 +167,18 @@ circuits/golden           golden Semaphore v4 test vectors (proof, public signal
 packages/sdk              TypeScript SDK: chain / prover / wallet bind points, mock and testnet implementations
 packages/pass_connect     Passkey (WebAuthn) → Stellar session: docs/modules/pass_connect.md
 packages/verify_onchain_zk  Wallet inspect + rating + loyalty ZK claim: docs/modules/verify_onchain_zk.md
-server                    BookerBob backend: demo desk, review relayer, demo arbiter, test USDC faucet, static app
-app                       web app (guest / place / arbiter)
+server                    BookerBob backend: demo desk, review relayer, demo arbiter, test USDC faucet, REP handoff, Ask Bob search, static hosting
+site                      the live UI (Claude Design file + its data module site/src/pol-real.ts), and /how
+app                       first web app (guest / place / arbiter), served at /classic
+agent                     Ask Bob ranking (proven reviews only)
+ucp                       UCP bridge for a Shopify test store and the buyer's agent: ucp/README.md
 scripts                   deploy, golden proof gate, seed, end-to-end test, benchmark
 docs                      verification log, testnet record, benchmarks, design handoff, AI usage, modules/
 ```
 
 ## Setup
 
-Requirements: Rust with the `wasm32v1-none` target, `stellar-cli` 28.x, Node 22+.
+Requirements: Rust with the `wasm32v1-none` target, `stellar-cli` 28.x, Node 22.18+ (runs the TypeScript sources directly).
 
 ```bash
 npm install                                    # workspaces: packages/sdk, server, scripts, app
@@ -172,13 +201,21 @@ API=http://localhost:8080 node scripts/e2e.ts            # full cycle as a new g
 
 Environment variables: see [.env.example](.env.example). Secrets (relayer, arbiter, USDC issuer, demo place admins) are only ever host secrets or the local stellar keystore.
 
+## Team
+
+- **Max Choly**, co-founder of REP: distribution and applied cryptography (Dogs, Notcoin).
+- **Dan Surfer**, co-founder of REP: crypto and fintech exits, intent-matching solver team.
+
+## Built during the event
+
+The repository was created after hacking started. First commit `aae8033` at 11:52 UTC on 25 Oct 2026; every commit in the history was made during the hackathon window. Contract first, then SDK and browser proving, backend and seed, the live UI, context perks and the REP tier check, the UCP bridge, and the docs.
+
 ## Prior work and attribution
 
 The starting point was the BookerBob brand and the idea of an agentic hotel desk; no code existed. Semaphore v4 circuits and trusted setup, zk-kit, `soroban-poseidon` and the `soroban-examples` verifier structure are used with attribution. Details: [PRIOR_WORK.md](PRIOR_WORK.md). Where AI generated code or assets: [docs/ai-usage.md](docs/ai-usage.md).
 
 ## Roadmap
 
-- Let a UCP order be an entry into a merchant's tree, so a buyer's agent applies the returning-customer discount at agentic checkout.
 - Fund the one-time payer from a private balance (confidential tokens or a privacy pool) instead of the testnet faucet.
 - Real hotels via a booking partner, with real reviews only; past stays imported with zkTLS.
 - Night resale on SDEX, hidden ratings revealed at k>=5, portable loyalty across a hotel network.
@@ -186,4 +223,4 @@ The starting point was the BookerBob brand and the idea of an agentic hotel desk
 
 ## License
 
-MIT, see [LICENSE](LICENSE).
+MIT for our code; the browser bundle includes GPL-3.0 components (snarkjs, ffjavascript), see [NOTICE](NOTICE). [LICENSE](LICENSE).

@@ -1,5 +1,7 @@
 # Proof of Loyalty: plan
 
+_Plan written at kickoff; README and docs/bench.md are current._
+
 Team BookerBob. HackMeridian 2026 (Stellar), Lisbon, ONE16. Hacking window: Sun 25 Oct 09:00 to Mon 26 Oct 12:00 (Lisbon), no late submissions.
 Path: **Genesis** (idea to MVP). Thematic track: **Stellar Unlocked**, which names this case directly: "ZK, natively: use the Poseidon and BN254 host functions to build verifiers, private voting, membership proofs".
 The portal form takes one thematic track. Composed elements (USDC via SAC, passkey wallet, agent) are described in a separate line of the submission.
@@ -74,7 +76,7 @@ Roadmap: a UCP order as an entry into the tree. Which stage comes first after th
 - CLI: `stellar-cli` 28.1.0.
 - BN254: `env.crypto().bn254()`: `g1_add`, `g1_mul`, `g1_msm`, `pairing_check`. Uncompressed big-endian points, G1 64 bytes, G2 128 bytes.
 - Poseidon: the host exposes only the permutation. The circomlib-compatible hash comes from the SDF crate `soroban-poseidon` (`poseidon_hash::<3, Bn254Fr>`).
-- Verifier: same structure as the official `soroban-examples/groth16_verifier/contracts/bn254_verifier`. Measured cost about 29M CPU, about 7% of the per-transaction limit.
+- Verifier: same structure as the official `soroban-examples/groth16_verifier/contracts/bn254_verifier`. Measured cost about 31M CPU, about 7.8% of the per-transaction limit.
 - Circuits: Semaphore v4 as is, artifacts 4.13.0 from the official ceremony (400+ participants, July 2024). Tree depth pinned to **10**: zkey 2.4 MB, browser proof about 0.3 s.
 - Frontend: Vite + stellar-sdk, public URL.
 - USDC testnet: SAC `CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA`, issuer `GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5`, faucet.circle.com (needs a trustline).
@@ -124,6 +126,9 @@ Functions: constructor, `register_hotel`, `checkout` (on-chain leaf insert), `bo
 3 fictional hotels, ~8 checkouts, 20 to 30 reviews through the real cycle (proof, transaction, nullifier) from test guests, 1 discount, 1 dispute. Marked "demo data, testnet" on the site.
 
 ### 3.9 Hotels and reviews: three stages
+
+_Shipped: stage 1 and a read-only partner snapshot in search; sandbox bookings and zkTLS import were cut._
+
 Strict order: the next stage starts only when the previous one works end to end on testnet.
 
 **Stage 1, core.** Fictional demo hotels, checkout signed by our test hotel admin. Enough for the full demo.

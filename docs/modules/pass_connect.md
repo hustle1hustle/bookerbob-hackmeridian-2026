@@ -9,8 +9,8 @@ Connect a guest with a **platform passkey** (WebAuthn / Touch ID / Face ID) and 
 
 1. Creates or reuses a WebAuthn credential.
 2. Derives a 32-byte seed:
-   - **prf** — WebAuthn PRF extension (preferred; seed never stored).
-   - **credential-bound** — fallback hash of credential id + local salt (seed stored in `localStorage`).
+   - **prf**: WebAuthn PRF extension (preferred; seed never stored).
+   - **credential-bound**: fallback hash of credential id + local salt (seed stored in `localStorage`).
 3. Builds a Stellar **G…** Ed25519 keypair, Friendbot-funds on first create (testnet).
 4. Returns `PassSession` for the host SDK.
 
