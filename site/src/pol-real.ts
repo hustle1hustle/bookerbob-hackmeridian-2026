@@ -522,14 +522,17 @@ async function refreshEligibility(read: any) {
     for (const it of ordered) {
       const key = groupKey(it.group, p.mid)
       const leaves = it.group.kind === "merchant" ? (state.places.find((x) => x.mid === it.group.id)?.leaves ?? []) : (state.groupLeaves.get(it.group.id) ?? [])
-      const holder = stays.find((s) => leaves.includes(BigInt(s.commitment)) && !(shared(it.group) && taken.has(s.commitment)))
-      if (holder && shared(it.group)) taken.add(holder.commitment)
-      let used = false
-      if (holder) {
-        const scope = d.semaphoreHash(d.ctxScope(p.mid, it.group, SEASON_N, p.chain))
-        const nf = poseidon2([scope, master(holder).secretScalar])
-        used = await read.is_spent({ scope_hash: scope, nullifier: nf }).then((t: any) => !!t.result).catch(() => false)
+      // every purchase or stay is its own leaf with its own nullifier: any unspent one can claim, not only the first
+      const cands = stays.filter((s) => leaves.includes(BigInt(s.commitment)) && !(shared(it.group) && taken.has(s.commitment)))
+      const scope = d.semaphoreHash(d.ctxScope(p.mid, it.group, SEASON_N, p.chain))
+      let holder: Stay | undefined
+      for (const c of cands) {
+        const nf = poseidon2([scope, master(c).secretScalar])
+        if (!(await read.is_spent({ scope_hash: scope, nullifier: nf }).then((t: any) => !!t.result).catch(() => false))) { holder = c; break }
       }
+      const used = !holder && cands.length > 0
+      holder ??= cands[0]
+      if (holder && shared(it.group)) taken.add(holder.commitment)
       const kind = p.m.kind
       let reason = ""
       if (key === "returning") reason = !holder ? (kind === "hotel" ? "no stay here in this browser" : "no purchase here in this browser") : used ? "used this season. renews next season." : kind === "hotel" ? "you stayed here before. not which time." : "you bought here before. not what, not when."
@@ -963,7 +966,8 @@ async function* ucpRun(reuse: boolean, noClaim = false): AsyncGenerator<any> {
   await ready()
   // the store's customer tree read live: the bridge adds a buyer's leaf itself, so the 15 s snapshot can lag a fresh purchase
   const shopLeaves = await views.leaves(await getClient({ ...TESTNET, contractId: (await apiConfig()).contractId }), UCP_MERCHANT).catch(() => null)
-  const shopStay = shopLeaves ? sdk.stays.list().find((s) => s.merchant === UCP_MERCHANT && shopLeaves.includes(BigInt(s.commitment))) : pastShopStay()
+  const shopStays = shopLeaves ? sdk.stays.list().filter((s) => s.merchant === UCP_MERCHANT && shopLeaves.includes(BigInt(s.commitment))) : ([pastShopStay()].filter(Boolean) as Stay[])
+  let shopStay = shopStays[0]
   // the replay demo resends the exact proof of the last proven purchase (same nullifier); without one there is nothing to replay
   const lastProof = reuse ? readLastUcpProof(payer) : null
   if (reuse && !shopStay && !lastProof) {
@@ -982,10 +986,13 @@ async function* ucpRun(reuse: boolean, noClaim = false): AsyncGenerator<any> {
   if (claim && !reuse && st.action && shopStay) {
     try {
       const scopeH = d.semaphoreHash(d.discountScope(UCP_MERCHANT, st.action.scope.season))
-      const nf = poseidon2([scopeH, sdk.stays.identity(shopStay).secretScalar])
       const read = await getClient({ ...TESTNET, contractId: (await apiConfig()).contractId })
-      const spent = await (read as any).is_spent({ scope_hash: scopeH, nullifier: nf }).then((t: any) => !!t.result)
-      if (spent) {
+      const isSpent = (x: Stay) => (read as any).is_spent({ scope_hash: scopeH, nullifier: poseidon2([scopeH, sdk.stays.identity(x).secretScalar]) }).then((t: any) => !!t.result)
+      // each past purchase earns one discount per season: use the first purchase whose discount is still unspent
+      let fresh: Stay | undefined
+      for (const x of shopStays) if (!(await isSpent(x))) { fresh = x; break }
+      if (fresh) shopStay = fresh
+      if (!fresh) {
         claim = false
         claimNote = "returning customer: already used this season. it renews next season. full price this time."
         st = await bpost("/buy/start", { variantId: item.variantId, qty: 1, claim: false, nextCommitment: next.commitment })
@@ -1787,6 +1794,9 @@ export async function sources(placeId?: number): Promise<Source[]> {
   const addr = wallet.address ?? sdk.wallet.address
   const ms = local.memberships() as any[]
   const placesProven = new Set(ms.map((m) => m.place)).size
+  // the network group is filled by checkouts at member places (hotels, cafés); the Shopify store is not a member
+  const netLeaves = state?.groupLeaves.get(0) ?? []
+  const inNetwork = sdk.stays.list().some((s) => netLeaves.includes(BigInt(s.commitment)))
   const held = travelerHeld()
   const demo = await repDemo()
   const pp = passportState.address && passportState.address !== addr ? { status: "none" as SourceStatus, detail: "" } : passportState
@@ -1846,10 +1856,10 @@ export async function sources(placeId?: number): Promise<Source[]> {
       id: "network",
       label: "BookerBob regular",
       proves: EXPLAIN.network,
-      status: ms.length ? "connected" : "none",
-      txHash: ms.length ? ((await heldTx("network")) ?? ms[0].txHash ?? null) : null,
+      status: inNetwork ? "connected" : "none",
+      txHash: inNetwork ? ((await heldTx("network")) ?? null) : null,
       perk: perkFor("network", placeId),
-      detail: ms.length ? `proven in ${placesProven} ${placesProven === 1 ? "place" : "places"}` : "comes with your first stay or purchase",
+      detail: inNetwork ? `proven in ${placesProven} ${placesProven === 1 ? "place" : "places"}` : ms.length ? "a stay or a café order in the network adds you. store purchases count at the store only" : "comes with your first stay or purchase",
     },
   ]
 }
